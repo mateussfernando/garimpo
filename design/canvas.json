@@ -1,0 +1,76 @@
+{
+  "v": 3,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-11-09T18:10:00Z"
+  },
+  "title": "Garimpo — design do app",
+  "launch": {
+    "view": "canvas"
+  },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1760,
+      "title": "Vitrine",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Detalhe.dc.html": {
+      "x": 1520,
+      "y": 0,
+      "w": 1440,
+      "h": 1800,
+      "title": "Detalhe do produto",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "WarRoom.dc.html": {
+      "x": 3040,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "War Room",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Fontes.dc.html": {
+      "x": 0,
+      "y": 1920,
+      "w": 1440,
+      "h": 1440,
+      "title": "Fontes e sugestões",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Lojas.dc.html": {
+      "x": 1520,
+      "y": 1920,
+      "w": 1440,
+      "h": 1520,
+      "title": "Lojas",
+      "expand": "fill",
+      "is_interactive": true
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Detalhe.dc.html",
+    "WarRoom.dc.html",
+    "Fontes.dc.html",
+    "Lojas.dc.html"
+  ],
+  "notes": {
+    "titulo": {
+      "x": 0,
+      "y": -300,
+      "text": "Garimpo — telas do app",
+      "kind": "title1",
+      "maxW": 4480
+    }
+  },
+  "designSystems": []
+}

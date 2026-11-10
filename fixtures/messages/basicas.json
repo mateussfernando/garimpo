@@ -1,0 +1,77 @@
+[
+  {
+    "nome": "comunidade: de/por no fim do título",
+    "texto": "Smart TV 43\" Philco Roku TV HDR10 Dolby Áudio R$ 1.599,00 R$1.007,27",
+    "espera": { "priceCardCents": 100727, "listPriceCents": 159900, "priceBasis": "unico" }
+  },
+  {
+    "nome": "parcelado sem juros e frete grátis",
+    "texto": "Mouse Gamer Logitech G305 Lightspeed sem fio R$ 199,90 em 10x de R$ 19,99 sem juros | Frete grátis",
+    "espera": { "priceCardCents": 19990, "installments": 10, "installmentCents": 1999, "interest": false, "freeShipping": true }
+  },
+  {
+    "nome": "pix e cartão em até 10x",
+    "texto": "Teclado Mecânico Redragon Kumara - R$ 179,90 no PIX ou R$ 199,90 em até 10x",
+    "espera": { "cashCents": 17990, "priceCardCents": 19990 }
+  },
+  {
+    "nome": "de/por com cupom",
+    "texto": "SSD Kingston NV3 1TB NVMe - de R$ 599,00 por R$ 429,90 - cupom: BLACK10",
+    "espera": { "listPriceCents": 59900, "priceCardCents": 42990, "coupon": "BLACK10" }
+  },
+  {
+    "nome": "12x sem juros antes do preço cheio",
+    "texto": "Monitor LG 27\" IPS 180Hz | 12x R$ 108,25 sem juros | R$ 1.299,00",
+    "espera": { "installments": 12, "installmentCents": 10825, "interest": false, "priceCardCents": 129900, "priceBasis": "parcelado" }
+  },
+  {
+    "nome": "frete pago",
+    "texto": "Headset HyperX Cloud Stinger 2 R$ 249,00 frete R$ 19,90",
+    "espera": { "priceCardCents": 24900, "shippingCents": 1990, "freeShipping": false }
+  },
+  {
+    "nome": "à vista ou 5x sem juros",
+    "texto": "Braço Articulado Monitor 17 a 32\" Pistão a Gás ELG - R$ 179,90 à vista ou 5x de R$ 35,98 sem juros",
+    "espera": { "cashCents": 17990, "installments": 5, "priceCardCents": 17990, "interest": false }
+  },
+  {
+    "nome": "medida 90x40 não é parcela",
+    "texto": "Mousepad Gamer Grande 90x40 R$59,90 Frete Grátis Prime",
+    "espera": { "priceCardCents": 5990, "installments": null, "freeShipping": true }
+  },
+  {
+    "nome": "cupom no app",
+    "texto": "Hub USB-C 7 em 1 HDMI 4K por R$ 119,90 (cupom APP15 no app)",
+    "espera": { "priceCardCents": 11990, "coupon": "APP15" }
+  },
+  {
+    "nome": "s/ juros e total",
+    "texto": "Mouse sem fio Pichau 26000 DPI 63g - 10x de R$24,99 s/ juros - Total R$ 249,90",
+    "espera": { "installments": 10, "interest": false, "priceCardCents": 24990 }
+  },
+  {
+    "nome": "só com juros",
+    "texto": "Headset 2.4GHz Magalu 12x de R$ 46,90 com juros",
+    "espera": { "installments": 12, "installmentCents": 4690, "interest": true, "priceCardCents": 56280 }
+  },
+  {
+    "nome": "parcelas sem dizer juros",
+    "texto": "Teclado TKL ABNT2 Switch Linear R$ 299,90 ou 10x de R$ 29,99",
+    "espera": { "installments": 10, "interest": null, "priceCardCents": 29990 }
+  },
+  {
+    "nome": "ponto como decimal",
+    "texto": "SSD 1TB Gen4 R$ 429.90 frete gratis",
+    "espera": { "priceCardCents": 42990, "freeShipping": true }
+  },
+  {
+    "nome": "mensagem com emojis, pix, cartão e link",
+    "texto": "🔥 BRAÇO ARTICULADO KaBuM\n💰 R$ 189,90 no Pix\n💳 R$ 199,90 no cartão\n🚚 Frete grátis\nhttps://amzn.to/abc123",
+    "espera": { "cashCents": 18990, "priceCardCents": 19990, "priceBasis": "cartao", "freeShipping": true, "links": ["https://amzn.to/abc123"] }
+  },
+  {
+    "nome": "preço com rótulo antes",
+    "texto": "Monitor Gamer 24\" 165Hz\nPix: R$ 699,00\nCartão: R$ 749,00 em 10x",
+    "espera": { "cashCents": 69900, "priceCardCents": 74900 }
+  }
+]

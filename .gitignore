@@ -39,3 +39,26 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+# Segredos e sessões: nunca vão para o Git
+.env
+.env.*
+!.env.example
+.wwebjs_auth/
+.wwebjs_cache/
+*.session
+.garimpo/
+
+# Dependências e builds
+node_modules/
+.next/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Sistema e logs
+.DS_Store
+Thumbs.db
+npm-debug.log*
+pnpm-debug.log*

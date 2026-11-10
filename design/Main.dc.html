@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Garimpo · Vitrine</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0C0E}
+a{color:#ECEDEE}a:hover{color:#FFFFFF}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #ECEDEE;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; background: #0B0C0E; color: #ECEDEE; font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.4">
+
+<header style="border-bottom: 1px solid #1F2329; background: #0B0C0E">
+  <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 32px; padding: 10px 32px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 32px">
+      <a href="Main.dc.html" style="display: flex; align-items: center; gap: 10px; color: #ECEDEE; text-decoration: none; font-size: 18px; font-weight: 600; letter-spacing: -0.01em">
+        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 5v10l-8 5-8-5V7z" fill="{{accent}}"></path><path d="M12 2v20M4 7l16 10M20 7L4 17" stroke="#0B0C0E" stroke-width="1" opacity="0.35"></path></svg>
+        Garimpo
+      </a>
+      <nav aria-label="Seções do app" style="display: flex; flex-wrap: wrap; gap: 4px">
+        <a href="Main.dc.html" aria-current="page" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; background: #1A1D22; color: #ECEDEE; text-decoration: none; font-weight: 500">Vitrine</a>
+        <a href="#" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; color: #9BA1A9; text-decoration: none">Alvos</a>
+        <a href="Fontes.dc.html" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; color: #9BA1A9; text-decoration: none">Fontes</a>
+        <a href="Lojas.dc.html" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; color: #9BA1A9; text-decoration: none">Lojas</a>
+        <a href="#" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; color: #9BA1A9; text-decoration: none">Cupons</a>
+        <a href="#" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; color: #9BA1A9; text-decoration: none">Compras</a>
+        <a href="WarRoom.dc.html" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; color: #9BA1A9; text-decoration: none">War Room</a>
+      </nav>
+    </div>
+    <button type="button" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px 0 14px; border-radius: 10px; border: 1px solid #2C313A; background: #121418; color: #C9CDD3; font: 500 13px 'Geist', system-ui, sans-serif; cursor: pointer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      Buscar ou criar Alvo
+      <kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #9BA1A9">⌘K</kbd>
+    </button>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 40px; padding: 10px 32px; border-top: 1px solid #1F2329; background: #0F1114">
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">11.11 começa em</span>
+      <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; color: {{accent}}">32:55:10</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px; min-width: 150px">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Orçamento</span>
+      <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; color: #DADDE1">R$ 1.640 <span style="color: #8E949C">de R$ 2.500</span></span>
+      <span style="display: block; height: 4px; border-radius: 2px; background: #22262D; overflow: hidden"><span style="display: block; width: 66%; height: 100%; background: #C9CDD3"></span></span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px; min-width: 130px">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Gasto de IA</span>
+      <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; color: #DADDE1">US$ 0,42 <span style="color: #8E949C">de US$ 5</span></span>
+      <span style="display: block; height: 4px; border-radius: 2px; background: #22262D; overflow: hidden"><span style="display: block; width: 8%; height: 100%; background: #C9CDD3"></span></span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Fontes</span>
+      <span style="display: flex; align-items: center; gap: 10px; font-size: 12px; color: #C9CDD3">
+        <span style="display: flex; align-items: center; gap: 5px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3DDC84"></span>WhatsApp</span>
+        <span style="display: flex; align-items: center; gap: 5px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3DDC84"></span>Telegram</span>
+        <span style="display: flex; align-items: center; gap: 5px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3DDC84"></span>Lojas</span>
+      </span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px; margin-left: auto">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Máquinas</span>
+      <span style="display: flex; align-items: center; gap: 14px; font-size: 12px; color: #C9CDD3">
+        <span style="display: flex; align-items: center; gap: 5px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3DDC84"></span>PC 16 GB · coleta e escuta</span>
+        <span style="display: flex; align-items: center; gap: 5px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3DDC84"></span>PC 8 GB · IA e Vitrine</span>
+      </span>
+    </div>
+  </div>
+</header>
+
+<main style="width: 100%; max-width: 1440px; box-sizing: border-box; margin: 0 auto; padding: 28px 32px 32px; display: flex; flex-direction: column; gap: 24px">
+
+  <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 30px; font-weight: 600; letter-spacing: -0.02em">Vitrine</h1>
+      <p style="margin: 0; color: #9BA1A9; font-size: 14px">Ofertas verificadas para os seus Alvos, ordenadas pela nota. O preço é o total no cartão.</p>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #9BA1A9"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3DDC84"></span>Ao vivo · última oferta há 12 s</div>
+  </div>
+
+  <section aria-labelledby="alvos-atingidos" style="display: flex; flex-direction: column; gap: 14px; padding: 18px; border-radius: 16px; border: 1px solid color-mix(in srgb, {{accent}} 45%, transparent); background: color-mix(in srgb, {{accent}} 7%, #0B0C0E)">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px">
+      <h2 id="alvos-atingidos" style="margin: 0; display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; color: {{accent}}"><span style="width: 8px; height: 8px; border-radius: 50%; background: {{accent}}"></span>Alvos atingidos</h2>
+      <span style="font-size: 12px; color: #B4BAC2">Preço no cartão abaixo do alvo calculado pelo histórico</span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 12px">
+      <sc-for list="{{alvos}}" as="a" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 14px; padding: 12px; border-radius: 12px; background: #111316; border: 1px solid #23272E; min-width: 0">
+          <div style="width: 56px; height: 56px; flex: none; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #C9CDD3; background-color: #0F1114; background-image: radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px); background-size: 8px 8px">
+            <sc-if value="{{a.k.arm}}" hint-placeholder-val="{{false}}"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="13" y="3.5" width="8.5" height="6" rx="1"></rect><path d="M3 21h7M6.5 21v-4.5M6.5 16.5l5-3.5M11.5 13l2.5-3"></path><circle cx="6.5" cy="16.5" r="1"></circle><circle cx="11.5" cy="13" r="1"></circle></svg></sc-if>
+            <sc-if value="{{a.k.pad}}" hint-placeholder-val="{{false}}"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2.5"></rect><rect x="14.5" y="8.5" width="4" height="7" rx="2"></rect></svg></sc-if>
+            <sc-if value="{{a.k.mouse}}" hint-placeholder-val="{{false}}"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7.5" y="3" width="9" height="18" rx="4.5"></rect><path d="M12 6.5v4"></path></svg></sc-if>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1">
+            <a href="Detalhe.dc.html" style="color: #ECEDEE; text-decoration: none; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{a.title}}</a>
+            <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; color: #DADDE1">{{a.price}} <span style="color: #9BA1A9">· alvo {{a.alvo}}</span></span>
+          </div>
+          <button type="button" style="flex: none; height: 44px; padding: 0 18px; border: 0; border-radius: 10px; background: {{accent}}; color: #1A1404; font: 600 14px 'Geist', system-ui, sans-serif; cursor: pointer">Comprar</button>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+    <div role="group" aria-label="Filtrar por Alvo" style="display: flex; flex-wrap: wrap; gap: 8px">
+      <sc-for list="{{chips}}" as="c" hint-placeholder-count="7">
+        <button type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid {{c.border}}; background: {{c.bg}}; color: {{c.fg}}; font: 500 13px 'Geist', system-ui, sans-serif; cursor: pointer">{{c.label}}<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; opacity: 0.65">{{c.count}}</span></button>
+      </sc-for>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+      <label style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #2C313A; color: #C9CDD3; font-size: 13px; cursor: pointer"><input type="checkbox" checked="{{freeOnly}}" onChange="{{toggleFree}}" style="width: 16px; height: 16px; margin: 0; accent-color: #3DDC84"> Só frete grátis</label>
+      <button type="button" style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #2C313A; background: transparent; color: #C9CDD3; font: 500 13px 'Geist', system-ui, sans-serif; cursor: pointer">Loja: todas<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <button type="button" style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #2C313A; background: transparent; color: #C9CDD3; font: 500 13px 'Geist', system-ui, sans-serif; cursor: pointer">Ordenar: nota<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-top: -8px">
+    <span style="font-size: 13px; color: #9BA1A9">{{countLabel}}</span>
+    <sc-if value="{{hasDismissed}}" hint-placeholder-val="{{false}}">
+      <button type="button" onClick="{{restore}}" style="height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #2C313A; background: transparent; color: #C9CDD3; font: 500 13px 'Geist', system-ui, sans-serif; cursor: pointer">{{restoreLabel}}</button>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{empty}}" hint-placeholder-val="{{false}}">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 56px 24px; border-radius: 14px; border: 1px dashed #2C313A; text-align: center">
+      <span style="font-size: 16px; font-weight: 500">Nenhuma oferta com esses filtros</span>
+      <span style="font-size: 13px; color: #9BA1A9">Os filtros ativos e as ofertas descartadas escondem tudo por aqui.</span>
+      <button type="button" onClick="{{reset}}" style="height: 44px; padding: 0 18px; border: 0; border-radius: 10px; background: #ECEDEE; color: #0B0C0E; font: 600 14px 'Geist', system-ui, sans-serif; cursor: pointer">Limpar filtros</button>
+    </div>
+  </sc-if>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 20px">
+    <sc-for list="{{items}}" as="item" hint-placeholder-count="8">
+      <article style="display: flex; flex-direction: column; min-width: 0; border-radius: 14px; overflow: hidden; background: #121418; border: 1px solid {{item.border}}">
+        <div style="position: relative; aspect-ratio: 4 / 3; display: flex; align-items: center; justify-content: center; color: #C9CDD3; background-color: #0F1114; background-image: radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px); background-size: 14px 14px">
+          <sc-if value="{{item.k.arm}}" hint-placeholder-val="{{false}}"><svg width="104" height="104" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="13" y="3.5" width="8.5" height="6" rx="1"></rect><path d="M3 21h7M6.5 21v-4.5M6.5 16.5l5-3.5M11.5 13l2.5-3"></path><circle cx="6.5" cy="16.5" r="1"></circle><circle cx="11.5" cy="13" r="1"></circle></svg></sc-if>
+          <sc-if value="{{item.k.pad}}" hint-placeholder-val="{{false}}"><svg width="104" height="104" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2.5"></rect><rect x="14.5" y="8.5" width="4" height="7" rx="2"></rect></svg></sc-if>
+          <sc-if value="{{item.k.mouse}}" hint-placeholder-val="{{false}}"><svg width="104" height="104" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7.5" y="3" width="9" height="18" rx="4.5"></rect><path d="M12 6.5v4"></path></svg></sc-if>
+          <sc-if value="{{item.k.keyboard}}" hint-placeholder-val="{{false}}"><svg width="104" height="104" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="10" rx="2"></rect><path d="M5.5 10.5h1M8.5 10.5h1M11.5 10.5h1M14.5 10.5h1M17.5 10.5h1M7 13.8h10"></path></svg></sc-if>
+          <sc-if value="{{item.k.monitor}}" hint-placeholder-val="{{false}}"><svg width="104" height="104" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"></rect><path d="M9 20h6M12 16v4"></path></svg></sc-if>
+          <sc-if value="{{item.k.ssd}}" hint-placeholder-val="{{false}}"><svg width="104" height="104" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="8.5" width="19" height="7" rx="1.2"></rect><path d="M5 12h7M15 11v2M17.5 11v2"></path></svg></sc-if>
+          <sc-if value="{{item.k.hub}}" hint-placeholder-val="{{false}}"><svg width="104" height="104" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="9" width="14" height="6" rx="2"></rect><path d="M18 12h3.5M7 12h.01M10 12h.01M13 12h.01M15.5 12h.01"></path></svg></sc-if>
+          <sc-if value="{{item.k.headset}}" hint-placeholder-val="{{false}}"><svg width="104" height="104" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15v-3a8 8 0 0 1 16 0v3"></path><rect x="3" y="14" width="4" height="6" rx="1.5"></rect><rect x="17" y="14" width="4" height="6" rx="1.5"></rect></svg></sc-if>
+          <div style="position: absolute; top: 12px; left: 12px; display: flex; align-items: baseline; gap: 6px; padding: 6px 10px; border-radius: 999px; background: #1C2026; border: 1px solid #2C313A">
+            <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 15px; font-weight: 600; color: #F4F5F6">{{item.nota}}</span>
+            <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #9BA1A9">nota</span>
+          </div>
+          <span style="position: absolute; top: 12px; right: 12px; padding: 6px 10px; border-radius: 999px; background: #1C2026; border: 1px solid #2C313A; font-size: 12px; color: #C9CDD3">{{item.store}}</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; flex: 1">
+          <a href="Detalhe.dc.html" style="min-height: 40px; color: #ECEDEE; text-decoration: none; font-size: 15px; font-weight: 500; line-height: 1.35">{{item.title}}</a>
+          <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 12px">
+            <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+              <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px">
+                <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 26px; font-weight: 600; letter-spacing: -0.02em; color: #F4F5F6">{{item.price}}</span>
+                <span style="font-size: 12px; color: #9BA1A9">no cartão</span>
+              </div>
+              <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12.5px; color: #B4BAC2">{{item.parc}}</span>
+            </div>
+            <svg width="96" height="28" viewBox="0 0 120 32" aria-hidden="true" style="flex: none"><polyline points="{{item.spark}}" fill="none" stroke="{{item.sparkColor}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px">
+            <sc-for list="{{item.badges}}" as="b" hint-placeholder-count="2">
+              <sc-if value="{{b.gold}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #1A1404; background: {{accent}}">{{b.label}}</span></sc-if>
+              <sc-if value="{{b.good}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 500; color: #7BEAA8; background: rgba(61, 220, 132, 0.12); border: 1px solid rgba(61, 220, 132, 0.35)">{{b.label}}</span></sc-if>
+              <sc-if value="{{b.bad}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 500; color: #FF9A9A; background: rgba(255, 107, 107, 0.12); border: 1px solid rgba(255, 107, 107, 0.4)">{{b.label}}</span></sc-if>
+              <sc-if value="{{b.neutral}}" hint-placeholder-val="{{true}}"><span style="display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 500; color: #C9CDD3; background: #1A1D22; border: 1px solid #2C313A">{{b.label}}</span></sc-if>
+            </sc-for>
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: auto">
+            <button type="button" style="flex: 1; height: 44px; border: 0; border-radius: 10px; background: #ECEDEE; color: #0B0C0E; font: 600 14px 'Geist', system-ui, sans-serif; cursor: pointer">Comprar</button>
+            <button type="button" aria-label="{{item.watchLabel}}" aria-pressed="{{item.watched}}" onClick="{{item.watch}}" style="width: 44px; height: 44px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid {{item.eyeBorder}}; background: {{item.eyeBg}}; color: {{item.eyeFg}}; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+            <button type="button" aria-label="Descartar oferta" onClick="{{item.dismiss}}" style="width: 44px; height: 44px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid #2C313A; background: transparent; color: #C9CDD3; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+          </div>
+        </div>
+      </article>
+    </sc-for>
+  </div>
+</main>
+
+<footer style="margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 22px; padding: 16px 32px 28px; color: #8E949C; font-size: 12px">
+  <span style="display: flex; align-items: center; gap: 6px"><kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #C9CDD3">J</kbd><kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #C9CDD3">K</kbd> navegar</span>
+  <span style="display: flex; align-items: center; gap: 6px"><kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #C9CDD3">Enter</kbd> comprar</span>
+  <span style="display: flex; align-items: center; gap: 6px"><kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #C9CDD3">W</kbd> vigiar</span>
+  <span style="display: flex; align-items: center; gap: 6px"><kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #C9CDD3">X</kbd> descartar</span>
+  <span style="display: flex; align-items: center; gap: 6px"><kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #C9CDD3">⌘K</kbd> buscar</span>
+</footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#F5B83D","options":["#F5B83D","#7CC4FF","#FF9F5A"]},"$preview":{"width":1440,"height":1760}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const accent = this.props.accent ?? '#F5B83D';
+    const st = Object.assign({ cat: 'all', freeOnly: false, dismissed: {}, watched: { mouse: true } }, this.state || {});
+    const T = (label, t) => ({ label: label, gold: t === 'gold', good: t === 'good', bad: t === 'bad', neutral: t === 'neutral' });
+    const K = (kind) => ({ arm: kind === 'arm', pad: kind === 'pad', mouse: kind === 'mouse', keyboard: kind === 'keyboard', monitor: kind === 'monitor', ssd: kind === 'ssd', hub: kind === 'hub', headset: kind === 'headset' });
+    const drop = '0,12 8,12 16,11 24,13 32,12 40,11 48,12 56,13 64,12 72,12 80,13 88,12 96,13 104,14 112,24 120,28';
+    const mild = '0,14 8,15 16,14 24,13 32,14 40,15 48,14 56,13 64,14 72,15 80,14 88,13 96,14 104,15 112,18 120,21';
+    const fraud = '0,22 8,22 16,21 24,22 32,21 40,13 48,8 56,8 64,9 72,8 80,8 88,9 96,8 104,9 112,20 120,22';
+    const fresh = '84,16 92,16 100,15 108,17 116,18 120,18';
+    const raw = [
+      { id: 'arm', kind: 'arm', title: 'Braço articulado a gás para monitores de 17 a 32"', store: 'KaBuM!', nota: 84, price: 'R$ 179,90', parc: '5x de R$ 35,98 sem juros', alvo: true, free: true, spark: drop, badges: [T('Alvo atingido', 'gold'), T('Frete grátis', 'good'), T('Real −22%', 'good'), T('Relâmpago', 'neutral')] },
+      { id: 'pad', kind: 'pad', title: 'Mousepad grande 90 × 40 cm, base emborrachada', store: 'AliExpress', nota: 73, price: 'R$ 59,90', parc: '3x de R$ 19,97 sem juros', alvo: true, free: true, spark: drop, badges: [T('Alvo atingido', 'gold'), T('Frete grátis', 'good'), T('Real −30%', 'good')] },
+      { id: 'mouse', kind: 'mouse', title: 'Mouse sem fio leve, 26 mil DPI, 63 g', store: 'Pichau', nota: 71, price: 'R$ 249,90', parc: '10x de R$ 24,99 sem juros', alvo: true, free: true, spark: drop, badges: [T('Alvo atingido', 'gold'), T('Frete grátis', 'good'), T('Real −15%', 'good')] },
+      { id: 'keyboard', kind: 'keyboard', title: 'Teclado mecânico TKL ABNT2, switch linear', store: 'Terabyte', nota: 56, price: 'R$ 299,90', parc: '10x de R$ 29,99 sem juros', alvo: false, free: true, spark: mild, badges: [T('Frete grátis', 'good'), T('Real −12%', 'good'), T('Verificado há 2 min', 'neutral')] },
+      { id: 'monitor', kind: 'monitor', title: 'Monitor 27" QHD 180 Hz, painel IPS', store: 'Amazon', nota: 55, price: 'R$ 1.299,00', parc: '10x de R$ 129,90 sem juros', alvo: false, free: true, spark: fresh, badges: [T('Frete grátis', 'good'), T('Sem histórico', 'neutral')] },
+      { id: 'ssd', kind: 'ssd', title: 'SSD NVMe 1 TB Gen4 com DRAM', store: 'Mercado Livre', nota: 47, price: 'R$ 429,90', parc: '12x de R$ 35,83 sem juros', alvo: false, free: true, spark: mild, badges: [T('Frete grátis', 'good'), T('Real −9%', 'good'), T('Cupom limitado', 'neutral')] },
+      { id: 'hub', kind: 'hub', title: 'Hub USB-C 7 em 1 com HDMI 4K', store: 'Shopee', nota: 39, price: 'R$ 119,90', parc: '6x de R$ 19,98 sem juros', alvo: false, free: true, spark: mild, badges: [T('Frete grátis', 'good'), T('Cupom só no app', 'neutral')] },
+      { id: 'headset', kind: 'headset', title: 'Headset sem fio 2.4 GHz', store: 'Magalu', nota: 30, price: 'R$ 562,80', parc: '12x de R$ 46,90 com juros', alvo: false, free: false, spark: fraud, badges: [T('Black Fraude', 'bad'), T('Com juros', 'bad'), T('Frete R$ 24,90', 'neutral')] }
+    ];
+    const catOf = (kind) => (kind === 'pad' || kind === 'hub' || kind === 'headset') ? 'acc' : kind;
+    const cats = [
+      { id: 'all', label: 'Todos os Alvos' },
+      { id: 'arm', label: 'Braço articulado' },
+      { id: 'mouse', label: 'Mouse' },
+      { id: 'keyboard', label: 'Teclado' },
+      { id: 'monitor', label: 'Monitor' },
+      { id: 'ssd', label: 'SSD' },
+      { id: 'acc', label: 'Acessórios' }
+    ];
+    const alive = raw.filter((it) => !st.dismissed[it.id] && (!st.freeOnly || it.free));
+    const counts = { all: alive.length };
+    alive.forEach((it) => { const c = catOf(it.kind); counts[c] = (counts[c] || 0) + 1; });
+    const chips = cats.map((c) => {
+      const on = st.cat === c.id;
+      return { label: c.label, count: String(counts[c.id] || 0), pressed: on, bg: on ? '#ECEDEE' : 'transparent', fg: on ? '#0B0C0E' : '#C9CDD3', border: on ? '#ECEDEE' : '#2C313A', pick: () => this.setState({ cat: c.id }) };
+    });
+    const shown = alive.filter((it) => st.cat === 'all' || catOf(it.kind) === st.cat);
+    const items = shown.map((it) => {
+      const w = !!st.watched[it.id];
+      return Object.assign({}, it, {
+        k: K(it.kind),
+        border: it.alvo ? accent : '#22262D',
+        sparkColor: it.kind === 'headset' ? '#FF8A8A' : '#C9CDD3',
+        watched: w,
+        watchLabel: w ? 'Parar de vigiar o preço' : 'Vigiar o preço',
+        eyeBg: w ? '#ECEDEE' : 'transparent',
+        eyeFg: w ? '#0B0C0E' : '#C9CDD3',
+        eyeBorder: w ? '#ECEDEE' : '#2C313A',
+        watch: () => this.setState({ watched: Object.assign({}, st.watched, { [it.id]: !w }) }),
+        dismiss: () => this.setState({ dismissed: Object.assign({}, st.dismissed, { [it.id]: true }) })
+      });
+    });
+    const alvos = [
+      { kind: 'arm', title: 'Braço articulado a gás 17–32"', price: 'R$ 179,90', alvo: 'R$ 185' },
+      { kind: 'pad', title: 'Mousepad 90 × 40 cm', price: 'R$ 59,90', alvo: 'R$ 65' },
+      { kind: 'mouse', title: 'Mouse sem fio leve, 63 g', price: 'R$ 249,90', alvo: 'R$ 260' }
+    ].map((a) => Object.assign({}, a, { k: K(a.kind) }));
+    const n = items.length;
+    const nDismissed = Object.keys(st.dismissed).length;
+    return {
+      accent: accent,
+      alvos: alvos,
+      chips: chips,
+      items: items,
+      freeOnly: st.freeOnly,
+      toggleFree: () => this.setState({ freeOnly: !st.freeOnly }),
+      countLabel: (n === 1 ? '1 oferta' : n + ' ofertas') + ' · ordenadas pela nota',
+      hasDismissed: nDismissed > 0,
+      restoreLabel: nDismissed === 1 ? 'Restaurar 1 descartada' : 'Restaurar ' + nDismissed + ' descartadas',
+      restore: () => this.setState({ dismissed: {} }),
+      empty: n === 0,
+      reset: () => this.setState({ cat: 'all', freeOnly: false, dismissed: {} })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Garimpo · War Room</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0C0E}
+a{color:#ECEDEE}a:hover{color:#FFFFFF}
+a:focus-visible,button:focus-visible{outline:2px solid #ECEDEE;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; background: #08090B; color: #ECEDEE; font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.4">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 32px; padding: 12px 32px; border-bottom: 1px solid #1F2329; background: #0B0C0E">
+  <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px">
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 5v10l-8 5-8-5V7z" fill="{{accent}}"></path><path d="M12 2v20M4 7l16 10M20 7L4 17" stroke="#0B0C0E" stroke-width="1" opacity="0.35"></path></svg>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.01em">War Room</h1>
+    <span style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px; border: 1px solid #2C313A; font-size: 12px; color: #C9CDD3"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3DDC84"></span>Ao vivo</span>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 32px">
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Posição</span>
+      <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 14px; font-weight: 600; color: #F4F5F6">{{posLabel}}</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Decididas</span>
+      <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 14px; font-weight: 600; color: #F4F5F6">{{doneLabel}}</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px; min-width: 130px">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Gasto de IA</span>
+      <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; color: #DADDE1">US$ 0,42 <span style="color: #8E949C">de US$ 5</span></span>
+      <span style="display: block; height: 4px; border-radius: 2px; background: #22262D; overflow: hidden"><span style="display: block; width: 8%; height: 100%; background: #C9CDD3"></span></span>
+    </div>
+    <a href="Main.dc.html" data-exit="true" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; box-sizing: border-box; border-radius: 10px; border: 1px solid #2C313A; color: #C9CDD3; text-decoration: none; font-size: 13px; font-weight: 500"><kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #9BA1A9">Esc</kbd>Sair para a Vitrine</a>
+  </div>
+</header>
+
+<main style="width: 100%; max-width: 1440px; box-sizing: border-box; margin: 0 auto; padding: 24px 32px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+
+  <div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+
+    <sc-if value="{{notDone}}" hint-placeholder-val="{{true}}">
+      <section aria-label="Oferta em foco" style="display: flex; flex-direction: column; gap: 24px; padding: 28px; border-radius: 20px; background: #121418; border: 1px solid {{cardBorder}}; box-shadow: 0 0 0 4px {{cardGlow}}">
+        <div style="display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start">
+          <div style="width: 200px; height: 200px; flex: none; border-radius: 16px; display: flex; align-items: center; justify-content: center; color: #C9CDD3; background-color: #0F1114; background-image: radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px); background-size: 12px 12px; border: 1px solid #22262D">
+            <sc-if value="{{k.arm}}" hint-placeholder-val="{{false}}"><svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="13" y="3.5" width="8.5" height="6" rx="1"></rect><path d="M3 21h7M6.5 21v-4.5M6.5 16.5l5-3.5M11.5 13l2.5-3"></path><circle cx="6.5" cy="16.5" r="1"></circle><circle cx="11.5" cy="13" r="1"></circle></svg></sc-if>
+            <sc-if value="{{k.pad}}" hint-placeholder-val="{{false}}"><svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2.5"></rect><rect x="14.5" y="8.5" width="4" height="7" rx="2"></rect></svg></sc-if>
+            <sc-if value="{{k.mouse}}" hint-placeholder-val="{{false}}"><svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7.5" y="3" width="9" height="18" rx="4.5"></rect><path d="M12 6.5v4"></path></svg></sc-if>
+            <sc-if value="{{k.keyboard}}" hint-placeholder-val="{{false}}"><svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="10" rx="2"></rect><path d="M5.5 10.5h1M8.5 10.5h1M11.5 10.5h1M14.5 10.5h1M17.5 10.5h1M7 13.8h10"></path></svg></sc-if>
+            <sc-if value="{{k.monitor}}" hint-placeholder-val="{{false}}"><svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"></rect><path d="M9 20h6M12 16v4"></path></svg></sc-if>
+            <sc-if value="{{k.ssd}}" hint-placeholder-val="{{false}}"><svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="8.5" width="19" height="7" rx="1.2"></rect><path d="M5 12h7M15 11v2M17.5 11v2"></path></svg></sc-if>
+            <sc-if value="{{k.hub}}" hint-placeholder-val="{{false}}"><svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="9" width="14" height="6" rx="2"></rect><path d="M18 12h3.5M7 12h.01M10 12h.01M13 12h.01M15.5 12h.01"></path></svg></sc-if>
+          </div>
+
+          <div style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px">
+              <span style="display: flex; align-items: baseline; gap: 6px; margin-right: 6px"><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 40px; font-weight: 600; line-height: 1; color: #F4F5F6">{{nota}}</span><span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #9BA1A9">nota</span></span>
+              <span style="padding: 5px 10px; border-radius: 999px; background: #1C2026; border: 1px solid #2C313A; font-size: 12px; color: #DADDE1">{{store}}</span>
+              <sc-for list="{{badges}}" as="b" hint-placeholder-count="3">
+                <sc-if value="{{b.gold}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #1A1404; background: {{accent}}">{{b.label}}</span></sc-if>
+                <sc-if value="{{b.good}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 500; color: #7BEAA8; background: rgba(61, 220, 132, 0.12); border: 1px solid rgba(61, 220, 132, 0.35)">{{b.label}}</span></sc-if>
+                <sc-if value="{{b.neutral}}" hint-placeholder-val="{{true}}"><span style="display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 500; color: #C9CDD3; background: #1A1D22; border: 1px solid #2C313A">{{b.label}}</span></sc-if>
+              </sc-for>
+            </div>
+            <h2 style="margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.25">{{title}}</h2>
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px">
+                <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 76px; font-weight: 600; letter-spacing: -0.04em; line-height: 1; color: #FFFFFF; font-variant-numeric: tabular-nums">{{price}}</span>
+                <span style="font-size: 15px; color: #9BA1A9">no cartão</span>
+              </div>
+              <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 16px; color: #B4BAC2">{{parc}}</span>
+            </div>
+            <sc-if value="{{timerOn}}" hint-placeholder-val="{{false}}">
+              <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 14px; border-radius: 12px; background: #0F1114; border: 1px solid #22262D; align-self: flex-start">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DADDE1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2.5 2M9.5 2.5h5"></path></svg>
+                <span style="color: #C9CDD3">Relâmpago termina em</span>
+                <span role="timer" style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; color: #F4F5F6">{{timer}}</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{noteOn}}" hint-placeholder-val="{{false}}">
+              <span style="font-size: 13px; color: #9BA1A9">{{note}}</span>
+            </sc-if>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; padding: 16px 0 0; border-top: 1px solid #1F2329">
+          <sc-for list="{{meters}}" as="m" hint-placeholder-count="6">
+            <div style="display: flex; flex-direction: column; gap: 8px; padding-right: 12px; min-width: 0">
+              <span style="font-size: 12px; color: #9BA1A9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{m.label}}</span>
+              <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 15px; font-weight: 600; color: #F4F5F6">{{m.value}}<span style="font-weight: 400; color: #8E949C"> / {{m.max}}</span></span>
+              <span style="display: block; height: 6px; border-radius: 3px; background: #22262D; overflow: hidden"><span style="display: block; height: 100%; width: {{m.fill}}; border-radius: 3px; background: #C9CDD3"></span></span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+          <button type="button" onClick="{{onComprar}}" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 64px; padding: 0 18px; border: 0; border-radius: 14px; background: {{buyBg}}; color: {{buyFg}}; font: 600 16px 'Geist', system-ui, sans-serif; cursor: pointer">Comprar<kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; font-weight: 500; padding: 3px 7px; border-radius: 6px; border: 1px solid currentColor; opacity: 0.7">Enter</kbd></button>
+          <button type="button" onClick="{{onVigiar}}" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 64px; padding: 0 18px; border-radius: 14px; border: 1px solid #2C313A; background: #15181C; color: #ECEDEE; font: 500 16px 'Geist', system-ui, sans-serif; cursor: pointer">Vigiar<kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; padding: 3px 7px; border-radius: 6px; border: 1px solid #2C313A; color: #9BA1A9">W</kbd></button>
+          <button type="button" onClick="{{onSoneca}}" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 64px; padding: 0 18px; border-radius: 14px; border: 1px solid #2C313A; background: #15181C; color: #ECEDEE; font: 500 16px 'Geist', system-ui, sans-serif; cursor: pointer">Soneca 1 h<kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; padding: 3px 7px; border-radius: 6px; border: 1px solid #2C313A; color: #9BA1A9">S</kbd></button>
+          <button type="button" onClick="{{onDescartar}}" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 64px; padding: 0 18px; border-radius: 14px; border: 1px solid #2C313A; background: #15181C; color: #ECEDEE; font: 500 16px 'Geist', system-ui, sans-serif; cursor: pointer">Descartar<kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; padding: 3px 7px; border-radius: 6px; border: 1px solid #2C313A; color: #9BA1A9">X</kbd></button>
+        </div>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{allDone}}" hint-placeholder-val="{{false}}">
+      <section aria-label="Fila zerada" style="display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 40px 32px; border-radius: 20px; background: #121418; border: 1px solid #22262D">
+        <span style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Fila zerada</span>
+        <h2 style="margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.02em">Tudo decidido por agora</h2>
+        <p style="margin: 0; font-size: 15px; color: #B4BAC2">{{summary}}</p>
+        <p style="margin: 0; font-size: 13px; color: #8E949C">Novas ofertas que passarem nos filtros entram aqui sozinhas. Nada é comprado sem você.</p>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px">
+          <button type="button" onClick="{{reset}}" style="height: 48px; padding: 0 20px; border: 0; border-radius: 12px; background: #ECEDEE; color: #0B0C0E; font: 600 15px 'Geist', system-ui, sans-serif; cursor: pointer">Recomeçar a fila</button>
+          <a href="Main.dc.html" style="display: flex; align-items: center; height: 48px; padding: 0 20px; box-sizing: border-box; border-radius: 12px; border: 1px solid #2C313A; color: #C9CDD3; text-decoration: none; font-size: 15px; font-weight: 500">Voltar à Vitrine</a>
+        </div>
+      </section>
+    </sc-if>
+
+    <p style="margin: 0; font-size: 12px; color: #8E949C">Comprar abre a página da loja numa aba nova. Black Fraude e ofertas acima do teto do Alvo não entram na fila.</p>
+  </div>
+
+  <aside aria-labelledby="fila" style="flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 20px; background: #0F1114; border: 1px solid #1F2329">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 4px 4px">
+      <h2 id="fila" style="margin: 0; font-size: 15px; font-weight: 600">Fila de hoje</h2>
+      <span style="font-size: 12px; color: #8E949C">ordenada pela nota</span>
+    </div>
+    <sc-for list="{{queue}}" as="q" hint-placeholder-count="7">
+      <button type="button" onClick="{{q.pick}}" aria-current="{{q.ariaCur}}" style="display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px 12px; box-sizing: border-box; border-radius: 12px; border: 1px solid {{q.border}}; background: {{q.bg}}; opacity: {{q.opacity}}; color: #ECEDEE; text-align: left; font: 400 13px 'Geist', system-ui, sans-serif; cursor: pointer">
+        <span style="width: 40px; height: 40px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 10px; background: #121418; border: 1px solid #22262D; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 15px; font-weight: 600; color: #F4F5F6">{{q.nota}}</span>
+        <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 14px; color: #ECEDEE; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{q.short}}</span>
+          <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; color: #9BA1A9">{{q.store}} · {{q.price}}</span>
+        </span>
+        <span style="flex: none; font-size: 12px; color: {{q.statusFg}}">{{q.status}}</span>
+      </button>
+    </sc-for>
+  </aside>
+</main>
+
+<footer style="margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 22px; padding: 16px 32px 24px; color: #8E949C; font-size: 12px">
+  <span style="display: flex; align-items: center; gap: 6px"><kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #C9CDD3">J</kbd><kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #C9CDD3">K</kbd> trocar de oferta</span>
+  <span style="display: flex; align-items: center; gap: 6px"><kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #C9CDD3">Enter</kbd> comprar</span>
+  <span style="display: flex; align-items: center; gap: 6px"><kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #C9CDD3">W</kbd> vigiar</span>
+  <span style="display: flex; align-items: center; gap: 6px"><kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #C9CDD3">S</kbd> soneca de 1 h</span>
+  <span style="display: flex; align-items: center; gap: 6px"><kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #C9CDD3">X</kbd> descartar</span>
+</footer>
+
+<div role="status" aria-live="polite" style="position: fixed; left: 50%; bottom: 64px; transform: translateX(-50%); padding: 12px 18px; border-radius: 12px; background: #ECEDEE; color: #0B0C0E; font-size: 14px; font-weight: 500; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5); opacity: {{toastOpacity}}; transition: opacity 160ms ease; pointer-events: none; white-space: nowrap">{{toast}}</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#F5B83D","options":["#F5B83D","#7CC4FF","#FF9F5A"]},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  data() {
+    const T = (label, t) => ({ label: label, gold: t === 'gold', good: t === 'good', neutral: t === 'neutral' });
+    return [
+      { id: 'arm', kind: 'arm', short: 'Braço articulado a gás 17–32"', title: 'Braço articulado a gás para monitores de 17 a 32"', store: 'KaBuM!', nota: 84, price: 'R$ 179,90', parc: '5x de R$ 35,98 sem juros', alvo: true, timer: true, note: '', parts: { D: 19.25, A: 25, C: 15, F: 10, S: 10, U: 5 }, badges: [T('Alvo atingido', 'gold'), T('Frete grátis', 'good'), T('Real −22%', 'good')] },
+      { id: 'pad', kind: 'pad', short: 'Mousepad 90 × 40 cm', title: 'Mousepad grande 90 × 40 cm, base emborrachada', store: 'AliExpress', nota: 73, price: 'R$ 59,90', parc: '3x de R$ 19,97 sem juros', alvo: true, timer: false, note: 'Sem prazo conhecido. Vendido por parceiro do marketplace.', parts: { D: 26.25, A: 25, C: 9, F: 10, S: 2.5, U: 0 }, badges: [T('Alvo atingido', 'gold'), T('Frete grátis', 'good'), T('Real −30%', 'good')] },
+      { id: 'mouse', kind: 'mouse', short: 'Mouse sem fio leve, 63 g', title: 'Mouse sem fio leve, 26 mil DPI, 63 g', store: 'Pichau', nota: 71, price: 'R$ 249,90', parc: '10x de R$ 24,99 sem juros', alvo: true, timer: false, note: 'Sem prazo conhecido. Menor preço dos últimos 30 dias.', parts: { D: 13.125, A: 25, C: 15, F: 10, S: 7.5, U: 0 }, badges: [T('Alvo atingido', 'gold'), T('Frete grátis', 'good'), T('Real −15%', 'good')] },
+      { id: 'keyboard', kind: 'keyboard', short: 'Teclado mecânico TKL ABNT2', title: 'Teclado mecânico TKL ABNT2, switch linear', store: 'Terabyte', nota: 56, price: 'R$ 299,90', parc: '10x de R$ 29,99 sem juros', alvo: false, timer: false, note: 'Faltam R$ 20,00 para o alvo de R$ 279,90.', parts: { D: 10.5, A: 13, C: 15, F: 10, S: 7.5, U: 0 }, badges: [T('Frete grátis', 'good'), T('Real −12%', 'good')] },
+      { id: 'monitor', kind: 'monitor', short: 'Monitor 27" QHD 180 Hz', title: 'Monitor 27" QHD 180 Hz, painel IPS', store: 'Amazon', nota: 55, price: 'R$ 1.299,00', parc: '10x de R$ 129,90 sem juros', alvo: false, timer: false, note: 'Sem histórico nesta loja: o desconto foi medido contra outras lojas.', parts: { D: 7, A: 13, C: 15, F: 10, S: 10, U: 0 }, badges: [T('Frete grátis', 'good'), T('Sem histórico', 'neutral')] },
+      { id: 'ssd', kind: 'ssd', short: 'SSD NVMe 1 TB Gen4', title: 'SSD NVMe 1 TB Gen4 com DRAM', store: 'Mercado Livre', nota: 47, price: 'R$ 429,90', parc: '12x de R$ 35,83 sem juros', alvo: false, timer: false, note: 'Cupom com limite de usos: pode acabar a qualquer momento.', parts: { D: 7.875, A: 10, C: 9, F: 10, S: 7.5, U: 2.5 }, badges: [T('Frete grátis', 'good'), T('Real −9%', 'good'), T('Cupom limitado', 'neutral')] },
+      { id: 'hub', kind: 'hub', short: 'Hub USB-C 7 em 1', title: 'Hub USB-C 7 em 1 com HDMI 4K', store: 'Shopee', nota: 39, price: 'R$ 119,90', parc: '6x de R$ 19,98 sem juros', alvo: false, timer: false, note: 'O cupom só vale no app da loja.', parts: { D: 0, A: 10, C: 9, F: 10, S: 7.5, U: 2.5 }, badges: [T('Frete grátis', 'good'), T('Cupom só no app', 'neutral')] }
+    ];
+  }
+  st() {
+    return Object.assign({ idx: 0, decisions: {}, left: 2530, toast: '' }, this.state || {});
+  }
+  componentDidMount() {
+    this._tick = setInterval(() => {
+      const left = this.st().left;
+      this.setState({ left: left > 0 ? left - 1 : 0 });
+    }, 1000);
+    this._key = (e) => {
+      const t = e.target;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || ''))) return;
+      const k = (e.key || '').toLowerCase();
+      if (k === 'escape') {
+        const exit = document.querySelector('a[data-exit]');
+        if (exit) exit.click();
+      } else if (k === 'enter') {
+        if (t && /^(BUTTON|A)$/.test(t.tagName || '')) return;
+        e.preventDefault();
+        this.decide('comprar');
+      } else if (k === 'w') this.decide('vigiar');
+      else if (k === 's') this.decide('soneca');
+      else if (k === 'x') this.decide('descartar');
+      else if (k === 'j' || k === 'arrowdown') { e.preventDefault(); this.move(1); }
+      else if (k === 'k' || k === 'arrowup') { e.preventDefault(); this.move(-1); }
+    };
+    window.addEventListener('keydown', this._key);
+  }
+  componentWillUnmount() {
+    clearInterval(this._tick);
+    clearTimeout(this._toastT);
+    window.removeEventListener('keydown', this._key);
+  }
+  move(dir) {
+    const n = this.data().length;
+    const st = this.st();
+    this.setState({ idx: (st.idx + dir + n) % n });
+  }
+  decide(action) {
+    const items = this.data();
+    const st = this.st();
+    const cur = items[st.idx];
+    if (!cur || items.every((it) => !!st.decisions[it.id])) return;
+    const decisions = Object.assign({}, st.decisions, { [cur.id]: action });
+    let next = st.idx;
+    for (let j = 1; j <= items.length; j++) {
+      const c = (st.idx + j) % items.length;
+      if (!decisions[items[c].id]) { next = c; break; }
+    }
+    const msg = {
+      comprar: 'Abrindo a página da ' + cur.store + ' numa aba nova',
+      vigiar: 'Vigiando: ' + cur.short + '. A queda aparece na Vitrine.',
+      soneca: cur.short + ' volta para a fila em 1 h',
+      descartar: cur.short + ' saiu da fila'
+    }[action];
+    this.setState({ decisions: decisions, idx: next, toast: msg });
+    clearTimeout(this._toastT);
+    this._toastT = setTimeout(() => this.setState({ toast: '' }), 2600);
+  }
+  renderVals() {
+    const accent = this.props.accent ?? '#F5B83D';
+    const st = this.st();
+    const items = this.data();
+    const allDone = items.every((it) => !!st.decisions[it.id]);
+    const cur = items[st.idx] || items[0];
+    const fmt = (v) => String(Math.round(v * 10) / 10).replace('.', ',');
+    const weights = [['D', 'Desconto real', 35], ['A', 'Encaixe no Alvo', 25], ['C', 'Confiança na loja', 15], ['F', 'Frete', 10], ['S', 'Calor social', 10], ['U', 'Urgência', 5]];
+    const meters = weights.map((w) => ({ label: w[1], value: fmt(cur.parts[w[0]]), max: String(w[2]), fill: (cur.parts[w[0]] / w[2] * 100).toFixed(1) + '%' }));
+    const left = st.left;
+    const pad = (n) => String(n).padStart(2, '0');
+    const timer = pad(Math.floor(left / 3600)) + ':' + pad(Math.floor((left % 3600) / 60)) + ':' + pad(left % 60);
+    const labels = { comprar: 'Comprar', vigiar: 'Vigiando', soneca: 'Soneca 1 h', descartar: 'Descartada' };
+    const queue = items.map((it, i) => {
+      const d = st.decisions[it.id];
+      const isCur = i === st.idx && !allDone;
+      return {
+        nota: it.nota, short: it.short, store: it.store, price: it.price,
+        status: d ? labels[d] : (isCur ? 'Agora' : 'Na fila'),
+        statusFg: isCur ? '#F4F5F6' : '#8E949C',
+        ariaCur: isCur ? 'true' : 'false',
+        bg: isCur ? '#1A1D22' : 'transparent',
+        border: isCur ? '#ECEDEE' : '#1F2329',
+        opacity: d ? '0.5' : '1',
+        pick: () => this.setState({ idx: i })
+      };
+    });
+    const counts = { comprar: 0, vigiar: 0, soneca: 0, descartar: 0 };
+    Object.keys(st.decisions).forEach((id) => { counts[st.decisions[id]] += 1; });
+    const nDone = Object.keys(st.decisions).length;
+    const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+    return {
+      accent: accent,
+      notDone: !allDone,
+      allDone: allDone,
+      posLabel: allDone ? 'fila zerada' : (st.idx + 1) + ' de ' + items.length,
+      doneLabel: nDone + ' de ' + items.length,
+      k: { arm: cur.kind === 'arm', pad: cur.kind === 'pad', mouse: cur.kind === 'mouse', keyboard: cur.kind === 'keyboard', monitor: cur.kind === 'monitor', ssd: cur.kind === 'ssd', hub: cur.kind === 'hub' },
+      nota: cur.nota,
+      store: cur.store,
+      title: cur.title,
+      price: cur.price,
+      parc: cur.parc,
+      badges: cur.badges,
+      timerOn: !!cur.timer,
+      timer: timer,
+      noteOn: !cur.timer && !!cur.note,
+      note: cur.note,
+      meters: meters,
+      cardBorder: cur.alvo ? accent : '#22262D',
+      cardGlow: cur.alvo ? 'color-mix(in srgb, ' + accent + ' 12%, transparent)' : 'transparent',
+      buyBg: cur.alvo ? accent : '#ECEDEE',
+      buyFg: cur.alvo ? '#1A1404' : '#0B0C0E',
+      onComprar: () => this.decide('comprar'),
+      onVigiar: () => this.decide('vigiar'),
+      onSoneca: () => this.decide('soneca'),
+      onDescartar: () => this.decide('descartar'),
+      queue: queue,
+      summary: plural(counts.comprar, 'compra aberta', 'compras abertas') + ', ' + plural(counts.vigiar, 'vigiando', 'vigiando') + ', ' + plural(counts.soneca, 'em soneca', 'em soneca') + ' e ' + plural(counts.descartar, 'descartada', 'descartadas') + '.',
+      reset: () => this.setState({ decisions: {}, idx: 0 }),
+      toast: st.toast,
+      toastOpacity: st.toast ? '1' : '0'
+    };
+  }
+}
+</script>
+</body>
+</html>

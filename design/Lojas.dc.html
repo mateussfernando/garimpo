@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Garimpo · Lojas</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0C0E}
+a{color:#ECEDEE}a:hover{color:#FFFFFF}
+a:focus-visible,button:focus-visible{outline:2px solid #ECEDEE;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; background: #0B0C0E; color: #ECEDEE; font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.4">
+
+<header style="border-bottom: 1px solid #1F2329; background: #0B0C0E">
+  <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 32px; padding: 10px 32px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 32px">
+      <a href="Main.dc.html" style="display: flex; align-items: center; gap: 10px; color: #ECEDEE; text-decoration: none; font-size: 18px; font-weight: 600; letter-spacing: -0.01em">
+        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 5v10l-8 5-8-5V7z" fill="{{accent}}"></path><path d="M12 2v20M4 7l16 10M20 7L4 17" stroke="#0B0C0E" stroke-width="1" opacity="0.35"></path></svg>
+        Garimpo
+      </a>
+      <nav aria-label="Seções do app" style="display: flex; flex-wrap: wrap; gap: 4px">
+        <a href="Main.dc.html" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; color: #9BA1A9; text-decoration: none">Vitrine</a>
+        <a href="#" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; color: #9BA1A9; text-decoration: none">Alvos</a>
+        <a href="Fontes.dc.html" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; color: #9BA1A9; text-decoration: none">Fontes</a>
+        <a href="Lojas.dc.html" aria-current="page" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; background: #1A1D22; color: #ECEDEE; text-decoration: none; font-weight: 500">Lojas</a>
+        <a href="#" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; color: #9BA1A9; text-decoration: none">Cupons</a>
+        <a href="#" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; color: #9BA1A9; text-decoration: none">Compras</a>
+        <a href="WarRoom.dc.html" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; color: #9BA1A9; text-decoration: none">War Room</a>
+      </nav>
+    </div>
+    <button type="button" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px 0 14px; border-radius: 10px; border: 1px solid #2C313A; background: #121418; color: #C9CDD3; font: 500 13px 'Geist', system-ui, sans-serif; cursor: pointer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      Buscar ou criar Alvo
+      <kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #9BA1A9">⌘K</kbd>
+    </button>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 40px; padding: 10px 32px; border-top: 1px solid #1F2329; background: #0F1114">
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">11.11 começa em</span>
+      <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; color: {{accent}}">32:55:10</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px; min-width: 150px">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Orçamento</span>
+      <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; color: #DADDE1">R$ 1.640 <span style="color: #8E949C">de R$ 2.500</span></span>
+      <span style="display: block; height: 4px; border-radius: 2px; background: #22262D; overflow: hidden"><span style="display: block; width: 66%; height: 100%; background: #C9CDD3"></span></span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px; min-width: 130px">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Gasto de IA</span>
+      <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; color: #DADDE1">US$ 0,42 <span style="color: #8E949C">de US$ 5</span></span>
+      <span style="display: block; height: 4px; border-radius: 2px; background: #22262D; overflow: hidden"><span style="display: block; width: 8%; height: 100%; background: #C9CDD3"></span></span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Fontes</span>
+      <span style="display: flex; align-items: center; gap: 10px; font-size: 12px; color: #C9CDD3">
+        <span style="display: flex; align-items: center; gap: 5px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3DDC84"></span>WhatsApp</span>
+        <span style="display: flex; align-items: center; gap: 5px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3DDC84"></span>Telegram</span>
+        <span style="display: flex; align-items: center; gap: 5px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3DDC84"></span>Lojas</span>
+      </span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px; margin-left: auto">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Máquinas</span>
+      <span style="display: flex; align-items: center; gap: 14px; font-size: 12px; color: #C9CDD3">
+        <span style="display: flex; align-items: center; gap: 5px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3DDC84"></span>PC 16 GB · coleta e escuta</span>
+        <span style="display: flex; align-items: center; gap: 5px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3DDC84"></span>PC 8 GB · IA e Vitrine</span>
+      </span>
+    </div>
+  </div>
+</header>
+
+<main style="width: 100%; max-width: 1440px; box-sizing: border-box; margin: 0 auto; padding: 28px 32px 32px; display: flex; flex-direction: column; gap: 24px">
+
+  <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+    <div style="display: flex; flex-direction: column; gap: 6px; max-width: 760px">
+      <h1 style="margin: 0; font-size: 30px; font-weight: 600; letter-spacing: -0.02em">Lojas</h1>
+      <p style="margin: 0; color: #9BA1A9; font-size: 14px">Onde o Garimpo coleta preços. A coleta é educada: respeita o robots.txt, espaça os pedidos e pausa sozinha quando a loja pede.</p>
+    </div>
+    <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #9BA1A9"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3DDC84"></span>Próxima coleta diária amanhã às 06:00</span>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 16px">
+    <div style="display: flex; flex-direction: column; gap: 6px; padding: 16px 18px; border-radius: 14px; background: #121418; border: 1px solid #22262D">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Coleta diária</span>
+      <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 22px; font-weight: 600; color: #F4F5F6">06:00</span>
+      <span style="font-size: 12px; color: #9BA1A9">todo dia até a Black Friday, 27/11</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px; padding: 16px 18px; border-radius: 14px; background: #121418; border: 1px solid #22262D">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Na fila agora</span>
+      <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 22px; font-weight: 600; color: #F4F5F6">14 <span style="font-family: 'Geist', system-ui, sans-serif; font-size: 13px; font-weight: 400; color: #9BA1A9">páginas</span></span>
+      <span style="font-size: 12px; color: #9BA1A9">cerca de 3 min, uma loja por vez</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px; padding: 16px 18px; border-radius: 14px; background: #121418; border: 1px solid #22262D">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Hoje</span>
+      <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 22px; font-weight: 600; color: #F4F5F6">312 <span style="font-family: 'Geist', system-ui, sans-serif; font-size: 13px; font-weight: 400; color: #9BA1A9">páginas lidas</span></span>
+      <span style="font-size: 12px; color: #9BA1A9">1 pausa pedida pela loja e respeitada</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px; padding: 16px 18px; border-radius: 14px; background: #121418; border: 1px solid #22262D">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Coletor</span>
+      <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 22px; font-weight: 600; color: #F4F5F6">PC 16 GB</span>
+      <span style="font-size: 12px; color: #9BA1A9">navegador com 1 aba por vez</span>
+    </div>
+  </div>
+
+  <section aria-labelledby="vigiadas" style="display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: 16px; background: #121418; border: 1px solid #22262D">
+    <div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px">
+      <h2 id="vigiadas" style="margin: 0; font-size: 16px; font-weight: 600">Lojas vigiadas</h2>
+      <span style="font-size: 13px; color: #9BA1A9">{{activeLabel}} · como coleta segue a ordem: dados da página, API, seletor, navegador e, por último, IA</span>
+    </div>
+    <div style="overflow-x: auto">
+      <div role="table" aria-label="Lojas vigiadas" style="min-width: 1040px; font-size: 13px">
+        <div role="row" style="display: grid; grid-template-columns: minmax(170px, 1.2fr) minmax(170px, 1.2fr) minmax(170px, 1.1fr) minmax(120px, 0.8fr) minmax(190px, 1.2fr) minmax(110px, 0.7fr) minmax(110px, 0.7fr); align-items: center; color: #9BA1A9; font-weight: 500">
+          <span role="columnheader" style="padding: 8px 12px 8px 0">Loja</span>
+          <span role="columnheader" style="padding: 8px 12px">Foco</span>
+          <span role="columnheader" style="padding: 8px 12px">Como coleta</span>
+          <span role="columnheader" style="padding: 8px 12px">Última passagem</span>
+          <span role="columnheader" style="padding: 8px 12px">Saúde</span>
+          <span role="columnheader" style="padding: 8px 12px">Canal oficial</span>
+          <span role="columnheader" style="padding: 8px 0 8px 12px; text-align: right">Ações</span>
+        </div>
+        <sc-for list="{{stores}}" as="s" hint-placeholder-count="9">
+          <div role="row" style="display: grid; grid-template-columns: minmax(170px, 1.2fr) minmax(170px, 1.2fr) minmax(170px, 1.1fr) minmax(120px, 0.8fr) minmax(190px, 1.2fr) minmax(110px, 0.7fr) minmax(110px, 0.7fr); align-items: center; min-height: 54px; border-top: 1px solid #1F2329; opacity: {{s.opacity}}">
+            <span role="cell" style="padding: 8px 12px 8px 0; color: #ECEDEE; font-weight: 500">{{s.name}}</span>
+            <span role="cell" style="padding: 8px 12px; color: #C9CDD3">{{s.focus}}</span>
+            <span role="cell" style="padding: 8px 12px; color: #C9CDD3">{{s.how}}</span>
+            <span role="cell" style="padding: 8px 12px; font-family: 'Geist Mono', ui-monospace, monospace; color: #B4BAC2">{{s.last}}</span>
+            <span role="cell" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; color: #DADDE1">
+              <span style="width: 8px; height: 8px; flex: none; border-radius: 50%; background: {{s.dot}}"></span>
+              <span style="display: flex; flex-direction: column"><span>{{s.health}}</span><span style="font-size: 12px; color: #8E949C">{{s.healthNote}}</span></span>
+            </span>
+            <span role="cell" style="padding: 8px 12px">
+              <a href="#" style="font-size: 13px; color: #C9CDD3">Ver no site</a>
+            </span>
+            <span role="cell" style="display: flex; justify-content: flex-end; padding: 8px 0 8px 12px">
+              <sc-if value="{{s.canToggle}}" hint-placeholder-val="{{true}}">
+                <button type="button" onClick="{{s.toggle}}" style="height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #2C313A; background: transparent; color: #C9CDD3; font: 500 13px 'Geist', system-ui, sans-serif; cursor: pointer">{{s.toggleLabel}}</button>
+              </sc-if>
+              <sc-if value="{{s.waiting}}" hint-placeholder-val="{{false}}">
+                <span style="font-size: 12px; color: #8E949C; text-align: right">a loja pediu pausa</span>
+              </sc-if>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="sugeridas" style="display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px">
+      <h2 id="sugeridas" style="margin: 0; font-size: 18px; font-weight: 600">Lojas sugeridas</h2>
+      <span style="font-size: 13px; color: #9BA1A9">Lojas que aparecem nas suas fontes e ainda não são vigiadas</span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 16px">
+      <sc-for list="{{suggested}}" as="g" hint-placeholder-count="3">
+        <article style="display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 14px; background: #121418; border: 1px solid #22262D">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+            <h3 style="margin: 0; font-size: 16px; font-weight: 600">{{g.name}}</h3>
+            <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; color: #DADDE1">{{g.seen}}</span>
+          </div>
+          <p style="margin: 0; font-size: 13px; color: #B4BAC2">{{g.why}}</p>
+          <span style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #9BA1A9"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3DDC84"></span>{{g.robots}}</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 6px">
+            <button type="button" aria-pressed="{{g.added}}" onClick="{{g.toggle}}" style="height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid {{g.border}}; background: {{g.bg}}; color: {{g.fg}}; font: 600 13px 'Geist', system-ui, sans-serif; cursor: pointer">{{g.label}}</button>
+          </div>
+        </article>
+      </sc-for>
+    </div>
+  </section>
+
+  <section aria-labelledby="regras" style="display: flex; flex-direction: column; gap: 10px; padding: 18px 20px; border-radius: 14px; background: #0F1114; border: 1px solid #1F2329">
+    <h2 id="regras" style="margin: 0; font-size: 14px; font-weight: 600">Regras de coleta educada</h2>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px 28px; font-size: 13px; color: #B4BAC2">
+      <span>Lê o robots.txt antes de cada loja</span>
+      <span>1 pedido a cada 5 a 10 s por loja</span>
+      <span>Cache de 10 min na conferência e 12 h na coleta diária</span>
+      <span>Pausa de 1 h em 429 ou 403</span>
+      <span>User-Agent fixo, sem proxy e sem driblar captcha</span>
+    </div>
+  </section>
+</main>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#F5B83D","options":["#F5B83D","#7CC4FF","#FF9F5A"]},"$preview":{"width":1440,"height":1520}}'>
+class Component extends DCLogic {
+  st() {
+    return Object.assign({ paused: {}, added: {} }, this.state || {});
+  }
+  renderVals() {
+    const accent = this.props.accent ?? '#F5B83D';
+    const st = this.st();
+    const base = [
+      { id: 'kabum', name: 'KaBuM!', focus: 'periféricos e monitores', how: 'dados da página (JSON-LD)', last: 'há 18 min', health: 'ok' },
+      { id: 'pichau', name: 'Pichau', focus: 'periféricos e hardware', how: 'dados da página (JSON-LD)', last: 'há 6 min', health: 'ok' },
+      { id: 'terabyte', name: 'Terabyte', focus: 'periféricos e hardware', how: 'seletor CSS', last: 'há 22 min', health: 'ok' },
+      { id: 'ml', name: 'Mercado Livre', focus: 'de tudo', how: 'API oficial', last: 'há 9 min', health: 'ok' },
+      { id: 'amazon', name: 'Amazon', focus: 'de tudo', how: 'dados da página (JSON-LD)', last: 'há 58 min', health: 'loja' },
+      { id: 'magalu', name: 'Magalu', focus: 'eletrônicos', how: 'dados da página (JSON-LD)', last: 'há 31 min', health: 'ok' },
+      { id: 'shopee', name: 'Shopee', focus: 'acessórios', how: 'navegador (Playwright)', last: 'há 2 h', health: 'lenta' },
+      { id: 'ali', name: 'AliExpress', focus: 'acessórios', how: 'navegador (Playwright)', last: 'há 3 h', health: 'ok' },
+      { id: 'cb', name: 'Casas Bahia', focus: 'eletrônicos', how: 'dados da página (JSON-LD)', last: 'hoje 06:12', health: 'ok' }
+    ];
+    const stores = base.map((s) => {
+      const mine = !!st.paused[s.id];
+      const byStore = s.health === 'loja';
+      let health = 'OK', note = 'respondendo normal', dot = '#3DDC84';
+      if (byStore) { health = 'Pausada 1 h'; note = 'respondeu 429 · volta às 15:58'; dot = '#FF8F5A'; }
+      else if (mine) { health = 'Pausada por você'; note = 'fora da coleta diária'; dot = '#8E949C'; }
+      else if (s.health === 'lenta') { health = 'Lenta'; note = 'página pesada, 1 aba por vez'; dot = '#9BA1A9'; }
+      return {
+        name: s.name, focus: s.focus, how: s.how, last: s.last,
+        health: health, healthNote: note, dot: dot,
+        opacity: mine ? '0.55' : '1',
+        canToggle: !byStore,
+        waiting: byStore,
+        toggleLabel: mine ? 'Retomar' : 'Pausar',
+        toggle: () => this.setState({ paused: Object.assign({}, st.paused, { [s.id]: !mine }) })
+      };
+    });
+    const nActive = base.filter((s) => !st.paused[s.id] && s.health !== 'loja').length;
+    const sugBase = [
+      { id: 'carrefour', name: 'Carrefour', seen: '12x', why: 'Apareceu 12 vezes nas suas fontes nesta semana, quase sempre com monitores e SSD.', robots: 'robots.txt permite páginas de produto' },
+      { id: 'americanas', name: 'Americanas', seen: '8x', why: 'Apareceu 8 vezes nas suas fontes nesta semana, com cupons de periféricos.', robots: 'robots.txt permite páginas de produto' },
+      { id: 'marca', name: '[Loja oficial de marca]', seen: '5x', why: 'Loja da própria marca de um dos seus Alvos. Costuma ter o mesmo preço com garantia direta.', robots: 'robots.txt permite páginas de produto' }
+    ];
+    const suggested = sugBase.map((g) => {
+      const on = !!st.added[g.id];
+      return Object.assign({}, g, {
+        added: on,
+        label: on ? 'Vigiando esta loja' : 'Vigiar esta loja',
+        bg: on ? '#1C2026' : '#ECEDEE',
+        fg: on ? '#7BEAA8' : '#0B0C0E',
+        border: on ? 'rgba(61, 220, 132, 0.35)' : '#ECEDEE',
+        toggle: () => this.setState({ added: Object.assign({}, st.added, { [g.id]: !on }) })
+      });
+    });
+    const nAdded = sugBase.filter((g) => st.added[g.id]).length;
+    return {
+      accent: accent,
+      stores: stores,
+      suggested: suggested,
+      activeLabel: (nActive + nAdded) + ' coletando agora'
+    };
+  }
+}
+</script>
+</body>
+</html>

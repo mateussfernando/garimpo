@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Garimpo · Detalhe do produto</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0C0E}
+a{color:#ECEDEE}a:hover{color:#FFFFFF}
+a:focus-visible,button:focus-visible{outline:2px solid #ECEDEE;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; background: #0B0C0E; color: #ECEDEE; font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.4">
+
+<header style="border-bottom: 1px solid #1F2329; background: #0B0C0E">
+  <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 32px; padding: 10px 32px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 32px">
+      <a href="Main.dc.html" style="display: flex; align-items: center; gap: 10px; color: #ECEDEE; text-decoration: none; font-size: 18px; font-weight: 600; letter-spacing: -0.01em">
+        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 5v10l-8 5-8-5V7z" fill="{{accent}}"></path><path d="M12 2v20M4 7l16 10M20 7L4 17" stroke="#0B0C0E" stroke-width="1" opacity="0.35"></path></svg>
+        Garimpo
+      </a>
+      <nav aria-label="Seções do app" style="display: flex; flex-wrap: wrap; gap: 4px">
+        <a href="Main.dc.html" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; background: #1A1D22; color: #ECEDEE; text-decoration: none; font-weight: 500">Vitrine</a>
+        <a href="#" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; color: #9BA1A9; text-decoration: none">Alvos</a>
+        <a href="Fontes.dc.html" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; color: #9BA1A9; text-decoration: none">Fontes</a>
+        <a href="Lojas.dc.html" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; color: #9BA1A9; text-decoration: none">Lojas</a>
+        <a href="#" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; color: #9BA1A9; text-decoration: none">Cupons</a>
+        <a href="#" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; color: #9BA1A9; text-decoration: none">Compras</a>
+        <a href="WarRoom.dc.html" style="display: flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 10px; color: #9BA1A9; text-decoration: none">War Room</a>
+      </nav>
+    </div>
+    <button type="button" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px 0 14px; border-radius: 10px; border: 1px solid #2C313A; background: #121418; color: #C9CDD3; font: 500 13px 'Geist', system-ui, sans-serif; cursor: pointer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      Buscar ou criar Alvo
+      <kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #9BA1A9">⌘K</kbd>
+    </button>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 40px; padding: 10px 32px; border-top: 1px solid #1F2329; background: #0F1114">
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">11.11 começa em</span>
+      <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; color: {{accent}}">32:55:10</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px; min-width: 150px">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Orçamento</span>
+      <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; color: #DADDE1">R$ 1.640 <span style="color: #8E949C">de R$ 2.500</span></span>
+      <span style="display: block; height: 4px; border-radius: 2px; background: #22262D; overflow: hidden"><span style="display: block; width: 66%; height: 100%; background: #C9CDD3"></span></span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px; min-width: 130px">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Gasto de IA</span>
+      <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; color: #DADDE1">US$ 0,42 <span style="color: #8E949C">de US$ 5</span></span>
+      <span style="display: block; height: 4px; border-radius: 2px; background: #22262D; overflow: hidden"><span style="display: block; width: 8%; height: 100%; background: #C9CDD3"></span></span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Fontes</span>
+      <span style="display: flex; align-items: center; gap: 10px; font-size: 12px; color: #C9CDD3">
+        <span style="display: flex; align-items: center; gap: 5px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3DDC84"></span>WhatsApp</span>
+        <span style="display: flex; align-items: center; gap: 5px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3DDC84"></span>Telegram</span>
+        <span style="display: flex; align-items: center; gap: 5px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3DDC84"></span>Lojas</span>
+      </span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px; margin-left: auto">
+      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Máquinas</span>
+      <span style="display: flex; align-items: center; gap: 14px; font-size: 12px; color: #C9CDD3">
+        <span style="display: flex; align-items: center; gap: 5px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3DDC84"></span>PC 16 GB · coleta e escuta</span>
+        <span style="display: flex; align-items: center; gap: 5px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3DDC84"></span>PC 8 GB · IA e Vitrine</span>
+      </span>
+    </div>
+  </div>
+</header>
+
+<main style="width: 100%; max-width: 1440px; box-sizing: border-box; margin: 0 auto; padding: 12px 32px 32px; display: flex; flex-direction: column; gap: 20px">
+
+  <nav aria-label="Caminho" style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 13px; color: #8E949C">
+    <a href="Main.dc.html" style="display: flex; align-items: center; gap: 6px; height: 44px; padding-right: 4px; color: #C9CDD3; text-decoration: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>Vitrine</a>
+    <span aria-hidden="true">/</span>
+    <span>Mouse</span>
+    <span aria-hidden="true">/</span>
+    <span aria-current="page" style="color: #DADDE1">Mouse sem fio leve, 63 g</span>
+  </nav>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start">
+
+    <div style="flex: 1 1 480px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+      <div style="position: relative; aspect-ratio: 4 / 3; border-radius: 16px; border: 1px solid #22262D; display: flex; align-items: center; justify-content: center; color: #C9CDD3; background-color: #0F1114; background-image: radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px); background-size: 14px 14px">
+        <svg width="240" height="240" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Foto do mouse (ilustração provisória)"><g transform="rotate({{photoRot}} 12 12)"><rect x="7.5" y="3" width="9" height="18" rx="4.5"></rect><path d="M12 6.5v4"></path></g></svg>
+        <span style="position: absolute; top: 14px; right: 14px; display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #1A1404; background: {{accent}}">Alvo atingido</span>
+        <span style="position: absolute; left: 16px; bottom: 14px; font-size: 12px; color: #8E949C">{{photoLabel}} · fotos da página da loja</span>
+      </div>
+      <div role="group" aria-label="Fotos do produto" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+        <sc-for list="{{photos}}" as="p" hint-placeholder-count="4">
+          <button type="button" aria-label="{{p.label}}" aria-pressed="{{p.selected}}" onClick="{{p.pick}}" style="aspect-ratio: 4 / 3; display: flex; align-items: center; justify-content: center; padding: 0; border-radius: 12px; border: 1px solid {{p.border}}; color: #B4BAC2; background-color: #0F1114; background-image: radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px); background-size: 10px 10px; cursor: pointer"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g transform="rotate({{p.rot}} 12 12)"><rect x="7.5" y="3" width="9" height="18" rx="4.5"></rect><path d="M12 6.5v4"></path></g></svg></button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex: 1.25 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 18px">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px">
+        <span style="padding: 5px 10px; border-radius: 999px; background: #1C2026; border: 1px solid #2C313A; font-size: 12px; color: #DADDE1">Pichau</span>
+        <span style="font-size: 13px; color: #9BA1A9">Vendido e entregue por Pichau</span>
+        <span style="margin-left: auto; display: flex; align-items: baseline; gap: 6px; padding: 6px 12px; border-radius: 999px; background: #1C2026; border: 1px solid #2C313A"><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 18px; font-weight: 600; color: #F4F5F6">71</span><span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #9BA1A9">nota</span></span>
+      </div>
+      <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2">Mouse sem fio leve, 26 mil DPI, 63 g</h1>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px">
+          <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 48px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; color: #F4F5F6">R$ 249,90</span>
+          <span style="font-size: 14px; color: #9BA1A9">no cartão</span>
+        </div>
+        <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 15px; color: #B4BAC2">10x de R$ 24,99 sem juros</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px">
+        <span style="display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 500; color: #7BEAA8; background: rgba(61, 220, 132, 0.12); border: 1px solid rgba(61, 220, 132, 0.35)">Frete grátis</span>
+        <span style="display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 500; color: #7BEAA8; background: rgba(61, 220, 132, 0.12); border: 1px solid rgba(61, 220, 132, 0.35)">Real −15%</span>
+        <span style="display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 500; color: #7BEAA8; background: rgba(61, 220, 132, 0.12); border: 1px solid rgba(61, 220, 132, 0.35)">Menor preço em 30 dias</span>
+        <span style="display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 500; color: #C9CDD3; background: #1A1D22; border: 1px solid #2C313A">Verificado há 6 min</span>
+      </div>
+
+      <section aria-labelledby="kit-compra" style="display: flex; flex-direction: column; padding: 14px 18px 8px; border-radius: 14px; background: #121418; border: 1px solid #22262D">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 8px">
+          <h2 id="kit-compra" style="margin: 0; font-size: 15px; font-weight: 600">Kit de compra</h2>
+          <span style="font-size: 12px; color: #9BA1A9">conferido na página da loja às 14:58</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #1F2329">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3DDC84" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8 12.5l2.7 2.7L16 9.8"></path></svg>
+          <span style="flex: 1; color: #DADDE1">Cartão em 10x sem juros</span>
+          <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; color: #9BA1A9">R$ 24,99 por mês</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #1F2329">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3DDC84" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8 12.5l2.7 2.7L16 9.8"></path></svg>
+          <span style="flex: 1; color: #DADDE1">Frete grátis</span>
+          <span style="font-size: 13px; color: #9BA1A9">para o seu CEP</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #1F2329">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9BA1A9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8 12h8"></path></svg>
+          <span style="flex: 1; color: #DADDE1">Nenhum cupom válido</span>
+          <span style="font-size: 13px; color: #9BA1A9">MOUSE15 expirou há 1 h</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #1F2329">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3DDC84" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8 12.5l2.7 2.7L16 9.8"></path></svg>
+          <span style="flex: 1; color: #DADDE1">Arrependimento em 7 dias</span>
+          <span style="font-size: 13px; color: #9BA1A9">contados a partir da entrega</span>
+        </div>
+      </section>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 10px">
+        <button type="button" style="flex: 1 1 240px; display: flex; align-items: center; justify-content: center; gap: 10px; height: 52px; border: 0; border-radius: 12px; background: {{accent}}; color: #1A1404; font: 600 15px 'Geist', system-ui, sans-serif; cursor: pointer">Comprar na Pichau<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path></svg></button>
+        <button type="button" aria-pressed="{{watched}}" onClick="{{toggleWatch}}" style="display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 18px; border-radius: 12px; border: 1px solid {{watchBorder}}; background: {{watchBg}}; color: #ECEDEE; font: 500 14px 'Geist', system-ui, sans-serif; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>{{watchLabel}}</button>
+        <a href="Main.dc.html" style="display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 18px; box-sizing: border-box; border-radius: 12px; border: 1px solid #2C313A; color: #C9CDD3; text-decoration: none; font-size: 14px; font-weight: 500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>Descartar</a>
+      </div>
+      <p style="margin: 0; font-size: 12px; color: #8E949C">O botão abre a página da Pichau. O Garimpo nunca compra sozinho.</p>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: stretch">
+
+    <section aria-labelledby="historico" style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px; padding: 20px; border-radius: 16px; background: #121418; border: 1px solid #22262D">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <h2 id="historico" style="margin: 0; font-size: 16px; font-weight: 600">Histórico de 30 dias</h2>
+          <span style="font-size: 13px; color: #9BA1A9">Preço no cartão na Pichau, um ponto por dia</span>
+        </div>
+        <div role="group" aria-label="Ver como" style="display: flex; border-radius: 10px; border: 1px solid #2C313A; overflow: hidden">
+          <button type="button" aria-pressed="{{isChart}}" onClick="{{showChart}}" style="height: 44px; padding: 0 16px; border: 0; background: {{chartBtnBg}}; color: {{chartBtnFg}}; font: 500 13px 'Geist', system-ui, sans-serif; cursor: pointer">Gráfico</button>
+          <button type="button" aria-pressed="{{isTable}}" onClick="{{showTable}}" style="height: 44px; padding: 0 16px; border: 0; background: {{tableBtnBg}}; color: {{tableBtnFg}}; font: 500 13px 'Geist', system-ui, sans-serif; cursor: pointer">Tabela</button>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 10px 32px">
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <span style="display: flex; align-items: center; gap: 7px; font-size: 12px; color: #9BA1A9"><span style="width: 9px; height: 9px; border-radius: 50%; background: {{accent}}"></span>Hoje</span>
+          <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 16px; font-weight: 600; color: #F4F5F6">R$ 249,90</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <span style="display: flex; align-items: center; gap: 7px; font-size: 12px; color: #9BA1A9"><span style="width: 16px; border-top: 2px dashed {{accent}}"></span>Alvo</span>
+          <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 16px; font-weight: 600; color: #F4F5F6">R$ 260,00</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <span style="display: flex; align-items: center; gap: 7px; font-size: 12px; color: #9BA1A9"><span style="width: 16px; border-top: 1px dashed #8E949C"></span>Mediana de 30 dias</span>
+          <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 16px; font-weight: 600; color: #F4F5F6">R$ 294,00</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <span style="display: flex; align-items: center; gap: 7px; font-size: 12px; color: #9BA1A9"><span style="width: 9px; height: 9px; box-sizing: border-box; border-radius: 50%; border: 2px solid #C9CDD3"></span>Mínimo anterior</span>
+          <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 16px; font-weight: 600; color: #F4F5F6">R$ 264,90 <span style="font-weight: 400; color: #8E949C">· 26/10</span></span>
+        </div>
+      </div>
+
+      <sc-if value="{{isChart}}" hint-placeholder-val="{{true}}">
+        <div style="position: relative">
+          <svg viewBox="0 0 720 240" role="img" aria-label="Preço no cartão nos últimos 30 dias. Ficou entre R$ 289 e R$ 299 quase todo o período, caiu para R$ 264,90 em 26/10 e chegou a R$ 249,90 hoje, abaixo do alvo de R$ 260 e o menor do período. Mediana de R$ 294." style="display: block; width: 100%; height: auto; overflow: visible">
+            <path d="M56 173.7H696M56 121.1H696M56 68.6H696M56 16H696" stroke="#1F2329" stroke-width="1" fill="none"></path>
+            <g fill="#8E949C" font-family="Geist Mono, ui-monospace, monospace" font-size="10" text-anchor="end">
+              <text x="48" y="177.2">R$ 250</text>
+              <text x="48" y="124.6">R$ 270</text>
+              <text x="48" y="72.1">R$ 290</text>
+              <text x="48" y="19.5">R$ 310</text>
+            </g>
+            <g fill="#8E949C" font-family="Geist Mono, ui-monospace, monospace" font-size="10" text-anchor="middle">
+              <text x="56" y="224">11/10</text>
+              <text x="210.5" y="224">18/10</text>
+              <text x="365" y="224">25/10</text>
+              <text x="519.4" y="224">01/11</text>
+              <text x="696" y="224" text-anchor="end">09/11</text>
+            </g>
+            <path d="M56 58.1H696" stroke="#8E949C" stroke-width="1" stroke-dasharray="4 4" fill="none"></path>
+            <path d="M56 147.4H696" stroke="{{accent}}" stroke-width="1.5" stroke-dasharray="6 4" fill="none"></path>
+            <polyline points="56.0,44.9 78.1,44.9 100.1,55.4 122.2,55.4 144.3,58.1 166.3,58.1 188.4,71.2 210.5,71.2 232.6,58.1 254.6,44.9 276.7,44.9 298.8,58.1 320.8,58.1 342.9,71.2 365.0,71.2 387.0,134.5 409.1,121.4 431.2,71.2 453.2,58.1 475.3,58.1 497.4,44.9 519.4,44.9 541.5,58.1 563.6,58.1 585.7,71.2 607.7,71.2 629.8,58.1 651.9,58.1 673.9,108.3 696.0,174.0" fill="none" stroke="#DADDE1" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline>
+            <circle cx="387" cy="134.5" r="4" fill="#121418" stroke="#C9CDD3" stroke-width="2"></circle>
+            <circle cx="696" cy="174" r="5.5" fill="{{accent}}" stroke="#121418" stroke-width="2"></circle>
+            <text x="696" y="50" text-anchor="end" fill="#9BA1A9" font-family="Geist, system-ui, sans-serif" font-size="10">mediana R$ 294</text>
+            <text x="60" y="141" fill="#B4BAC2" font-family="Geist, system-ui, sans-serif" font-size="10">alvo R$ 260</text>
+            <text x="684" y="196" text-anchor="end" fill="#F4F5F6" font-family="Geist Mono, ui-monospace, monospace" font-size="11" font-weight="600">hoje R$ 249,90</text>
+          </svg>
+          <div onMouseLeave="{{leave}}" style="position: absolute; inset: 0">
+            <sc-for list="{{hits}}" as="hit" hint-placeholder-count="30">
+              <div aria-hidden="true" onMouseEnter="{{hit.enter}}" style="position: absolute; top: 0; bottom: 0; left: {{hit.left}}; width: {{hit.width}}"></div>
+            </sc-for>
+            <sc-if value="{{hoverOn}}" hint-placeholder-val="{{false}}">
+              <div style="position: absolute; left: {{hx}}; top: 6.667%; height: 76.667%; width: 1px; background: #8E949C; pointer-events: none"></div>
+              <div style="position: absolute; left: {{hx}}; top: {{hy}}; width: 10px; height: 10px; border-radius: 50%; background: #ECEDEE; box-shadow: 0 0 0 2px #121418; transform: translate(-50%, -50%); pointer-events: none"></div>
+              <div style="position: absolute; left: {{hx}}; top: {{hy}}; transform: {{tipTransform}}; display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 10px; background: #1C2026; border: 1px solid #2C313A; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); white-space: nowrap; pointer-events: none">
+                <span style="font-size: 11px; color: #9BA1A9">{{tipDate}}</span>
+                <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 15px; font-weight: 600; color: #F4F5F6">{{tipPrice}}</span>
+                <span style="font-size: 11px; color: #B4BAC2">{{tipDiff}}</span>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isTable}}" hint-placeholder-val="{{false}}">
+        <div role="table" aria-label="Histórico de 30 dias em tabela" style="max-height: 300px; overflow: auto; border-radius: 10px; border: 1px solid #1F2329; font-size: 13px">
+          <div role="row" style="position: sticky; top: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); background: #1A1D22; color: #9BA1A9; font-weight: 500">
+            <span role="columnheader" style="padding: 10px 14px">Dia</span>
+            <span role="columnheader" style="padding: 10px 14px; text-align: right">Preço no cartão</span>
+            <span role="columnheader" style="padding: 10px 14px; text-align: right">Diferença</span>
+          </div>
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+            <div role="row" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid #1F2329">
+              <span role="cell" style="padding: 9px 14px; color: #C9CDD3">{{r.date}}</span>
+              <span role="cell" style="padding: 9px 14px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; color: #F4F5F6">{{r.price}}</span>
+              <span role="cell" style="padding: 9px 14px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; color: #9BA1A9">{{r.diff}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </section>
+
+    <section aria-labelledby="por-que-nota" style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 16px; padding: 20px; border-radius: 16px; background: #121418; border: 1px solid #22262D">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <h2 id="por-que-nota" style="margin: 0; font-size: 16px; font-weight: 600">Por que nota 71</h2>
+          <span style="font-size: 13px; color: #9BA1A9">Seis sinais somam até 100. O comprimento de cada trilho é o peso do sinal.</span>
+        </div>
+        <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 30px; font-weight: 600; line-height: 1; color: #F4F5F6">71</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px"><span style="color: #DADDE1">Desconto real</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; color: #F4F5F6">13<span style="color: #8E949C"> / 35</span></span></div>
+        <div style="width: 100%; height: 8px; border-radius: 4px; background: #22262D; overflow: hidden"><div style="width: 37.5%; height: 100%; border-radius: 4px; background: #C9CDD3"></div></div>
+        <span style="font-size: 12px; color: #9BA1A9">15% abaixo da mediana de 30 dias; nota cheia a partir de 40%</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px"><span style="color: #DADDE1">Encaixe no Alvo</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; color: #F4F5F6">25<span style="color: #8E949C"> / 25</span></span></div>
+        <div style="width: 71.43%; height: 8px; border-radius: 4px; background: #22262D; overflow: hidden"><div style="width: 100%; height: 100%; border-radius: 4px; background: #C9CDD3"></div></div>
+        <span style="font-size: 12px; color: #9BA1A9">Abaixo do alvo de R$ 260</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px"><span style="color: #DADDE1">Confiança na loja</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; color: #F4F5F6">15<span style="color: #8E949C"> / 15</span></span></div>
+        <div style="width: 42.86%; height: 8px; border-radius: 4px; background: #22262D; overflow: hidden"><div style="width: 100%; height: 100%; border-radius: 4px; background: #C9CDD3"></div></div>
+        <span style="font-size: 12px; color: #9BA1A9">Vendido e entregue pela própria loja</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px"><span style="color: #DADDE1">Frete</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; color: #F4F5F6">10<span style="color: #8E949C"> / 10</span></span></div>
+        <div style="width: 28.57%; height: 8px; border-radius: 4px; background: #22262D; overflow: hidden"><div style="width: 100%; height: 100%; border-radius: 4px; background: #C9CDD3"></div></div>
+        <span style="font-size: 12px; color: #9BA1A9">Grátis para o seu CEP</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px"><span style="color: #DADDE1">Calor social</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; color: #F4F5F6">8<span style="color: #8E949C"> / 10</span></span></div>
+        <div style="width: 28.57%; height: 8px; border-radius: 4px; background: #22262D; overflow: hidden"><div style="width: 75%; height: 100%; border-radius: 4px; background: #C9CDD3"></div></div>
+        <span style="font-size: 12px; color: #9BA1A9">3 fontes diferentes em 15 min; nota cheia com 4</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px"><span style="color: #DADDE1">Urgência</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; color: #F4F5F6">0<span style="color: #8E949C"> / 5</span></span></div>
+        <div style="width: 14.29%; height: 8px; border-radius: 4px; background: #22262D; overflow: hidden"><div style="width: 0%; height: 100%; border-radius: 4px; background: #C9CDD3"></div></div>
+        <span style="font-size: 12px; color: #9BA1A9">Sem relâmpago nem cupom com limite</span>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 12px; border-top: 1px solid #22262D; font-size: 13px; color: #9BA1A9"><span>Soma arredondada</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; color: #F4F5F6">71 / 100</span></div>
+    </section>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: stretch">
+
+    <section aria-labelledby="escada" style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: 16px; background: #121418; border: 1px solid #22262D">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h2 id="escada" style="margin: 0; font-size: 16px; font-weight: 600">Escada de preços</h2>
+        <span style="font-size: 13px; color: #9BA1A9">O mesmo produto em outras lojas: total no cartão, com frete</span>
+      </div>
+      <div style="overflow-x: auto">
+        <table style="width: 100%; min-width: 560px; border-collapse: collapse; font-size: 13px">
+          <thead>
+            <tr style="color: #9BA1A9">
+              <th scope="col" style="padding: 10px 12px 10px 0; text-align: left; font-weight: 500">Loja</th>
+              <th scope="col" style="padding: 10px 12px; text-align: left; font-weight: 500">Condição</th>
+              <th scope="col" style="padding: 10px 12px; text-align: right; font-weight: 500">Total com frete</th>
+              <th scope="col" style="padding: 10px 0 10px 12px; text-align: right; font-weight: 500">Diferença</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-top: 1px solid #1F2329">
+              <td style="padding: 12px 12px 12px 0; color: #ECEDEE; font-weight: 500">Pichau <span style="margin-left: 6px; display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 500; color: #7BEAA8; background: rgba(61, 220, 132, 0.12); border: 1px solid rgba(61, 220, 132, 0.35)">Melhor</span></td>
+              <td style="padding: 12px; color: #B4BAC2">10x de R$ 24,99 sem juros · frete grátis</td>
+              <td style="padding: 12px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; font-weight: 600; color: #F4F5F6">R$ 249,90</td>
+              <td style="padding: 12px 0 12px 12px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; color: #8E949C">—</td>
+            </tr>
+            <tr style="border-top: 1px solid #1F2329">
+              <td style="padding: 12px 12px 12px 0; color: #DADDE1">KaBuM!</td>
+              <td style="padding: 12px; color: #B4BAC2">10x de R$ 26,49 sem juros · frete grátis</td>
+              <td style="padding: 12px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; color: #DADDE1">R$ 264,90</td>
+              <td style="padding: 12px 0 12px 12px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; color: #9BA1A9">+ R$ 15,00</td>
+            </tr>
+            <tr style="border-top: 1px solid #1F2329">
+              <td style="padding: 12px 12px 12px 0; color: #DADDE1">Amazon</td>
+              <td style="padding: 12px; color: #B4BAC2">10x de R$ 27,90 sem juros · frete grátis</td>
+              <td style="padding: 12px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; color: #DADDE1">R$ 279,00</td>
+              <td style="padding: 12px 0 12px 12px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; color: #9BA1A9">+ R$ 29,10</td>
+            </tr>
+            <tr style="border-top: 1px solid #1F2329">
+              <td style="padding: 12px 12px 12px 0; color: #DADDE1">Terabyte</td>
+              <td style="padding: 12px; color: #B4BAC2">R$ 271,90 em 10x sem juros + R$ 18,90 de frete</td>
+              <td style="padding: 12px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; color: #DADDE1">R$ 290,80</td>
+              <td style="padding: 12px 0 12px 12px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; color: #9BA1A9">+ R$ 40,90</td>
+            </tr>
+            <tr style="border-top: 1px solid #1F2329">
+              <td style="padding: 12px 12px 12px 0; color: #DADDE1">Mercado Livre</td>
+              <td style="padding: 12px; color: #B4BAC2">12x de R$ 24,90 com juros · frete grátis</td>
+              <td style="padding: 12px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; color: #DADDE1">R$ 298,80</td>
+              <td style="padding: 12px 0 12px 12px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; color: #9BA1A9">+ R$ 48,90</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section aria-labelledby="calor" style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: 16px; background: #121418; border: 1px solid #22262D">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h2 id="calor" style="margin: 0; font-size: 16px; font-weight: 600">Calor social</h2>
+        <span style="font-size: 13px; color: #9BA1A9">Quem postou esta oferta nos últimos 15 min</span>
+      </div>
+      <div style="display: flex; flex-direction: column">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 52px; border-top: 1px solid #1F2329">
+          <span style="width: 34px; height: 34px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 9px; background: #1A1D22; color: #C9CDD3"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg></span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="color: #DADDE1">[Grupo de promoções 1]</span><span style="font-size: 12px; color: #8E949C">grupo do WhatsApp</span></span>
+          <span style="font-size: 12px; color: #9BA1A9">há 4 min</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 52px; border-top: 1px solid #1F2329">
+          <span style="width: 34px; height: 34px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 9px; background: #1A1D22; color: #C9CDD3"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4L3 11l6 2.2L11 20l3.2-4.2L19 19z"></path></svg></span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="color: #DADDE1">[Canal de ofertas 2]</span><span style="font-size: 12px; color: #8E949C">canal do Telegram</span></span>
+          <span style="font-size: 12px; color: #9BA1A9">há 9 min</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 52px; border-top: 1px solid #1F2329">
+          <span style="width: 34px; height: 34px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 9px; background: #1A1D22; color: #C9CDD3"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path></svg></span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="color: #DADDE1">Pelando</span><span style="font-size: 12px; color: #8E949C">comunidade de promoções</span></span>
+          <span style="font-size: 12px; color: #9BA1A9">há 13 min</span>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; margin-top: auto; padding: 14px; border-radius: 12px; background: #0F1114; border: 1px solid #1F2329">
+        <span style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #8E949C">Cupons citados</span>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px">
+          <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 14px; color: #9BA1A9; text-decoration: line-through">MOUSE15</span>
+          <span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 500; color: #FF9A9A; background: rgba(255, 107, 107, 0.12); border: 1px solid rgba(255, 107, 107, 0.4)">Expirado</span>
+          <span style="font-size: 12px; color: #8E949C">há 1 h · citado em [Grupo de promoções 1]</span>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer style="margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 22px; padding: 16px 32px 28px; color: #8E949C; font-size: 12px">
+  <span style="display: flex; align-items: center; gap: 6px"><kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #C9CDD3">Esc</kbd> voltar</span>
+  <span style="display: flex; align-items: center; gap: 6px"><kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #C9CDD3">Enter</kbd> comprar</span>
+  <span style="display: flex; align-items: center; gap: 6px"><kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #C9CDD3">W</kbd> vigiar</span>
+  <span style="display: flex; align-items: center; gap: 6px"><kbd style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; padding: 2px 6px; border-radius: 6px; border: 1px solid #2C313A; color: #C9CDD3">X</kbd> descartar</span>
+</footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#F5B83D","options":["#F5B83D","#7CC4FF","#FF9F5A"]},"$preview":{"width":1440,"height":1800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const accent = this.props.accent ?? '#F5B83D';
+    const st = Object.assign({ photo: 0, hover: -1, view: 'chart', watched: true }, this.state || {});
+    const prices = [299, 299, 295, 295, 294, 294, 289, 289, 294, 299, 299, 294, 294, 289, 289, 264.9, 269.9, 289, 294, 294, 299, 299, 294, 294, 289, 289, 294, 294, 274.9, 249.9];
+    const dates = ['11/10', '12/10', '13/10', '14/10', '15/10', '16/10', '17/10', '18/10', '19/10', '20/10', '21/10', '22/10', '23/10', '24/10', '25/10', '26/10', '27/10', '28/10', '29/10', '30/10', '31/10', '01/11', '02/11', '03/11', '04/11', '05/11', '06/11', '07/11', '08/11', '09/11'];
+    const median = 294;
+    const last = prices.length - 1;
+    const money = (v) => 'R$ ' + v.toFixed(2).replace('.', ',');
+    const vsMedian = (v) => {
+      const d = (v - median) / median * 100;
+      if (Math.abs(d) < 0.05) return 'na mediana';
+      return (d < 0 ? '−' : '+') + Math.abs(d).toFixed(1).replace('.', ',') + '% vs mediana';
+    };
+    const dayLabel = (i) => i === last ? dates[i] + ' · hoje' : dates[i];
+    const xOf = (i) => 56 + i * 640 / 29;
+    const yOf = (p) => 200 - (p - 240) / 70 * 184;
+    const step = 640 / 29;
+    const hits = prices.map((p, i) => ({
+      left: ((xOf(i) - step / 2) / 720 * 100).toFixed(3) + '%',
+      width: (step / 720 * 100).toFixed(3) + '%',
+      enter: () => this.setState({ hover: i })
+    }));
+    const h = st.hover;
+    const on = h >= 0 && h <= last;
+    const rows = prices.map((p, i) => ({ date: dayLabel(i), price: money(p), diff: vsMedian(p) })).reverse();
+    const rots = [0, -28, 24, 90];
+    const photos = rots.map((rot, i) => ({
+      rot: rot,
+      label: 'Foto ' + (i + 1) + ' de 4',
+      selected: st.photo === i,
+      border: st.photo === i ? '#ECEDEE' : '#22262D',
+      pick: () => this.setState({ photo: i })
+    }));
+    const chartOn = st.view === 'chart';
+    const w = !!st.watched;
+    return {
+      accent: accent,
+      photos: photos,
+      photoRot: String(rots[st.photo] || 0),
+      photoLabel: 'Foto ' + (st.photo + 1) + ' de 4',
+      hits: hits,
+      hoverOn: on,
+      hx: on ? (xOf(h) / 720 * 100).toFixed(3) + '%' : '0%',
+      hy: on ? (yOf(prices[h]) / 240 * 100).toFixed(3) + '%' : '0%',
+      tipTransform: on && h > 22 ? 'translate(calc(-100% - 14px), -50%)' : 'translate(14px, -50%)',
+      tipDate: on ? dayLabel(h) : '',
+      tipPrice: on ? money(prices[h]) : '',
+      tipDiff: on ? vsMedian(prices[h]) : '',
+      leave: () => this.setState({ hover: -1 }),
+      isChart: chartOn,
+      isTable: !chartOn,
+      showChart: () => this.setState({ view: 'chart' }),
+      showTable: () => this.setState({ view: 'table', hover: -1 }),
+      chartBtnBg: chartOn ? '#ECEDEE' : 'transparent',
+      chartBtnFg: chartOn ? '#0B0C0E' : '#C9CDD3',
+      tableBtnBg: chartOn ? 'transparent' : '#ECEDEE',
+      tableBtnFg: chartOn ? '#C9CDD3' : '#0B0C0E',
+      rows: rows,
+      watched: w,
+      watchLabel: w ? 'Vigiando' : 'Vigiar',
+      watchBg: w ? '#1C2026' : 'transparent',
+      watchBorder: w ? '#ECEDEE' : '#2C313A',
+      toggleWatch: () => this.setState({ watched: !w })
+    };
+  }
+}
+</script>
+</body>
+</html>

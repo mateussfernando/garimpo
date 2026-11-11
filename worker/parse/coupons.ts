@@ -197,3 +197,18 @@ export function couponsFromPost(title: string, text: string): CouponInfo[] {
   if (listed.length >= 2) return listed;
   return [whole];
 }
+
+/**
+ * O post é de cupom? Pelo título (isCouponPost) ou, quando o título não nomeia produto nem traz modelo,
+ * pelo texto: tem código de cupom e fala de desconto ("Use: ZAFADINHO15 · COM 15% OFF em placas de vídeo").
+ */
+export function isCouponMessage(title: string, text: string, opts: { hasProduct?: boolean } = {}): boolean {
+  if (isCouponPost(title, opts)) return true;
+  if (opts.hasProduct) return false;
+  const code = extractCouponCode(text);
+  if (!code) return false;
+  const bare = title.replace(code, " ").replace(/R\$\s?[\d.,]+|\d{1,3}\s?%/gi, " ");
+  if (/[A-Za-z]+\d|\d+[A-Za-z]/.test(bare)) return false; // tem modelo ("M5", "RTX 4060"): é produto
+  const t = plain(text);
+  return DISCOUNT_WORDS.test(t) || COUPON_WORDS.test(t);
+}

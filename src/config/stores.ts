@@ -99,6 +99,10 @@ const SHORTENERS = [
   "amzn.to", "amzlink.to", "link.amazon", "a.co", "s.shopee.com.br", "shope.ee", "s.click.aliexpress.com", "mercadolivre.com/sec",
   "divulgador.magalu.com", "magazineluiza.onelink.me", "tidd.ly", "bit.ly", "cutt.ly", "tinyurl.com", "is.gd", "t.co", "abre.ai",
   "encurtador.com.br", "compre.vc", "oferta.vc",
+  // Vistos nos grupos em 11/11 ("links sem loja conhecida" no log da Escuta). O link curto é seguido até a loja;
+  // se não chegar numa loja da lista, a oferta fica "não verificada", como qualquer outra.
+  "meli.la", "a.aliexpress.com", "promoby.me", "ofertou.ai", "adrena.click", "linkmc.click", "curt.link", "i.promotop.net",
+  "aoferta.net", "boletando.com", "nerdofertas.com",
 ];
 
 export function hostOf(url: string): string | null {

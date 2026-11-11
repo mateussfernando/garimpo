@@ -10,8 +10,8 @@ O passo a passo completo, com Telegram, IA e solução de problemas, está em [d
 2. `pnpm install`
 3. Copie `.env.example` para `.env` e preencha a `DATABASE_URL`.
 4. `pnpm db:push` cria as tabelas.
-5. `pnpm dev` sobe o site e o worker juntos. Abra http://localhost:3000.
-   - Para ver a Vitrine de outro aparelho da rede, abra `http://<IP deste PC>:3000` (libere a porta 3000 no firewall do Windows, só para a rede local).
+5. `pnpm dev` sobe o site e o worker juntos. Abra http://localhost:3333 (a porta vem de `PORT` no `.env`; se estiver ocupada, o app usa a próxima livre e avisa no terminal).
+   - Para ver a Vitrine de outro aparelho da rede, abra `http://<IP deste PC>:3333` (libere a porta 3333 no firewall do Windows, só para a rede local).
 
 ## Comandos
 

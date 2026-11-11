@@ -59,6 +59,18 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 11/11/2026, 12:00 · Porta pelo .env, títulos do Telegram, encurtadores e fila de conferência
+
+- **Feito:**
+  - **Porta:** `scripts/web.mjs` sobe o site na porta de `PORT` no `.env` (agora 3333); se estiver ocupada, usa a próxima livre e avisa. Sem `PORT`: 3000, ou 3333 se a 3000 estiver ocupada. `pnpm dev`, `dev:web` e `start` usam o lançador (o Next não lê PORT do .env);
+  - **Títulos do Telegram:** a linha do produto não some mais por causa de "✔️" no começo, negrito `**`, "5700x" ou "2x Mouse" (eram lidos como ficha técnica ou parcela). Rótulos ("Telegram de Ofertas:", "BOT DE ALERTAS:"), chamadas para clicar, sorteio e conversa não viram título; nome de tipo de produto conhecido (categoria) ganha pontos. Sem produto e sem cupom, a mensagem não é oferta; só cupom vira post de cupom. Na reclassificação, mensagem antiga que não é oferta vira `kind = "ruido"` e sai da Vitrine. Em 400 mensagens reais: 79 títulos melhores, 24 lixos fora;
+  - **Cupom pelo texto:** "Use: ZAFADINHO15 · COM 15% OFF" vira cupom mesmo sem a palavra no título (`isCouponMessage`);
+  - **Encurtadores novos:** meli.la, a.aliexpress.com, promoby.me (canal do Promobit: 30 mensagens, 0 aproveitadas), ofertou.ai, adrena.click, linkmc.click, curt.link, i.promotop.net, aoferta.net, boletando.com, nerdofertas.com;
+  - **Fila de conferência:** loja cujo robots.txt bloqueou 90% ou mais das páginas de produto nas últimas 2 h (Shopee: 194 de 204) não abre mais o link curto à toa; 1 em 20 ainda tenta. A fila chegava a 14 min.
+- **Testado:** 85 testes, `tsc` e `eslint` passam. A porta 3000 está ocupada por outro app e a 3333 livre (detecção conferida). O site não foi reaberto pelo lançador nesta sessão.
+- **Próximo passo:** parar e subir de novo com `pnpm dev` e abrir http://localhost:3333.
+
+
 ### 11/11/2026, 11:30 · Qualquer produto, categorias, Cupons, filtros inteligentes, IA sem teto e pausa mais segura
 
 - **Feito:**

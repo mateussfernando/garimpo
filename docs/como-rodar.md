@@ -62,7 +62,7 @@ pnpm dev:web
 pnpm worker:run
 ```
 
-Abra http://localhost:3000. De outro aparelho da rede de casa, abra `http://<IP deste PC>:3000` (libere a porta 3000 no firewall do Windows, só para a rede local).
+Abra http://localhost:3333 (ou a porta de `PORT` no `.env`; se ela estiver ocupada, o terminal mostra qual porta foi usada). De outro aparelho da rede de casa, abra `http://<IP deste PC>:3333` (libere a porta 3333 no firewall do Windows, só para a rede local).
 
 Por que dois terminais e não o `pnpm dev`: o `pnpm dev` reinicia o worker a cada arquivo salvo, e cada reinício reconecta no Telegram. O `pnpm worker:run` só reinicia quando você manda.
 

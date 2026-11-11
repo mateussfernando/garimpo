@@ -25,12 +25,28 @@ describe("mensagens reais de canal", () => {
     expect(titleOf(`TEU OLHO NÃO ACOMPANHA, MAS O MONITOR SIM 🖥️\nMonitor TCL 25" Gamer FHD QD Mini LED 300Hz\n${LINK}`)).toBe('Monitor TCL 25" Gamer FHD QD Mini LED 300Hz');
   });
 
-  it("chamada de efeito sozinha entra com a própria chamada, mas não conta como Alvo", () => {
-    const t = titleOf(`CABE O MONITOR, O TECLADO E A BAGUNÇA 🪑\n💰 R$ 317\n${LINK}`);
-    expect(t).toContain("CABE O MONITOR");
-    expect(matchAlvo(t, alvos)).toBeNull();
+  it("chamada de efeito sozinha, sem produto, não é oferta; a linha do produto vence a chamada", () => {
+    expect(titleOf(`CABE O MONITOR, O TECLADO E A BAGUNÇA 🪑\n💰 R$ 317\n${LINK}`)).toBe("sem-produto");
     expect(matchAlvo(titleOf(`TROCA ESSE TECLADO DE ESCRITÓRIO AÍ 🖱️\n${LINK}`), alvos)).toBeNull();
     expect(titleOf(`Monitor Oled da Samsung\n${LINK}`)).toBe("Monitor Oled da Samsung");
+    expect(titleOf(`SUA COLUNA PEDIU ESSA AQUI 🪑\n\nCadeira de Escritório Diretor Giratória Otello\n\n💵 De R$ 349 por R$ 94,91 (-73%) no Pix\n\n👉 ${LINK}`)).toBe(
+      "Cadeira de Escritório Diretor Giratória Otello",
+    );
+  });
+
+  it("emoji, negrito e propaganda do canal não escondem o produto", () => {
+    expect(titleOf(`✔️ Placa-Mãe Msi X870e Gaming Plus Wifi, Amd, Am5, Atx, Ddr5\n\n💰 Por: R$ 1.642\n\n✅ LINK: ${LINK}\n\nTelegram de Ofertas:\nhttps://t.me/ofertasbenevides`)).toBe(
+      "Placa-Mãe Msi X870e Gaming Plus Wifi, Amd, Am5, Atx, Ddr5",
+    );
+    expect(titleOf(`5700x Processador Ryzen 7 5700x 3.4ghz (4.6ghz Max) - Novo S/Box\n\n💵 R$ 790 no PIX\n\n✅ Link do produto:\n${LINK}\n\n🔔 BOT DE ALERTAS: https://t.me/alertadaspromobot`)).toContain("Processador Ryzen 7");
+    expect(titleOf(`R$ 100 OFF!!\n\n** SSD Kingston 1TB Nv3 M.2 Nvme PCIe 4 **\n\nDe: R$ 993,00\n🔥 Por: R$ 893,00\n\n🎟 CUPOM: SSD100\n\nCONFIRA AQUI\n${LINK}`)).toBe("SSD Kingston 1TB Nv3 M.2 Nvme PCIe 4");
+    expect(titleOf(`🔥 2x Mouse SMAILWOLF RS7 Bluetooth PAW3311 20000dpi\n\nAdicione 2 unidades\n\n💵 R$ 66,00 com cupom: TJGAMING1\n✅ Link APP: ${LINK}`)).toContain("Mouse SMAILWOLF");
+    expect(titleOf(`➡️ Gabinete Gamer Pichau Osiris PRO, Mid-Tower, Lateral de Vidro\n\n✅ R$ 250\n\n🛒 ${LINK}\n\n🎁 Sorteio Play 5 Slim Disco 1TB com 2 Jogos: https://ofertou.ai/s/x`)).toContain("Gabinete Gamer");
+  });
+
+  it("conversa não é oferta; post só de cupom continua entrando (vai para Cupons)", () => {
+    expect(titleOf(`E a live da asus? kkkkkkkkkkkkkkkkkkkk ${LINK}`)).toBe("sem-produto");
+    expect(titleOf(`Usem o Cupom: C0M3C0U35\n\nR$ 35 OFF em R$ 170\n${LINK}`)).not.toBe("sem-produto");
   });
 
   it("SSD de verdade continua entrando", () => {

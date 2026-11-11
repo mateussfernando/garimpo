@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { cleanUrl, decodeTrackingUrl, isShortener, storeForUrl } from "@/config/stores";
+import { STORES, cleanUrl, decodeTrackingUrl, isShortener, storeForUrl } from "@/config/stores";
 import { db, schema } from "@/lib/db";
 import type { OfferExtra } from "@/lib/db/schema";
 import { ldProduct, meta, stripTags } from "../http/html";
@@ -88,6 +88,25 @@ async function markNotVerified(o: Offer, note: string) {
 
 const inFlight = new Map<number, string>();
 
+/**
+ * O que o robots.txt de cada loja deixou abrir nas últimas 2 h. Se bloqueou 90% ou mais (com 5 ou mais tentativas),
+ * as próximas ofertas da loja ficam "não verificadas" sem abrir nada; 1 em 20 ainda tenta, para notar se mudou.
+ */
+const robotsLog = new Map<string, { at: number; ok: boolean }[]>();
+let robotsProbe = 0;
+function noteRobots(slug: string, ok: boolean) {
+  const now = Date.now();
+  const list = (robotsLog.get(slug) ?? []).filter((x) => now - x.at < 2 * 60 * 60 * 1000);
+  list.push({ at: now, ok });
+  robotsLog.set(slug, list.slice(-200));
+}
+function robotsSkip(slug: string): boolean {
+  const list = robotsLog.get(slug) ?? [];
+  const blocked = list.filter((x) => !x.ok).length;
+  if (blocked < 5 || blocked / list.length < 0.9) return false;
+  return ++robotsProbe % 20 !== 0;
+}
+
 /** Abre a página da loja uma vez e confere preço no cartão e no Pix, parcelas, frete, estoque e foto. */
 export async function verifyOffer(o: Offer): Promise<void> {
   if (inFlight.has(o.id)) return;
@@ -113,6 +132,9 @@ async function verifyInner(o: Offer) {
   // Link direto de loja conhecida: abre o endereço limpo. Os parâmetros de afiliado não mudam o produto,
   // e o robots.txt de várias lojas (Pichau, por exemplo) só permite o endereço sem parâmetros.
   const start = storeForUrl(decoded) && !isShortener(decoded) ? cleanUrl(decoded) : decoded;
+  // Loja cujo robots.txt bloqueia quase toda página de produto: não gasta a fila abrindo o link curto à toa.
+  const guess = storeForUrl(decoded) ?? (o.store ? STORES.find((s) => s.slug === o.store) ?? null : null);
+  if (guess && robotsSkip(guess.slug)) return markNotVerified(o, "o robots.txt da loja não permite (pulado sem abrir)");
   try {
     const finalUrl = cleanUrl(await unshorten(start));
     const store = storeForUrl(finalUrl);
@@ -198,9 +220,14 @@ async function verifyInner(o: Offer) {
     }
     if (o.alvoId && v.available === false && o.available !== false) await logEvent("esgotou", o.id, o.title, { store: store.slug });
     await afterPriceChange(o.id);
+    noteRobots(store.slug, true);
   } catch (err) {
     if (err instanceof PausedError) return markNotVerified(o, err.message);
-    if (err instanceof RobotsError) return markNotVerified(o, "o robots.txt da loja não permite");
+    if (err instanceof RobotsError) {
+      const blocked = storeForUrl(err.url);
+      if (blocked && !isShortener(err.url)) noteRobots(blocked.slug, false);
+      return markNotVerified(o, "o robots.txt da loja não permite");
+    }
     return markNotVerified(o, `falhou: ${(err as Error).message.slice(0, 120)}`);
   }
 }

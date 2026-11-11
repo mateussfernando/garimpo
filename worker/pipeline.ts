@@ -7,7 +7,7 @@ import { VITRINES } from "./collect/vitrines-config";
 import { offerFromMessage } from "./ingest/message";
 import { matchAlvo, median, targetsFrom, type AlvoLite } from "./match/alvos";
 import { categorize } from "./match/category";
-import { couponFromPost, couponKey, couponsFromPost, isCouponPost, type CouponInfo } from "./parse/coupons";
+import { couponFromPost, couponKey, couponsFromPost, isCouponMessage, type CouponInfo } from "./parse/coupons";
 import { bandOf, extractSpecs, type Band } from "./match/specs";
 import { parseOfferText } from "./parse/parser";
 import { notaRapida } from "./score/nota";
@@ -95,7 +95,7 @@ async function createOffer(rawId: number, input0: RawInput): Promise<number> {
   const buyUrl = input.outboundUrl ? cleanUrl(input.outboundUrl) : input.url;
   const category = categorize(input.title);
   // Post que é só cupom não vai para a Vitrine nem para a verificação: vira linha na tela Cupons.
-  const isCoupon = !alvo && isCouponPost(input.title, { hasProduct: category != null });
+  const isCoupon = !alvo && isCouponMessage(input.title, input.text, { hasProduct: category != null });
   const [row] = await db
     .insert(offers)
     .values({
@@ -277,7 +277,7 @@ export async function rematchOffers(): Promise<{ total: number; changed: number;
     if (alvoId !== r.alvoId || bandKey !== r.bandKey) changed++;
     // Categoria e cupom com as regras atuais. A categoria dada pela IA só é trocada se uma regra servir agora.
     const category = title ? categorize(title) : null;
-    const isCoupon = !c.alvo && !!title && isCouponPost(title, { hasProduct: category != null });
+    const isCoupon = !c.alvo && !!title && isCouponMessage(title, r.text, { hasProduct: category != null });
     const cat = isCoupon
       ? { category: null, categorySource: null }
       : category
@@ -287,7 +287,8 @@ export async function rematchOffers(): Promise<{ total: number; changed: number;
           : { category: null, categorySource: null };
     await db
       .update(offers)
-      .set({ alvoId, specs: c.specs, bandKey, kind: isCoupon ? "cupom" : "produto", ...cat })
+      // Mensagem que, pelas regras de hoje, não é oferta (conversa, sorteio, propaganda do canal) sai da Vitrine.
+      .set({ alvoId, specs: c.specs, bandKey, kind: isCoupon ? "cupom" : title ? "produto" : "ruido", ...cat })
       .where(eq(offers.id, r.id));
     if (title) {
       await saveCoupons({

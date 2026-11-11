@@ -16,4 +16,4 @@ Nota rápida de hoje: N = 100 x (0,45 A + 0,25 C + 0,20 F + 0,10 S), em que:
 O desconto real e o selo Black Fraude ficam para depois do 11.11, porque precisam de histórico.
 Atalhos: J/K para navegar, Enter para comprar, W para vigiar e X para descartar.
 Se sobrar tempo: as mensagens que o parser não entendeu vão em lote para o claude-cli, com claude-haiku-5-5.
-Pronto quando: uma oferta nova entra na Vitrine sem recarregar, com foto, nota e Comprar, e o outro PC vê a mesma Vitrine pela rede.
+Pronto quando: uma oferta nova entra na Vitrine sem recarregar, com foto, nota e Comprar.

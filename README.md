@@ -9,7 +9,7 @@ App pessoal que acha ofertas do 11.11 para os seus Alvos (braço articulado, mou
 3. Copie `.env.example` para `.env` e preencha a `DATABASE_URL`.
 4. `pnpm db:push` cria as tabelas.
 5. `pnpm dev` sobe o site e o worker juntos. Abra http://localhost:3000.
-   - No outro PC, abra `http://<IP deste PC>:3000`. Libere a porta 3000 no firewall do Windows, só para a rede local.
+   - Para ver a Vitrine de outro aparelho da rede, abra `http://<IP deste PC>:3000` (libere a porta 3000 no firewall do Windows, só para a rede local).
 
 ## Comandos
 

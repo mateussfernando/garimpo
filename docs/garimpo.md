@@ -10,7 +10,7 @@ Nov 9, 2026 · @mateus fernando
 - **Base sólida sem IA:** regex, dados estruturados das lojas e regras resolvem a maior parte do trabalho. A IA entra só onde rende: transformar seus desejos em regras, desempatar mensagens ambíguas e dar o veredito nas finalistas.
 - **Você decide, ele prepara:** nada de compra automática. O app entrega o "kit de compra" pronto: link certo, cupom copiado e o preço no cartão parcelado, com frete grátis em destaque.
 - **Prazo real: Nov 10, 2026 às 23h, não quarta.** A campanha já está no ar (AliExpress de 1 a 18/11, cupons da Shopee de 28/10 a 12/11) e o dia 11 é o pico, então o app precisa estar escutando antes da meia-noite. Isso dá cerca de 33 horas de relógio a partir de agora.
-- **Bônus:** a Black Friday de 2026 cai em Nov 27, 2026. Do 11.11 até lá, seus dois PCs fazem uma coleta por dia, e essas duas semanas de histórico são exatamente o que desmascara a "Black Fraude".
+- **Bônus:** a Black Friday de 2026 cai em Nov 27, 2026. Do 11.11 até lá, o seu PC faz uma coleta por dia, e essas duas semanas de histórico são exatamente o que desmascara a "Black Fraude".
 
 ## Princípios e o que NÃO fazer
 
@@ -25,7 +25,7 @@ Cinco decisões guiam tudo. Se uma feature não serve a elas, fica para a Black 
 **Fora do escopo nestas 33 horas:**
 
 - Compra automática, quebra de captcha, envio de mensagens no WhatsApp e notificações no celular.
-- Docker, Redis, microsserviços, login e deploy. É localhost: um repositório, um PostgreSQL e os seus dois PCs na mesma rede.
+- Docker, Redis, microsserviços, login e deploy. É localhost: um repositório, um PostgreSQL e o seu PC.
 - Vinte scrapers. Quatro ou cinco adaptadores de loja bem feitos mais um extrator genérico batem isso.
 - Chamar a IA para cada mensagem crua.
 - 3D e efeitos que não ajudam a decidir. A beleza vem de densidade, tipografia e movimento com significado.
@@ -64,7 +64,7 @@ Os seis do canto de cima à esquerda já dão um app que escuta, filtra e avisa;
 
 **Para a Black Friday** (impacto menor agora, esforço alto)
 
-- **Coleta diária** — do 11.11 à Black Friday, os dois PCs passam uma vez por dia pelas lojas e pelos sites de promoção, em camadas e sem forçar nada, e cada passagem vira histórico.
+- **Coleta diária** — do 11.11 à Black Friday, o PC passa uma vez por dia pelas lojas e pelos sites de promoção, em camadas e sem forçar nada, e cada passagem vira histórico.
 - **Meu Setup** — você cadastra o que já tem (monitor, peso, padrão VESA, slots M.2) e o app marca o que é compatível, além de calcular custo por desempenho (R$ por TB, R$ por Hz).
 - **Mapa do mercado** — onde está o desconto real hoje, por categoria e por loja, incluindo quais lojas mais maquiaram preço.
 - **Vigia pós-compra** — continua olhando o preço depois da compra e mostra na Vitrine se ele cair dentro dos 7 dias do direito de arrependimento, contados do recebimento ([art. 49 do CDC](https://www.tjdft.jus.br/institucional/imprensa/campanhas-e-produtos/direito-facil/edicao-semanal/direito-ao-arrependimento-de-compra)).
@@ -112,7 +112,7 @@ As fotos vêm da própria página do produto (a imagem do JSON-LD ou a og:image)
 
 **Kit de compra.** Ao apertar Enter, o app copia o cupom, abre o link canônico da loja e mostra o checklist final: o cartão e o número de parcelas sem juros, o lembrete de cashback se você usa e quanto falta para o frete grátis.
 
-**Alertas só na tela.** Nada vai para o celular nem para o WhatsApp. Alvo atingido sobe para a faixa do topo com destaque em ouro e som, e nota acima de 85 ganha um aviso discreto no canto. Com a Vitrine aberta nos dois PCs, os dois mostram o alerta ao mesmo tempo.
+**Alertas só na tela.** Nada vai para o celular nem para o WhatsApp. Alvo atingido sobe para a faixa do topo com destaque em ouro e som, e nota acima de 85 ganha um aviso discreto no canto. Com a Vitrine aberta em mais de uma aba, todas mostram o alerta ao mesmo tempo.
 
 **Regras de UX que não se negociam**
 
@@ -127,7 +127,7 @@ Cinco camadas, da mais rápida à mais profunda: escuta, comunidades, vitrines d
 
 | Camada | O que entra | Como entra no app | Frequência |
 | --- | --- | --- | --- |
-| 1. Escuta | Seus grupos e canais de WhatsApp, listas de transmissão e seu grupo de Telegram | [whatsapp-web.js](https://github.com/wwebjs/whatsapp-web.js) só leitura e [GramJS](https://github.com/gram-js/gramjs), só no PC de 16 GB | Tempo real |
+| 1. Escuta | Seus grupos e canais de WhatsApp, listas de transmissão e seu grupo de Telegram | [whatsapp-web.js](https://github.com/wwebjs/whatsapp-web.js) só leitura e [GramJS](https://github.com/gram-js/gramjs), no seu PC | Tempo real |
 | 2. Comunidades | Pelando, Promobit, Achados do TB e o fórum de Promoções do Hardmob | Página de ofertas recentes, ou RSS quando houver, e os canais deles na Escuta | A cada 30 min |
 | 3. Vitrines das lojas | Páginas de ofertas do dia e de Black Friday das lojas da lista | Extrator genérico e um adaptador por loja | 2 vezes por dia |
 | 4. Seus Alvos | Busca dirigida de cada Alvo nas lojas principais | Busca da loja, ou a API no Mercado Livre, e a página do produto | 1 vez por dia |
@@ -150,7 +150,7 @@ Se a loja bloquear, a oferta fica como "não verificada" e o app segue. Nunca te
 **Coleta educada, para o seu IP não ser bloqueado**
 
 1. Antes de visitar um domínio, o worker lê o robots.txt dele e pula o que for proibido.
-2. Os dois PCs saem pela mesma internet, então o limite vale por IP, não por PC: uma fila por domínio no pg-boss, uma requisição por vez e intervalo de 5 a 10 s.
+2. O PC sai por um IP só, então o limite vale por IP: uma fila por domínio no pg-boss, uma requisição por vez e intervalo de 5 a 10 s.
 3. Cache: a mesma página não é baixada de novo antes de 10 min na verificação, nem antes de 12 h na coleta diária.
 4. Pedidos condicionais (ETag e If-Modified-Since) e RSS sempre que existirem.
 5. Recebeu 429 ou 403, o domínio pausa por 1 hora, e a pausa dobra a cada repetição.
@@ -196,21 +196,21 @@ Estas entram no app como lista inicial das abas Lojas e Fontes, e o app sugere a
 
 ## Arquitetura técnica
 
-Um repositório, um PostgreSQL e dois PCs: o Next.js serve a interface e a API, e os workers em TypeScript escutam, coletam, verificam e pontuam. Tudo passa pelo banco.
+Um repositório, um PostgreSQL e um PC: o Next.js serve a interface e a API, e o worker em TypeScript escuta, coleta, verifica e pontua. Tudo passa pelo banco.
+
+> Decidido em 10/11: o segundo PC (8 GB) como ajudante saiu do plano. Um PC faz tudo.
 
 > Figura no doc original (arquitetura · 2 PCs e 1 banco): https://claude.ai/artifact/JLuTQZVzfJRim4uEgv5V8N
 
-A Escuta e o banco moram no PC de 16 GB; o de 8 GB se conecta pela rede local, divide a fila de verificação e coleta e também abre a Vitrine.
+O banco, a Escuta, a coleta, a verificação e a IA moram no mesmo PC, e a Vitrine abre nele (e, se você quiser olhar de outro aparelho da rede, em `http://<IP do PC>:3000`).
 
 **Por que o worker fica fora do Next.** O cliente de WhatsApp precisa ser um processo único e de vida longa. No `next dev`, o hot reload recarrega módulos e pode abrir duas sessões, e route handlers vivem por requisição. Então o worker roda com `tsx watch`, e o `pnpm dev` sobe os dois com `concurrently`.
 
-**Dois PCs, um banco**
+**Um PC, um banco**
 
-- **PC de 16 GB, o servidor:** PostgreSQL, a Escuta de WhatsApp e Telegram, o Playwright com os prints e a coleta diária. Fica ligado.
-- **PC de 8 GB, o ajudante:** um worker leve (verificação por HTTP, sites de promoção e IA em lote) e a Vitrine.
-- **Sem trabalho em dobro:** os dois puxam tarefas da mesma fila no Postgres, com o [pg-boss](https://github.com/timgit/pg-boss), e cada worker liga só os papéis do seu `.env` (`WORKER_ROLES`).
-- **A Escuta roda num PC só:** duas sessões leriam as mesmas mensagens duas vezes.
-- **Banco na rede local:** no PC de 16 GB, ajuste `listen_addresses` no postgresql.conf, libere só a sua rede no pg\_hba.conf e abra a porta 5432 só para ela no firewall. Os dois `.env` usam a mesma `DATABASE_URL`, e o DBeaver conecta do mesmo jeito.
+- **O PC faz tudo:** PostgreSQL, Escuta do Telegram, coleta, verificação por HTTP, IA em lote e a Vitrine. Fica ligado e sem dormir.
+- **Papéis:** `WORKER_ROLES` liga `listen`, `collect`, `verify` e `ai` no mesmo worker.
+- **A Escuta roda num processo só:** duas sessões leriam as mesmas mensagens duas vezes.
 
 **Pipeline do worker**
 
@@ -218,13 +218,13 @@ A Escuta e o banco moram no PC de 16 GB; o de 8 GB se conecta pela rede local, d
 2. **Pré-filtro** — descarta o que não tem link nem preço e o que não toca nenhum termo dos seus Alvos (busca por dicionário, sem IA).
 3. **Parser BR** — total no cartão, parcelas e se têm juros, preço à vista, frete, cupom, loja e flags. O que falhar vai para a fila de IA.
 4. **Resolução** — desencurta o link (no máximo 5 saltos, com cache), limpa parâmetros de rastreio, extrai o ID do produto e liga a oferta a um `product`.
-5. **Verificação** — fila por domínio compartilhada pelos dois PCs, com uma requisição a cada 5 a 10 s e cache de 10 min. Grava `price_points`, a foto e o print.
+5. **Verificação** — fila por domínio, com uma requisição a cada 5 a 10 s e cache de 10 min. Grava `price_points`, a foto e o print.
 6. **Pontuação** — Alvos, histórico, frete, cupons e calor social viram a Nota.
-7. **Alerta** — grava um evento e dispara `pg_notify`, e a Vitrine dos dois PCs atualiza na hora.
+7. **Alerta** — grava um evento e dispara `pg_notify`, e a Vitrine atualiza na hora.
 
 Fora do tempo real, a **coleta diária** (um agendamento do pg-boss) passa pelas vitrines das lojas e pelos seus Alvos e grava `price_points`. Se o PC estava desligado no horário, ela roda assim que ele liga.
 
-**Tempo real.** O worker grava o evento e chama `pg_notify`. A rota `app/api/stream/route.ts` (runtime Node) fica em `LISTEN` e empurra os eventos por Server-Sent Events. Funciona igual nos dois PCs, sem Redis nem broker.
+**Tempo real.** O worker grava o evento e chama `pg_notify`. A rota `app/api/stream/route.ts` (runtime Node) fica em `LISTEN` e empurra os eventos por Server-Sent Events. Sem Redis nem broker.
 
 **Stack**
 
@@ -409,7 +409,7 @@ Os três blocos cabem até terça às 23h, com o congelamento às 22h e o 11.11 
 - [ ] `price_points`, Nota v1 e os selos de Black Fraude.
 - [ ] Carteira de cupons e calor social.
 - [ ] Camada de IA: compilar Alvos, triagem em lote, medidor e trava de gasto.
-- [ ] Telegram com GramJS no seu grupo, e o PC de 8 GB entrando na mesma fila do Postgres.
+- [x] Telegram com GramJS (feito em 10/11).
 
 **Bloco 3 — terça, 18h às 23h: polir e ensaiar**
 
@@ -420,14 +420,14 @@ Os três blocos cabem até terça às 23h, com o congelamento às 22h e o 11.11 
 
 **Operação — quarta, 11/11**
 
-- [ ] 23h30 de terça: abrir o War Room e conferir fontes, saldo de IA e alertas nos dois PCs.
+- [ ] 23h30 de terça: abrir o War Room e conferir fontes, saldo de IA e alertas.
 - [ ] Usar o Analista só nas finalistas e registrar cada compra.
 
 **Linha de corte.** Escuta, Parser, Alvos e a Vitrine já resolvem o 11.11. Se às 18h de terça só isso estiver pronto, pare de construir e vá para o ensaio.
 
 **Plano B sem código.** Hoje mesmo, cadastre seus Alvos como Alertas de Desejos no Pelando, que avisam no site e por e-mail. É a rede de segurança se algo quebrar.
 
-**Depois do 11.11.** De 12 a 26/11, os dois PCs fazem a coleta diária das lojas e dos seus Alvos, e entram Meu Setup, Mapa do mercado e Vigia pós-compra para a Black Friday.
+**Depois do 11.11.** De 12 a 26/11, o PC faz a coleta diária das lojas e dos seus Alvos, e entram Meu Setup, Mapa do mercado e Vigia pós-compra para a Black Friday.
 
 ## Riscos e mitigação
 
@@ -438,9 +438,9 @@ O maior risco não é técnico: é perder a conta do WhatsApp ou instalar um pac
 | **Restrição ou ban da conta de WhatsApp.** Toda biblioteca não oficial viola os Termos, e o ban é guiado por comportamento: mensagens em massa, picos de atividade, denúncias ([CheckLeaked](https://whatsapp.checkleaked.cc/pt/blog/best-open-source-whatsapp-libraries)) | Só leitura, nunca enviar. Entre em poucos grupos por dia. Se puder, use um segundo número nos mesmos grupos |
 | **Pacote npm malicioso.** O `lotusbail`, fork do Baileys com mais de 56 mil downloads, funcionava de verdade e roubava sessão, mensagens e contatos; o aparelho do atacante seguia conectado mesmo depois da desinstalação ([The Register](https://www.theregister.com/2025/12/22/whatsapp_npm_package_message_steal/)) | Instale só o `whatsapp-web.js` ou o `baileys` oficiais, com versão fixa e lockfile, nunca forks "turbinados". Revise os aparelhos conectados no WhatsApp |
 | **Links falsos e golpes nos grupos.** Golpistas se passam por lojas e mandam links e cupons falsos ([Asaas](https://blog.asaas.com/golpes-na-black-friday/)) | Lista de domínios permitidos. Domínio desconhecido vira "suspeito", fica fora da Vitrine principal e não é aberto pelo verificador |
-| **IP bloqueado pelas lojas.** Os dois PCs saem pelo mesmo IP | robots.txt, uma fila por domínio no pg-boss, 5 a 10 s entre pedidos, cache e pausa de 1 hora em 429 ou 403. Bloqueou, a oferta vira "não verificada" |
+| **IP bloqueado pelas lojas.** O PC sai por um IP só | robots.txt, uma fila por domínio no pg-boss, 5 a 10 s entre pedidos, cache e pausa de 1 hora em 429 ou 403. Bloqueou, a oferta vira "não verificada" |
 | **Parser erra o preço.** "10x de R$ 129,90" precisa virar R$ 1.299,00 no cartão, "1.299,90" não pode virar 1,29 e "com juros" não pode passar por "sem juros" | Fixtures reais com testes, centavos como inteiro e o selo "com juros" sempre que houver dúvida |
-| **Duas Escutas ao mesmo tempo** | A Escuta liga só no PC de 16 GB, por `WORKER_ROLES` |
+| **Duas Escutas ao mesmo tempo** | A Escuta liga só com `listen` em `WORKER_ROLES` |
 | **Postgres exposto na rede** | Libere a porta 5432 só para a rede local, no pg\_hba.conf e no firewall, com senha forte |
 | **Estouro de tokens** | Medidor, trava em US$ 4,50, lotes e cache |
 | **Atraso na construção** | Linha de corte às 18h de terça e congelamento às 22h |
@@ -452,15 +452,15 @@ No Claude Code com Opus 5.5, cole o bloco abaixo na raiz do projeto como `CLAUDE
 ```markdown
 # Garimpo
 
-App pessoal que roda em localhost nos dois PCs do usuário. Acha as melhores ofertas do 11.11 e da Black Friday para os Alvos dele, que compra no cartão parcelado.
+App pessoal que roda em localhost num PC só do usuário. Acha as melhores ofertas do 11.11 e da Black Friday para os Alvos dele, que compra no cartão parcelado.
 
 ## Arquitetura
 - Next.js 16.4 (App Router) + TypeScript estrito + Tailwind v4 + shadcn/ui + Motion.
 - PostgreSQL + Drizzle (driver pg) em src/lib/db, compartilhado com o worker. DATABASE_URL no .env.
 - worker/ é um processo Node separado (tsx watch), um por PC. WORKER_ROLES liga os papéis: listen, collect, verify, ai.
-- Filas e agendamentos com pg-boss no próprio Postgres. Uma fila por domínio, global para os dois PCs.
+- Filas e agendamentos com pg-boss no próprio Postgres. Uma fila por domínio.
 - Tempo real: o worker chama pg_notify; app/api/stream/route.ts (runtime nodejs) faz LISTEN e SSE.
-- WhatsApp: whatsapp-web.js oficial, SOMENTE LEITURA, papel listen só no PC de 16 GB. Proibido enviar mensagens ou entrar em grupos.
+- WhatsApp: whatsapp-web.js oficial, SOMENTE LEITURA, papel listen. Proibido enviar mensagens ou entrar em grupos.
 - Telegram: pacote telegram (GramJS), somente leitura.
 - Sem notificação no celular ou no WhatsApp: alertas só na Vitrine. Fontes e Alvos são descobertos sozinhos: o usuário só confirma, nunca digita config.
 - IA: worker/ai/providers, uma interface AiProvider e três provedores escolhidos por AI_PROVIDER: claude-cli (teste: claude -p oficial com a assinatura do usuário via CLAUDE_CODE_OAUTH_TOKEN, sem ANTHROPIC_API_KEY no ambiente do filho, sem --bare, pasta vazia e CLAUDE_CONFIG_DIR próprio), anthropic-api (@anthropic-ai/sdk) e ollama. Modelo único: claude-haiku-5-5 (o mais simples) em toda chamada e em todo provedor, inclusive compilar Alvos e o analista; nada de Sonnet ou Opus.
@@ -514,8 +514,8 @@ Pronto quando: ofertas novas entram na Vitrine sem recarregar, com foto e botão
 **5. Identidade, verificação e alertas**
 
 ```text
-Implemente: desencurtador (segue redirects, no máximo 5 saltos, com cache), IDs canônicos (ASIN, MLB, Kabum, Pichau, Terabyte), agrupamento de reposts, verificador genérico (JSON-LD e metatags de preço) com robots.txt e uma fila pg-boss por domínio compartilhada pelos dois PCs, price_points com foto e print, e o alerta na Vitrine (pg_notify) quando a oferta bate com um Alvo. Nada de notificação no celular.
-Pronto quando: um link amzn.to vira um ASIN e um Alvo atingido sobe para a faixa do topo nos dois PCs.
+Implemente: desencurtador (segue redirects, no máximo 5 saltos, com cache), IDs canônicos (ASIN, MLB, Kabum, Pichau, Terabyte), agrupamento de reposts, verificador genérico (JSON-LD e metatags de preço) com robots.txt e uma fila pg-boss por domínio, price_points com foto e print, e o alerta na Vitrine (pg_notify) quando a oferta bate com um Alvo. Nada de notificação no celular.
+Pronto quando: um link amzn.to vira um ASIN e um Alvo atingido sobe para a faixa do topo.
 ```
 
 **6. IA com trava**

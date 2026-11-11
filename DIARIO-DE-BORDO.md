@@ -16,15 +16,15 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 - **Quando:** 10/11/2026, 21:45.
 - **Fase:** plano acelerado. O código das Etapas 1 a 4 está pronto e testado com exemplos; ainda não rodou contra os sites de verdade.
-- **Próximo passo:** Etapa 5, ensaio com tráfego real. O app já roda (`pnpm dev` no PC de 16 GB), com Telegram, Pelando, Promobit e Gatry; o Hardmob está pausado por 403.
+- **Próximo passo:** Etapa 5, ensaio com tráfego real. O app já roda (`pnpm dev` no seu PC), com Telegram, Pelando, Promobit e Gatry; o Hardmob está pausado por 403.
 - **Prazo:** o 11.11 começa à meia-noite de hoje. A linha de corte é às 21:30 e o congelamento às 23:00.
 
 ## Decisões tomadas
 
 | Decisão | Detalhe |
 | --- | --- |
-| App pessoal em localhost | Só o usuário usa. Roda nos dois PCs, com um banco só. |
-| Dois PCs | 16 GB é o servidor: Postgres, Escuta, Playwright e coleta diária. 8 GB é o ajudante: verificação, IA e Vitrine. |
+| App pessoal em localhost | Só o usuário usa. Roda num PC só, com um banco só. |
+| Um PC só (10/11, 22:00) | O segundo PC (8 GB) como ajudante saiu do plano. Um PC faz tudo: Postgres, Escuta, coleta, verificação, IA e Vitrine. Substitui a decisão antiga "Dois PCs". |
 | Stack | Next.js 16.4 (App Router), TypeScript estrito, Tailwind v4, shadcn/ui, PostgreSQL com Drizzle, pg-boss, worker separado com tsx e tempo real por `pg_notify` e SSE. |
 | Preço | Total no cartão no maior número de parcelas sem juros, em centavos. Frete grátis em destaque. |
 | Alertas | Só na Vitrine. Nada de notificação no celular ou no WhatsApp. |
@@ -37,7 +37,7 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 | Coleta diária | Adiada para depois do 11.11: às 06:00, de 12/11 até a Black Friday (27/11). |
 | IA: provedor | Interface `AiProvider` com `claude-cli` (teste pela assinatura), `anthropic-api` e `ollama`, escolhidos por `AI_PROVIDER`. |
 | IA: modelo | `claude-haiku-5-5` em toda chamada e em todo provedor. Nada de Sonnet ou Opus no app. |
-| IA: `claude-cli` | Token de `claude setup-token` no PC com o papel `ai` (hoje o de 16 GB; depois do 11.11, o de 8 GB), sem `ANTHROPIC_API_KEY` no ambiente do filho, sem `--bare`, rodando numa pasta vazia com `CLAUDE_CONFIG_DIR` próprio. |
+| IA: `claude-cli` | Token de `claude setup-token` no `.env` (CLAUDE_CODE_OAUTH_TOKEN), sem `ANTHROPIC_API_KEY` no ambiente do filho, sem `--bare`, rodando numa pasta vazia com `CLAUDE_CONFIG_DIR` próprio. |
 | IA: insights | Job agendado com as métricas calculadas no código. Chama a IA só se o hash mudar e grava na tabela `insights`. O site só lê do banco. |
 | Nota Garimpo | N = 100 × (0,35 D + 0,25 A + 0,15 C + 0,10 F + 0,10 S + 0,05 U). Detalhes em `docs/garimpo.md`. |
 | Design | 5 telas em `design/`, tema escuro, ouro só para "Alvo atingido". |

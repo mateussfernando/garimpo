@@ -2,12 +2,12 @@
 
 # Garimpo
 
-App pessoal que roda em localhost nos dois PCs do usuário. Acha as melhores ofertas do 11.11 e da Black Friday para os Alvos dele, que compra no cartão parcelado.
+App pessoal que roda em localhost num PC só do usuário (decisão de 10/11: o segundo PC saiu do plano). Acha as melhores ofertas do 11.11 e da Black Friday para os Alvos dele, que compra no cartão parcelado.
 
 ## Plano acelerado (decidido em 10/11 às 18:20, vale até o fim do 11.11)
 - Nada de coleta rodando sozinha: sem coleta diária, sem agendamento e sem pg-boss hoje. Só a verificação ao vivo de cada oferta que chega, numa fila em memória por domínio, com as mesmas regras de coleta educada.
 - O WhatsApp fica fora hoje. O Telegram ENTRA no 11.11 (decidido em 10/11 às 21:10): Escuta só leitura com GramJS na conta do usuário, papel `listen`. As outras ofertas vêm do scraping ao vivo de Pelando, Promobit, fórum do Hardmob e vitrines de ofertas das lojas, só com o app aberto.
-- Tudo roda num PC só. O outro só abre a Vitrine pela rede (next dev -H 0.0.0.0).
+- Tudo roda num PC só. Não existe segundo PC como ajudante (decidido em 10/11). A Vitrine ainda abre pela rede local (next dev -H 0.0.0.0), só para olhar.
 - Tabelas de hoje: sources, raw_messages, offers, products, price_points, alvos, ai_usage e insights.
 - Hoje não entram Playwright, War Room, job de insights, Black Fraude nem desconto real. Use a Nota rápida do prompts/hoje/04.
 - Siga ETAPAS.md e prompts/hoje/. O resto deste arquivo volta a valer depois do 11.11.
@@ -16,9 +16,9 @@ App pessoal que roda em localhost nos dois PCs do usuário. Acha as melhores ofe
 - Next.js 16.4 (App Router) + TypeScript estrito + Tailwind v4 + shadcn/ui + Motion.
 - PostgreSQL + Drizzle (driver pg) em src/lib/db, compartilhado com o worker. DATABASE_URL no .env.
 - worker/ é um processo Node separado (tsx watch), um por PC. WORKER_ROLES liga os papéis: listen, collect, verify, ai.
-- Filas e agendamentos com pg-boss no próprio Postgres. Uma fila por domínio, global para os dois PCs.
+- Filas e agendamentos com pg-boss no próprio Postgres. Uma fila por domínio.
 - Tempo real: o worker chama pg_notify; app/api/stream/route.ts faz LISTEN e SSE. Com Cache Components não se exporta `runtime`; rotas que leem o banco chamam `await connection()`.
-- WhatsApp: whatsapp-web.js oficial, SOMENTE LEITURA, papel listen só no PC de 16 GB. Proibido enviar mensagens ou entrar em grupos.
+- WhatsApp: whatsapp-web.js oficial, SOMENTE LEITURA, papel listen. Proibido enviar mensagens ou entrar em grupos.
 - Telegram: pacote telegram (GramJS), somente leitura.
 - Sem notificação no celular ou no WhatsApp: alertas só na Vitrine. Fontes e Alvos são descobertos sozinhos: o usuário só confirma, nunca digita config.
 - IA: worker/ai/providers, uma interface AiProvider e três provedores escolhidos por AI_PROVIDER: claude-cli (teste: claude -p oficial com a assinatura do usuário via CLAUDE_CODE_OAUTH_TOKEN, sem ANTHROPIC_API_KEY no ambiente do filho, sem --bare, pasta vazia e CLAUDE_CONFIG_DIR próprio), anthropic-api (@anthropic-ai/sdk) e ollama. Modelo único: claude-haiku-5-5 (o mais simples) em toda chamada e em todo provedor, inclusive compilar Alvos e o analista; nada de Sonnet ou Opus.

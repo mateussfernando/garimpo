@@ -1,10 +1,13 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { costUsd } from "@/config/pricing";
+import { isPromoGroup } from "@/config/telegram-filter";
 import { InsightSchema, hashOf } from "./ai/insights";
 import { jsonSchemaOf } from "./ai/types";
 import { ALVOS_V0 } from "@/config/alvos";
 import { cleanUrl, decodeTrackingUrl, storeForUrl } from "@/config/stores";
 import { listItems, readDealPage } from "./collect/communities";
+import { isDeal, parseKabum } from "./collect/vitrines";
 import { COMMUNITIES } from "./collect/communities-config";
 import { ldProduct } from "./http/html";
 import { __test } from "./http/polite";
@@ -139,5 +142,34 @@ describe("IA: preço e esquema", () => {
     const base = { produto: "x", loja: null, precoAtualCents: 100, pontosHistorico30d: 1, medianaCents: null, minimoCents: null, diferencaVsMedianaPct: null, nota: 50, alvo: null, precoAlvoCents: null, tetoCents: null, alvoAtingido: false, freteGratis: null, comJuros: null, parcelas: null, fontesDistintas48h: 1 };
     expect(hashOf(base)).toBe(hashOf({ ...base }));
     expect(hashOf(base)).not.toBe(hashOf({ ...base, precoAtualCents: 90 }));
+  });
+});
+
+describe("vitrine do KaBuM!", () => {
+  const html = readFileSync("fixtures/vitrines/kabum-monitores.html", "utf8");
+  it("lê os produtos dos dados da página", () => {
+    const items = parseKabum(html);
+    // A fixture tem 6 produtos; 2 são de vendedores do marketplace e ficam de fora.
+    expect(items).toHaveLength(4);
+    expect(items[0].url).toMatch(/^https:\/\/www\.kabum\.com\.br\/produto\/\d+\//);
+    expect(items[0].priceCents).toBeGreaterThan(0);
+  });
+  it("só conta como oferta com 10% ou mais abaixo do preço antigo", () => {
+    const base = { code: "1", name: "x", url: "u", imageUrl: null, installmentText: null };
+    expect(isDeal({ ...base, cashCents: 85_00, priceCents: 90_00, oldCents: 100_00 })).toBe(true);
+    expect(isDeal({ ...base, cashCents: 95_00, priceCents: 95_00, oldCents: 100_00 })).toBe(false);
+    expect(isDeal({ ...base, cashCents: 50_00, priceCents: 50_00, oldCents: null })).toBe(false);
+  });
+  it("não quebra com HTML sem dados", () => {
+    expect(parseKabum("<html></html>")).toEqual([]);
+  });
+});
+
+describe("filtro de grupos do Telegram", () => {
+  it("liga canais de promoção e de lojas grandes", () => {
+    for (const n of ["Achados do Tecnoblog | Ofertas de Tecnologia", "Canaltech Ofertas", "Promobit - Promoções e Cupons de Desconto", "KaBuM!"]) expect(isPromoGroup(n)).toBe(true);
+  });
+  it("não liga grupos de outros assuntos, mesmo com palavra de promoção", () => {
+    for (const n of ["Extreme Cursos", "BATE PAPO : NOTEBOOKS NAS HORAS VAGAS", "Grupinho de Putaria", "Cursos em promoção", "Guilda Cloud"]) expect(isPromoGroup(n)).toBe(false);
   });
 });

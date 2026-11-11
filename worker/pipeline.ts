@@ -3,6 +3,7 @@ import { ALVOS_V0 } from "@/config/alvos";
 import { STORES, cleanUrl, decodeTrackingUrl, storeByName, storeForUrl } from "@/config/stores";
 import { db, NOTIFY_CHANNEL, pool, schema } from "@/lib/db";
 import { COMMUNITIES } from "./collect/communities-config";
+import { VITRINES } from "./collect/vitrines-config";
 import { matchAlvo, targetsFrom } from "./match/alvos";
 import { parseOfferText } from "./parse/parser";
 import { notaRapida } from "./score/nota";
@@ -20,6 +21,12 @@ export async function ensureSeed() {
       .insert(sources)
       .values({ slug: c.slug, kind: "comunidade", name: c.name, url: c.url })
       .onConflictDoUpdate({ target: sources.slug, set: { name: c.name, url: c.url } });
+  }
+  for (const v of VITRINES) {
+    await db
+      .insert(sources)
+      .values({ slug: v.slug, kind: "loja", name: v.name, url: v.url })
+      .onConflictDoUpdate({ target: sources.slug, set: { name: v.name, url: v.url } });
   }
   for (const a of ALVOS_V0) {
     await db

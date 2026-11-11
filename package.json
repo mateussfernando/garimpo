@@ -14,6 +14,7 @@
     "db:push": "drizzle-kit push",
     "fontes:debug": "tsx worker/collect/debug.ts",
     "telegram:login": "tsx worker/ingest/telegram-login.ts",
+    "vitrines:debug": "tsx worker/collect/vitrines-debug.ts",
     "ia:insights": "tsx worker/ai/run-once.ts",
     "simular": "tsx worker/dev/simular.ts"
   },

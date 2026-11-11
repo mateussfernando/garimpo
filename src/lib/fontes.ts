@@ -9,7 +9,7 @@ export type FonteState = "confirmada" | "sugerida" | "pausada" | "ignorada";
 export type FonteDTO = {
   id: number;
   name: string;
-  kind: "telegram" | "comunidade";
+  kind: "telegram" | "comunidade" | "loja";
   where: string;
   perDay: number;
   hitPct: number | null;
@@ -47,18 +47,18 @@ export async function getFontes(): Promise<FontesDTO> {
   const byId = new Map(stats.map((s) => [s.sourceId, s]));
 
   const fontes: FonteDTO[] = all
-    .filter((s) => s.kind === "telegram" || s.kind === "comunidade")
+    .filter((s) => s.kind === "telegram" || s.kind === "comunidade" || s.kind === "loja")
     .map((s) => {
       const st = byId.get(s.id);
       return {
         id: s.id,
         name: s.name,
-        kind: s.kind as "telegram" | "comunidade",
-        where: s.kind === "telegram" ? (s.url.startsWith("https://t.me/") ? "Telegram · canal" : "Telegram · grupo") : "Comunidade na web",
+        kind: s.kind as FonteDTO["kind"],
+        where: s.kind === "telegram" ? (s.url.startsWith("https://t.me/") ? "Telegram · canal" : "Telegram · grupo") : s.kind === "loja" ? "Vitrine da loja" : "Comunidade na web",
         perDay: st?.perDay ?? 0,
         hitPct: st && st.tried >= 3 ? Math.round((st.ok / st.tried) * 100) : null,
         state: stateOf(s),
-        why: s.kind === "telegram" ? groupReason(s.name) : "Página pública de ofertas, lida com coleta educada",
+        why: s.kind === "telegram" ? groupReason(s.name) : s.kind === "loja" ? "Categorias dos seus Alvos, só produtos com 10% ou mais de desconto" : "Página pública de ofertas, lida com coleta educada",
         status: s.status,
         statusNote: s.statusNote,
       };

@@ -119,7 +119,7 @@ export function Fontes() {
                 </span>
                 <span role="cell" className="flex flex-col items-start gap-1">
                   <Badge tone={f.state === "confirmada" ? "good" : "neutral"}>{LABEL[f.state]}</Badge>
-                  {f.status !== "ok" && f.kind === "comunidade" && <span className="text-[11px] text-pause">{f.status}</span>}
+                  {f.status !== "ok" && f.kind !== "telegram" && <span className="text-[11px] text-pause">{f.status}</span>}
                 </span>
                 <span role="cell" className="flex flex-wrap gap-2">
                   {f.state === "sugerida" && (

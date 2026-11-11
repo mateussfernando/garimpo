@@ -4,6 +4,7 @@ import { db, pool, schema } from "@/lib/db";
 import { collectAll } from "./collect/communities";
 import { setPauseListener } from "./http/polite";
 import { runInsights } from "./ai/insights";
+import { collectVitrines } from "./collect/vitrines";
 import { startTelegram } from "./ingest/telegram";
 import { ensureSeed, notify } from "./pipeline";
 import { verifyTick } from "./verify/verify";
@@ -39,6 +40,10 @@ async function main() {
     const run = () => collectAll().catch((e) => console.error("[coleta] erro:", e));
     void run();
     setInterval(run, COLLECT_EVERY);
+    // Vitrines das lojas: categorias dos seus Alvos, a cada 30 min (a coleta educada espaça os pedidos).
+    const vitrines = () => collectVitrines().catch((e) => console.error("[vitrine] erro:", e));
+    setTimeout(vitrines, 90 * 1000);
+    setInterval(vitrines, 30 * 60 * 1000);
   }
   if (roles.includes("listen")) {
     startTelegram().catch((e) => console.error("[telegram] erro:", e));

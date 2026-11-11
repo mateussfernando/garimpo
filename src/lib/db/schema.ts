@@ -23,6 +23,8 @@ export const sources = pgTable("sources", {
   enabled: boolean("enabled").notNull().default(true),
   status: text("status").notNull().default("ok"), // ok | bloqueada | pausada | erro
   statusNote: text("status_note"),
+  /** Escolha do usuário na tela Fontes: null (sugerida/confirmada pelo enabled), "pausada" ou "ignorada". */
+  decision: text("decision"),
   lastRunAt: timestamp("last_run_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -102,6 +104,7 @@ export const offers = pgTable(
     notaParts: jsonb("nota_parts").$type<Record<string, number>>(),
     watched: boolean("watched").notNull().default(false),
     dismissed: boolean("dismissed").notNull().default(false),
+  snoozedUntil: timestamp("snoozed_until", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("offers_raw_message").on(t.rawMessageId)],
@@ -151,3 +154,12 @@ export const insights = pgTable(
   },
   (t) => [uniqueIndex("insights_produto_periodo_hash").on(t.produtoId, t.periodo, t.hashDados)],
 );
+
+/** Estado de cada loja de config/stores.ts: pausa pedida pelo usuário e pausa de 1 h pedida pela loja (429/403). */
+export const storeState = pgTable("store_state", {
+  slug: text("slug").primaryKey(),
+  pausedByUser: boolean("paused_by_user").notNull().default(false),
+  pauseUntil: timestamp("pause_until", { withTimezone: true }),
+  pauseNote: text("pause_note"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

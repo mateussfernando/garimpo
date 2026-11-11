@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { costUsd } from "@/config/pricing";
+import { InsightSchema, hashOf } from "./ai/insights";
+import { jsonSchemaOf } from "./ai/types";
 import { ALVOS_V0 } from "@/config/alvos";
 import { cleanUrl, decodeTrackingUrl, storeForUrl } from "@/config/stores";
 import { listItems, readDealPage } from "./collect/communities";
@@ -115,5 +118,26 @@ describe("redirecionador do Pelando", () => {
     expect(decodeTrackingUrl(`https://dpl.pelando.com.br/r/aaa.${payload}.sig?x=1`)).toBe("https://www.kabum.com.br/produto/1/x");
     expect(decodeTrackingUrl("https://www.kabum.com.br/produto/1")).toBe("https://www.kabum.com.br/produto/1");
     expect(decodeTrackingUrl("https://dpl.pelando.com.br/r/lixo")).toBe("https://dpl.pelando.com.br/r/lixo");
+  });
+});
+
+describe("IA: preço e esquema", () => {
+  it("custa o Haiku 5.5 por milhão de tokens (US$ 0,10 entrada, US$ 0,50 saída)", () => {
+    expect(costUsd(100_000, 0)).toBeCloseTo(0.01, 6);
+    expect(costUsd(0, 1_000_000)).toBeCloseTo(0.5, 6);
+    expect(costUsd(2000, 300)).toBeCloseTo(0.00035, 6);
+  });
+  it("acima de 100 mil tokens de entrada vale o preço longo", () => {
+    expect(costUsd(200_000, 0)).toBeCloseTo(0.1, 6);
+  });
+  it("o JSON Schema sai sem a chave $schema, que o claude -p recusa", () => {
+    const s = jsonSchemaOf(InsightSchema);
+    expect(s).not.toHaveProperty("$schema");
+    expect(s).toHaveProperty("properties.veredito");
+  });
+  it("o hash das métricas muda só quando as métricas mudam", () => {
+    const base = { produto: "x", loja: null, precoAtualCents: 100, pontosHistorico30d: 1, medianaCents: null, minimoCents: null, diferencaVsMedianaPct: null, nota: 50, alvo: null, precoAlvoCents: null, tetoCents: null, alvoAtingido: false, freteGratis: null, comJuros: null, parcelas: null, fontesDistintas48h: 1 };
+    expect(hashOf(base)).toBe(hashOf({ ...base }));
+    expect(hashOf(base)).not.toBe(hashOf({ ...base, precoAtualCents: 90 }));
   });
 });

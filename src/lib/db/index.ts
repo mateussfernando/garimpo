@@ -18,3 +18,5 @@ export const db = drizzle(pool, { schema });
 export { schema };
 
 export const NOTIFY_CHANNEL = "garimpo";
+/** A Vitrine e as telas mandam comandos ao worker por aqui (ex.: procurar grupos de novo). */
+export const CMD_CHANNEL = "garimpo_cmd";

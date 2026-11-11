@@ -7,18 +7,14 @@ import { TelegramClient } from "telegram";
 import { NewMessage, type NewMessageEvent } from "telegram/events";
 import { StringSession } from "telegram/sessions";
 import { isShortener, storeForUrl } from "@/config/stores";
-import { db, schema } from "@/lib/db";
+import { isOffTopicGroup, isPromoGroup } from "@/config/telegram-filter";
+import { Client } from "pg";
+import { CMD_CHANNEL, db, schema } from "@/lib/db";
 import { touchesAnyAlvo } from "../match/alvos";
-import { activeAlvos, ingestRaw } from "../pipeline";
+import { activeAlvos, ingestRaw, notify } from "../pipeline";
 
 const { sources } = schema;
 
-// Grupo só liga sozinho se o nome tem cara de promoção E não é de outro assunto.
-// Os que ficam desligados você liga em sources.enabled (DBeaver).
-const PROMO_NAME = /promo|oferta|achad|cupom|cupon|desconto|pechinch|barat|black|11\.?11|garimp/i;
-const OFFTOPIC_NAME = /curso|vaga|emprego|bate.?papo|porn|putaria|hentai|18\s?\+|\bbet\b|apost|tigrinho|cripto|forex|signal|trade|anime|filme|s[ée]rie|m[úu]sica|futebol|igreja|b[íi]blia|concurso|estudo|faculdade/i;
-export const isOffTopicGroup = (name: string) => OFFTOPIC_NAME.test(name);
-export const isPromoGroup = (name: string) => PROMO_NAME.test(name) && !isOffTopicGroup(name);
 const URL_RE = /https?:\/\/[^\s<>"')\]]+/gi;
 const REFRESH_EVERY = 60 * 1000;
 
@@ -91,13 +87,14 @@ export async function startTelegram() {
           .values({ slug, kind: "telegram", name, url, enabled: isPromoGroup(name) })
           .returning();
         console.log(`[telegram] fonte nova: ${name} (${row.enabled ? "ligada" : "desligada"})`);
-      } else if (row.enabled && isOffTopicGroup(name)) {
+      } else if (row.enabled && !row.decision && isOffTopicGroup(name)) {
         // Grupo de outro assunto que tinha ligado sozinho: desliga.
         [row] = await db.update(sources).set({ name, url, enabled: false }).where(eq(sources.id, row.id)).returning();
         console.log(`[telegram] desligado (outro assunto): ${name}`);
       } else if (row.name !== name || row.url !== url) {
         await db.update(sources).set({ name, url }).where(eq(sources.id, row.id));
       }
+      await db.update(sources).set({ lastRunAt: new Date() }).where(eq(sources.id, row.id));
       if (row.enabled) {
         watched.set(id, { sourceId: row.id, username });
         on++;
@@ -108,6 +105,13 @@ export async function startTelegram() {
     }
     return { on, off };
   }
+
+  // A tela Fontes avisa por pg_notify ("fontes" = o usuário mudou uma fonte; "rescan" = procurar de novo).
+  const cmd = new Client({ connectionString: process.env.DATABASE_URL });
+  await cmd.connect();
+  await cmd.query(`LISTEN ${CMD_CHANNEL}`);
+  cmd.on("notification", () => void syncDialogs().then(() => notify({ type: "source" })).catch((e) => console.error("[telegram] erro ao listar chats:", e)));
+  cmd.on("error", (e) => console.error("[telegram] canal de comandos caiu:", e.message));
 
   const first = await syncDialogs();
   console.log(`[telegram] escutando ${first.on} grupos/canais (${first.off} desligados em sources)`);

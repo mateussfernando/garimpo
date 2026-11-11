@@ -14,9 +14,11 @@
     "db:push": "drizzle-kit push",
     "fontes:debug": "tsx worker/collect/debug.ts",
     "telegram:login": "tsx worker/ingest/telegram-login.ts",
+    "ia:insights": "tsx worker/ai/run-once.ts",
     "simular": "tsx worker/dev/simular.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
     "dotenv": "^18.0.10",
     "drizzle-orm": "^0.45.4",
     "geist": "^1.9.2",

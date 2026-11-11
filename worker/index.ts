@@ -2,6 +2,7 @@ import "dotenv/config";
 import { pool } from "@/lib/db";
 import { collectAll } from "./collect/communities";
 import { setPauseListener } from "./http/polite";
+import { runInsights } from "./ai/insights";
 import { startTelegram } from "./ingest/telegram";
 import { ensureSeed, notify } from "./pipeline";
 import { verifyTick } from "./verify/verify";
@@ -39,7 +40,11 @@ async function main() {
     setInterval(() => verifyTick().catch((e) => console.error("[verificação] erro:", e)), VERIFY_EVERY);
   }
   if (roles.includes("ai")) {
-    console.log("[ia] desligada no plano acelerado (entra depois do 11.11)");
+    // Job de insights: a cada 30 min, só chama a IA para produto cujas métricas mudaram (hash).
+    const insightsPass = () => runInsights().then((r) => r.gerados && console.log(`[ia] ${r.gerados} insight(s) novo(s)`)).catch((e) => console.error("[ia] erro:", e));
+    setTimeout(insightsPass, 60 * 1000);
+    setInterval(insightsPass, 30 * 60 * 1000);
+    console.log(`[ia] insights ligados (${process.env.AI_PROVIDER ?? "claude-cli"}, modelo único claude-haiku-5-5)`);
   }
   console.log(`worker ok · papéis: ${roles.join(", ")}`);
 }

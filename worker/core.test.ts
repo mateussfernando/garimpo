@@ -7,7 +7,7 @@ import { jsonSchemaOf } from "./ai/types";
 import { ALVOS_V0 } from "@/config/alvos";
 import { cleanUrl, decodeTrackingUrl, storeForUrl } from "@/config/stores";
 import { listItems, readDealPage } from "./collect/communities";
-import { isDeal, parseKabum } from "./collect/vitrines";
+import { isDeal, parseKabum, textFor, totalFromInstallments } from "./collect/vitrines";
 import { COMMUNITIES } from "./collect/communities-config";
 import { ldProduct } from "./http/html";
 import { __test } from "./http/polite";
@@ -21,7 +21,7 @@ const promobit = COMMUNITIES.find((c) => c.slug === "promobit")!;
 describe("Alvos", () => {
   it("acha o Alvo mais específico e respeita exclusões", () => {
     expect(matchAlvo("Mouse Gamer Logitech G305 sem fio", alvos)?.slug).toBe("mouse");
-    expect(matchAlvo("Mousepad Gamer Grande 90x40", alvos)?.slug).toBe("acessorios");
+    expect(matchAlvo("Mousepad Gamer Grande 90x40", alvos)?.slug).toBe("mousepad");
     expect(matchAlvo("Braço Articulado para Monitor 17 a 32", alvos)?.slug).toBe("braco-articulado");
     expect(matchAlvo("Monitor LG 27 IPS 180Hz", alvos)?.slug).toBe("monitor");
     expect(matchAlvo("Monitor de pressão arterial digital", alvos)).toBeNull();
@@ -53,6 +53,8 @@ describe("Lojas", () => {
     expect(storeForUrl("https://www.kabum.com.br/produto/123456/mouse")?.slug).toBe("kabum");
     expect(storeForUrl("https://site-desconhecido.com/x")).toBeNull();
     expect(cleanUrl("https://www.amazon.com.br/dp/B0ABCDEFGH?tag=afiliado-20&utm_source=x&th=1")).toBe("https://www.amazon.com.br/dp/B0ABCDEFGH?th=1");
+    // Pichau, KaBuM! e Terabyte identificam o produto só pelo caminho: sai tudo depois do "?".
+    expect(cleanUrl("https://www.pichau.com.br/teclado-mecanico-x?rb_clickid=abc&afiliado=9")).toBe("https://www.pichau.com.br/teclado-mecanico-x");
     const amz = storeForUrl("https://www.amazon.com.br/dp/B0ABCDEFGH")!;
     expect(amz.productId!(new URL("https://www.amazon.com.br/Mouse/dp/b0abcdefgh/ref=x"))).toBe("B0ABCDEFGH");
   });
@@ -140,7 +142,7 @@ describe("IA: preço e esquema", () => {
     expect(s).toHaveProperty("properties.veredito");
   });
   it("o hash das métricas muda só quando as métricas mudam", () => {
-    const base = { produto: "x", loja: null, precoAtualCents: 100, pontosHistorico30d: 1, medianaCents: null, minimoCents: null, diferencaVsMedianaPct: null, nota: 50, alvo: null, precoAlvoCents: null, tetoCents: null, alvoAtingido: false, freteGratis: null, comJuros: null, parcelas: null, fontesDistintas48h: 1 };
+    const base = { produto: "x", loja: null, precoAtualCents: 100, pontosHistorico30d: 1, medianaCents: null, minimoCents: null, diferencaVsMedianaPct: null, nota: 50, alvo: null, faixa: null, medianaDaFaixaCents: null, precosNaFaixa: 0, precoAlvoCents: null, tetoCents: null, alvoAtingido: false, precoPixCents: null, precoDeLojaCents: null, esgotado: false, cupom: null, unidadesRestantes: null, ofertaTerminaEm: null, freteGratis: null, comJuros: null, parcelas: null, fontesDistintas48h: 1 };
     expect(hashOf(base)).toBe(hashOf({ ...base }));
     expect(hashOf(base)).not.toBe(hashOf({ ...base, precoAtualCents: 90 }));
   });
@@ -164,6 +166,17 @@ describe("vitrine do KaBuM!", () => {
   it("não quebra com HTML sem dados", () => {
     expect(parseKabum("<html></html>")).toEqual([]);
   });
+  it("usa o preço das parcelas, que é o do dia, e não o da listagem, que é o de antes da campanha", () => {
+    expect(totalFromInstallments("10x de R$ 111,76")).toBe(1117_60);
+    expect(totalFromInstallments("1x de R$ 4,22")).toBe(4_22);
+    expect(totalFromInstallments(null)).toBeNull();
+    const base = { code: "1", name: "Monitor", url: "u", imageUrl: null, cashCents: 1500_00, priceCents: 1764_71, oldCents: 1764_71 };
+    // A listagem diz R$ 1.764,71 (sem desconto), mas as parcelas somam R$ 1.117,60: é oferta de 36%.
+    const live = { ...base, installmentText: "10x de R$ 111,76", liveCardCents: 1117_60 };
+    expect(isDeal(live)).toBe(true);
+    expect(isDeal({ ...base, installmentText: null })).toBe(false);
+    expect(textFor(live)).toContain("10x de R$ 111,76 sem juros");
+  });
 });
 
 describe("filtro de grupos do Telegram", () => {
@@ -177,8 +190,8 @@ describe("filtro de grupos do Telegram", () => {
 
 describe("verificação: preço plausível", () => {
   it("recusa a parcela de outro produto e aceita o total do cartão", () => {
-    expect(plausibleCardPrice(4_22, 9_99)).toBe(false); // mousepad de R$ 9,99 não custa R$ 4,22
-    expect(plausibleCardPrice(11_75, 9_99)).toBe(true); // total no cartão um pouco acima do pix
+    expect(plausibleCardPrice(4_22, 9_99)).toBe(false); // menos da metade da referência: é parcela de outro item
+    expect(plausibleCardPrice(11_75, 9_99)).toBe(true); // total no cartão um pouco acima do Pix
     expect(plausibleCardPrice(900_00, 9_99)).toBe(false);
     expect(plausibleCardPrice(50_00, null)).toBe(true);
     expect(plausibleCardPrice(null, 9_99)).toBe(false);

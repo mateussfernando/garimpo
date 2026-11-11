@@ -27,7 +27,7 @@ describe("parser BR", () => {
   });
 
   for (const fx of fixtures) {
-    it.skipIf(process.env.PARSER_STRICT !== "1")(`fixture: ${fx.nome}`, () => {
+    it(`fixture: ${fx.nome}`, () => {
       expect(failures(fx)).toEqual([]);
     });
   }

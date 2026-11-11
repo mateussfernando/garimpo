@@ -57,6 +57,19 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 10/11/2026, 23:50 · Plano "Garimpo absurdo": A1, A2 e A3
+
+- **Plano aprovado pelo usuário:** foco no 11.11, no ao vivo e em UX e UI no limite. Blocos: A (caminho da oferta ao vivo), B (interface: Motion e shadcn/ui autorizados, tela ao vivo, faixa de acontecimentos, card novo, painel do foco, alerta, ⌘K, desfazer, celular), C (reconferir na hora, nota do 11.11, filtros, compras e fatura, cupons, tela Alvos, analista), D (rotinas programadas e Black Friday, por último).
+- **Feito (A2):** Alvo só casa quando o termo é o produto em si (primeiro nome de produto do título; preposição antes do termo indica acessório). Acessórios virou Mousepad, Headset, Webcam, Hub e Microfone. Especificações sem IA (`worker/match/specs.ts`) e faixas por Alvo; preço-alvo e teto por faixa em `alvo_refs`, com mediana de ofertas mais preços de mercado das vitrines (`market_obs`). "Alvo atingido" caiu de 19 para 9, todos em faixas com 5 ou mais preços.
+- **Feito (A3):** leitores exatos do KaBuM! e da Amazon (`worker/verify/adapters/`), com fixtures de páginas reais. Guardam Pix, cartão, parcelas, "de", estoque, cupom, fim da oferta e fotos. Frete grátis só quando a loja afirma. Vitrine do KaBuM! usa o preço das parcelas (o do dia), porque os campos de preço da listagem são de antes da campanha. Link de loja de caminho único perde os parâmetros (o robots.txt da Pichau proíbe endereço com parâmetros).
+- **Feito (A1):** Escuta relê o que falta de cada canal (últimas 24 h na primeira vez), via rápida de verificação, contadores por canal na tela Fontes, links de botões e de texto clicável. Chegou a primeira oferta ao vivo por evento.
+- **Correção de um erro meu:** os dois "preços errados" citados no plano (mousepad a R$ 4,22 e MX Master 4 a R$ 625,90) estavam CERTOS, conferidos nas páginas reais.
+- **Operação:** o site roda na aba "garimpo dev" (`pnpm dev:web`) e o worker na aba "garimpo worker" (`pnpm worker:run`, sem reinício automático, para não reconectar no Telegram a cada edição).
+- **Testado:** 66 testes, `tsc` e `eslint` passam. NÃO conferido: o resultado da releitura do Telegram com botões e a reconferência das 78 ofertas, que estavam em andamento quando a sessão parou.
+- **Pendente:** Mercado Livre sem leitor (a loja pede verificação de conta). Shopee e AliExpress bloqueiam robô no encurtador: ficam "não verificadas".
+- **Próximo passo:** conferir os logs do worker (contadores e "links sem loja conhecida"), depois B1 a B6.
+- **Como testar:** `pnpm test`; abra `/fontes` para ver os contadores e `/` para ver Pix, faixa e esgotado nos cards.
+
 ### 10/11/2026, 22:30 · IA, telas, vitrines e canais do Telegram
 
 - **Feito:**

@@ -12,7 +12,9 @@
 | 6 | Operação do 11.11 | nenhum | 11/11 | [ ] |
 | 7 | Depois do 11.11 | `prompts/01` a `08` | 12/11 a 26/11 | [ ] |
 
-**Agora (22:30):** além das Etapas 1 a 4, já estão no ar o Telegram, a IA com insights, a vitrine do KaBuM! e as telas Detalhe, Fontes, Lojas e War Room. Falta o ensaio (Etapa 5). Veja o diário.
+**Plano "Garimpo absurdo" (aprovado em 10/11, 23:00):** foco no 11.11, no ao vivo e na interface. Ordem: A1 a A3 (Telegram ao vivo, Alvos precisos, preço exato), B1 a B6 (interface ao vivo), A4 a A6, B7 a B14, Bloco C (decidir e comprar) e Bloco D (rotinas programadas e Black Friday, por último). O plano completo está no diário. Feito até agora: A1, A2 e A3 em código, rodando; falta conferir a releitura do Telegram e a reconferência dos preços.
+
+**Antes (22:30):** além das Etapas 1 a 4, já estão no ar o Telegram, a IA com insights, a vitrine do KaBuM! e as telas Detalhe, Fontes, Lojas e War Room. Falta o ensaio (Etapa 5). Veja o diário.
 
 **Antes (18:50):** as Etapas 1 a 4 foram adiantadas e o código está pronto. Falta rodar no seu PC: `pnpm install`, `pnpm db:push`, `pnpm dev` e `pnpm fontes:debug` para conferir as comunidades de verdade. Veja o `README.md`.
 

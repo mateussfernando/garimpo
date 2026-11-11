@@ -17,6 +17,9 @@ export type FonteDTO = {
   why: string;
   status: string;
   statusNote: string | null;
+  /** Só fontes ao vivo (Telegram): o que foi lido hoje e quando chegou a última mensagem. */
+  stats: { read: number; withLink: number; touched: number; offers: number } | null;
+  lastMessageAt: string | null;
 };
 
 export type FontesDTO = {
@@ -61,6 +64,8 @@ export async function getFontes(): Promise<FontesDTO> {
         why: s.kind === "telegram" ? groupReason(s.name) : s.kind === "loja" ? "Categorias dos seus Alvos, só produtos com 10% ou mais de desconto" : "Página pública de ofertas, lida com coleta educada",
         status: s.status,
         statusNote: s.statusNote,
+        stats: s.stats ? { read: s.stats.read, withLink: s.stats.withLink, touched: s.stats.touched, offers: s.stats.offers } : null,
+        lastMessageAt: s.lastMessageAt?.toISOString() ?? null,
       };
     });
 

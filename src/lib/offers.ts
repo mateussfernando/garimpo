@@ -1,9 +1,10 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { STORES } from "@/config/stores";
 import { db, schema } from "@/lib/db";
+import type { OfferExtra, OfferSpecs } from "@/lib/db/schema";
 import { getAiStatus, type AiStatus } from "@/lib/ai-usage";
 
-const { offers, alvos, sources, products } = schema;
+const { offers, alvos, alvoRefs, sources, products } = schema;
 
 /** Posts do Pelando começam com "Por R$ 26,69:"; o preço já aparece à parte. */
 export const cleanTitle = (t: string) => t.replace(/^\s*Por\s+R\$\s*[\d.,]+\s*:\s*/i, "").trim();
@@ -31,9 +32,16 @@ export type OfferDTO = {
   notaParts: { A: number; C: number; F: number; S: number } | null;
   watched: boolean;
   snoozedUntil: string | null;
+  /** O Alvo e o preço-alvo da faixa do produto (null = faixa ainda sem referência). */
   alvo: { slug: string; name: string; targetCents: number | null } | null;
+  /** Faixa em que o produto é comparado (ex.: Monitor 27" QHD), com a mediana e quantos preços a formam. */
+  band: { key: string; label: string; medianCents: number | null; n: number } | null;
   alvoTetoCents: number | null;
   alvoAtingido: boolean;
+  specs: OfferSpecs | null;
+  /** false = a loja diz que acabou; null = não sabemos. */
+  available: boolean | null;
+  extra: OfferExtra | null;
   source: string;
   sourceKind: string;
   createdAt: string;
@@ -43,13 +51,15 @@ export async function listOffers(opts: { onlyId?: number } = {}): Promise<OfferD
   const rows = await db
     .select({
       o: offers,
-      alvo: { slug: alvos.slug, name: alvos.name, targetCents: alvos.targetCents, ceilingCents: alvos.ceilingCents },
+      alvo: { slug: alvos.slug, name: alvos.name },
+      ref: { label: alvoRefs.label, medianCents: alvoRefs.medianCents, targetCents: alvoRefs.targetCents, ceilingCents: alvoRefs.ceilingCents, n: alvoRefs.n },
       source: sources.name,
       sourceKind: sources.kind,
       productImage: products.imageUrl,
     })
     .from(offers)
-    .leftJoin(alvos, eq(offers.alvoId, alvos.id))
+    .leftJoin(alvos, and(eq(offers.alvoId, alvos.id), eq(alvos.active, true)))
+    .leftJoin(alvoRefs, and(eq(alvoRefs.alvoId, offers.alvoId), eq(alvoRefs.bandKey, offers.bandKey)))
     .innerJoin(sources, eq(offers.sourceId, sources.id))
     .leftJoin(products, eq(offers.productId, products.id))
     .where(
@@ -59,7 +69,7 @@ export async function listOffers(opts: { onlyId?: number } = {}): Promise<OfferD
     )
     .orderBy(sql`${offers.nota} desc nulls last`, desc(offers.createdAt))
     .limit(300);
-  return rows.map(({ o, alvo, source, sourceKind, productImage }) => ({
+  return rows.map(({ o, alvo, ref, source, sourceKind, productImage }) => ({
     id: o.id,
     title: cleanTitle(o.title),
     store: STORES.find((s) => s.slug === o.store)?.name ?? null,
@@ -83,9 +93,14 @@ export async function listOffers(opts: { onlyId?: number } = {}): Promise<OfferD
     notaParts: (o.notaParts as OfferDTO["notaParts"]) ?? null,
     watched: o.watched,
     snoozedUntil: o.snoozedUntil?.toISOString() ?? null,
-    alvo: alvo?.slug ? { slug: alvo.slug, name: alvo.name!, targetCents: alvo.targetCents } : null,
-    alvoTetoCents: alvo?.ceilingCents ?? null,
-    alvoAtingido: !!(alvo?.targetCents && o.priceCardCents && o.priceCardCents <= alvo.targetCents),
+    alvo: alvo?.slug ? { slug: alvo.slug, name: alvo.name!, targetCents: ref?.targetCents ?? null } : null,
+    band: alvo?.slug && o.bandKey && ref?.label ? { key: o.bandKey, label: ref.label, medianCents: ref.medianCents, n: ref.n ?? 0 } : null,
+    alvoTetoCents: ref?.ceilingCents ?? null,
+    // Esgotado não conta como Alvo atingido: não dá para comprar.
+    alvoAtingido: !!(alvo?.slug && ref?.targetCents && o.priceCardCents && o.priceCardCents <= ref.targetCents && o.available !== false),
+    specs: o.specs,
+    available: o.available,
+    extra: o.extra,
     source,
     sourceKind,
     createdAt: o.createdAt.toISOString(),

@@ -12,7 +12,7 @@ import { getProvider } from "./index";
 import { guardedCall } from "./budget";
 import { AiBudgetError, type AiProvider } from "./types";
 
-const { offers, products, pricePoints, alvos, insights } = schema;
+const { offers, products, pricePoints, alvos, alvoRefs, insights } = schema;
 
 export const InsightSchema = z.object({
   veredito: z.enum(["comprar", "esperar", "evitar"]),
@@ -32,9 +32,19 @@ export type Metrics = {
   diferencaVsMedianaPct: number | null;
   nota: number | null;
   alvo: string | null;
+  /** Faixa do Alvo usada na comparação (ex.: Monitor 27" QHD) e quantos preços formam a mediana dela. */
+  faixa: string | null;
+  medianaDaFaixaCents: number | null;
+  precosNaFaixa: number;
   precoAlvoCents: number | null;
   tetoCents: number | null;
   alvoAtingido: boolean;
+  precoPixCents: number | null;
+  precoDeLojaCents: number | null;
+  esgotado: boolean;
+  cupom: string | null;
+  unidadesRestantes: number | null;
+  ofertaTerminaEm: string | null;
   freteGratis: boolean | null;
   comJuros: boolean | null;
   parcelas: number | null;
@@ -44,7 +54,8 @@ export type Metrics = {
 const SYSTEM = [
   "Você é o analista do Garimpo, um app pessoal que ajuda a decidir compras no cartão parcelado durante o 11.11 e a Black Friday.",
   "Receberá métricas de UM produto, já calculadas. Use só esses números: não invente preço, histórico, loja ou prazo.",
-  "Se houver poucos pontos de histórico (menos de 5), a confiança é baixa.",
+  "O preço principal é o total no cartão. A mediana da faixa é o preço típico, hoje, de produtos do mesmo tipo e especificação; o preço-alvo é 85% dela.",
+  "O preço 'de' da loja pode estar inflado: não o trate como prova de desconto. Sem histórico próprio (menos de 5 pontos), apoie-se na mediana da faixa e diga isso; se também não houver faixa, a confiança é baixa.",
   "Responda em português do Brasil. O resumo tem no máximo 200 caracteres e há no máximo 3 motivos curtos.",
   "Veredito: comprar (preço bom e confiável), esperar (dá para esperar um preço melhor) ou evitar (preço ruim, juros ou sinal de armadilha).",
 ].join(" ");
@@ -60,6 +71,10 @@ export async function metricsFor(productId: number): Promise<Metrics | null> {
     .limit(1);
   if (!o) return null;
   const alvo = o.alvoId ? (await db.select().from(alvos).where(eq(alvos.id, o.alvoId)))[0] : null;
+  const ref =
+    o.alvoId && o.bandKey
+      ? (await db.select().from(alvoRefs).where(and(eq(alvoRefs.alvoId, o.alvoId), eq(alvoRefs.bandKey, o.bandKey))))[0]
+      : null;
   const pts = await db
     .select({ p: pricePoints.priceCardCents })
     .from(pricePoints)
@@ -81,9 +96,18 @@ export async function metricsFor(productId: number): Promise<Metrics | null> {
     diferencaVsMedianaPct: med && current ? Math.round(((current - med) / med) * 1000) / 10 : null,
     nota: o.nota,
     alvo: alvo?.name ?? null,
-    precoAlvoCents: alvo?.targetCents ?? null,
-    tetoCents: alvo?.ceilingCents ?? null,
-    alvoAtingido: !!(alvo?.targetCents && current && current <= alvo.targetCents),
+    faixa: ref?.label ?? null,
+    medianaDaFaixaCents: ref?.medianCents ?? null,
+    precosNaFaixa: ref?.n ?? 0,
+    precoAlvoCents: ref?.targetCents ?? null,
+    tetoCents: ref?.ceilingCents ?? null,
+    alvoAtingido: !!(ref?.targetCents && current && current <= ref.targetCents),
+    precoPixCents: o.cashCents,
+    precoDeLojaCents: o.listPriceCents,
+    esgotado: o.available === false,
+    cupom: o.coupon,
+    unidadesRestantes: o.extra?.stockLeft ?? null,
+    ofertaTerminaEm: o.extra?.endsAt ?? null,
     freteGratis: o.freeShipping,
     comJuros: o.interest,
     parcelas: o.installments,

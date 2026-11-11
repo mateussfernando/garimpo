@@ -5,6 +5,7 @@ import {
   jsonb,
   numeric,
   pgTable,
+  primaryKey,
   serial,
   text,
   timestamp,
@@ -13,6 +14,38 @@ import {
 
 // Plano acelerado (10/11): só as tabelas de hoje.
 // Preço sempre em centavos (inteiro).
+
+/** Contadores do dia de uma fonte ao vivo (Telegram). `lastId` é a última mensagem já lida, para não ler duas vezes. */
+export type SourceStats = { day: string; read: number; withLink: number; touched: number; offers: number; lastId: number };
+
+/** Especificações tiradas do título, sem IA. Servem para comparar só produtos da mesma faixa. */
+export type OfferSpecs = {
+  inches?: number;
+  res?: "hd" | "fhd" | "qhd" | "4k";
+  ultrawide?: boolean;
+  hz?: number;
+  gb?: number;
+  nvme?: boolean;
+  wireless?: boolean;
+  mechanical?: boolean;
+  size?: "pequeno" | "medio" | "grande" | "estendido";
+};
+
+/** O que só algumas lojas informam na página do produto. */
+export type OfferExtra = {
+  /** Cartão em 1x, quando a loja dá desconto nessa forma. */
+  card1xCents?: number;
+  card1xDiscountPct?: number;
+  /** Fim da oferta (ISO) e unidades restantes, quando a loja informa. */
+  endsAt?: string;
+  stockLeft?: number;
+  campaign?: string;
+  couponNote?: string;
+  images?: string[];
+  brand?: string;
+  rating?: number;
+  ratingCount?: number;
+};
 
 export const sources = pgTable("sources", {
   id: serial("id").primaryKey(),
@@ -25,6 +58,8 @@ export const sources = pgTable("sources", {
   statusNote: text("status_note"),
   /** Escolha do usuário na tela Fontes: null (sugerida/confirmada pelo enabled), "pausada" ou "ignorada". */
   decision: text("decision"),
+  stats: jsonb("stats").$type<SourceStats>(),
+  lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
   lastRunAt: timestamp("last_run_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -104,7 +139,13 @@ export const offers = pgTable(
     notaParts: jsonb("nota_parts").$type<Record<string, number>>(),
     watched: boolean("watched").notNull().default(false),
     dismissed: boolean("dismissed").notNull().default(false),
-  snoozedUntil: timestamp("snoozed_until", { withTimezone: true }),
+    snoozedUntil: timestamp("snoozed_until", { withTimezone: true }),
+    specs: jsonb("specs").$type<OfferSpecs>(),
+    /** Faixa do Alvo (ex.: "27-qhd"). O preço-alvo é calculado por faixa, em alvo_refs. */
+    bandKey: text("band_key"),
+    /** false = a loja diz que acabou; null = não sabemos. */
+    available: boolean("available"),
+    extra: jsonb("extra").$type<OfferExtra>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("offers_raw_message").on(t.rawMessageId)],
@@ -174,3 +215,38 @@ export const invites = pgTable("invites", {
   firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Referência de preço de cada faixa de um Alvo: mediana dos preços vistos, preço-alvo (85%) e teto (115%). */
+export const alvoRefs = pgTable(
+  "alvo_refs",
+  {
+    alvoId: integer("alvo_id")
+      .notNull()
+      .references(() => alvos.id),
+    bandKey: text("band_key").notNull(),
+    label: text("label").notNull(),
+    medianCents: integer("median_cents"),
+    targetCents: integer("target_cents"),
+    ceilingCents: integer("ceiling_cents"),
+    n: integer("n").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.alvoId, t.bandKey] })],
+);
+
+/** Preços de mercado vistos nas vitrines das lojas (todos os produtos da categoria, não só as ofertas). Alimentam a mediana da faixa. */
+export const marketObs = pgTable(
+  "market_obs",
+  {
+    store: text("store").notNull(),
+    code: text("code").notNull(),
+    alvoId: integer("alvo_id")
+      .notNull()
+      .references(() => alvos.id),
+    bandKey: text("band_key").notNull(),
+    title: text("title").notNull(),
+    priceCardCents: integer("price_card_cents").notNull(),
+    seenAt: timestamp("seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.store, t.code] })],
+);

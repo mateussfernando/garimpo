@@ -6,6 +6,7 @@
     "dev": "concurrently -k -n web,worker -c blue,green \"next dev -H 0.0.0.0\" \"tsx watch worker/index.ts\"",
     "dev:web": "next dev -H 0.0.0.0",
     "worker": "tsx watch worker/index.ts",
+    "worker:run": "tsx worker/index.ts",
     "build": "next build",
     "start": "next start -H 0.0.0.0",
     "lint": "eslint",

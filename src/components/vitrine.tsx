@@ -290,10 +290,27 @@ function Card({ o, index, focused, now, onWatch, onDismiss, onFocus }: { o: Offe
             <span className="font-mono tnum text-[26px] font-semibold tracking-tight text-num">{brl(o.priceCardCents)}</span>
             <span className="text-xs text-muted">no cartão</span>
           </div>
-          <span className="font-mono text-[12.5px] text-ink-3">{parcela}</span>
+          <span className="font-mono text-[12.5px] text-ink-3">
+            {parcela}
+            {o.cashCents && o.priceCardCents && o.cashCents < o.priceCardCents && (
+              <span className="text-good">
+                {parcela ? " · " : ""}Pix {brl(o.cashCents)}
+              </span>
+            )}
+          </span>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {o.alvoAtingido && <Badge tone="gold">Alvo atingido</Badge>}
+          {o.available === false && <Badge tone="bad">Esgotado</Badge>}
+          {o.alvoAtingido && (
+            <Badge tone="gold" title={o.band ? `Abaixo do preço-alvo da faixa ${o.band.label}: ${brl(o.alvo?.targetCents)} (85% da mediana de ${o.band.n} preços)` : undefined}>
+              Alvo atingido
+            </Badge>
+          )}
+          {o.band && (
+            <Badge tone="neutral" title={o.band.medianCents ? `Comparado com ${o.band.n} preços desta faixa. Mediana: ${brl(o.band.medianCents)}` : `Faixa com ${o.band.n} preços: precisa de 5 para ter referência`}>
+              {o.band.label}
+            </Badge>
+          )}
           {o.freeShipping && <Badge tone="good">Frete grátis</Badge>}
           {o.interest === true && <Badge tone="bad">Com juros</Badge>}
           {o.verifyStatus === "verificado" && <Badge tone="neutral">Verificado {ago(o.verifiedAt, now)}</Badge>}

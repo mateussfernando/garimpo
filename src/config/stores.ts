@@ -9,6 +9,8 @@ export type Store = {
   trust: number;
   /** Extrai o ID canônico do produto a partir da URL. */
   productId?: (url: URL) => string | null;
+  /** O produto é identificado só pelo caminho: tudo depois do "?" é rastreio e sai do link. */
+  pathOnly?: boolean;
 };
 
 export const STORES: Store[] = [
@@ -17,6 +19,7 @@ export const STORES: Store[] = [
     name: "KaBuM!",
     domains: ["kabum.com.br"],
     trust: 1,
+    pathOnly: true,
     productId: (u) => u.pathname.match(/\/produto\/(\d+)/)?.[1] ?? null,
   },
   {
@@ -24,6 +27,7 @@ export const STORES: Store[] = [
     name: "Pichau",
     domains: ["pichau.com.br"],
     trust: 1,
+    pathOnly: true,
     productId: (u) => u.pathname.split("/").filter(Boolean).pop() ?? null,
   },
   {
@@ -31,6 +35,7 @@ export const STORES: Store[] = [
     name: "Terabyte",
     domains: ["terabyteshop.com.br"],
     trust: 1,
+    pathOnly: true,
     productId: (u) => u.pathname.match(/\/produto\/(\d+)/)?.[1] ?? null,
   },
   {
@@ -90,7 +95,11 @@ export const STORES: Store[] = [
   },
 ];
 
-const SHORTENERS = ["amzn.to", "link.amazon", "s.shopee.com.br", "a.co", "bit.ly", "tinyurl.com", "s.click.aliexpress.com", "mercadolivre.com/sec", "compre.vc", "oferta.vc", "is.gd", "t.co"];
+const SHORTENERS = [
+  "amzn.to", "amzlink.to", "link.amazon", "a.co", "s.shopee.com.br", "shope.ee", "s.click.aliexpress.com", "mercadolivre.com/sec",
+  "divulgador.magalu.com", "magazineluiza.onelink.me", "tidd.ly", "bit.ly", "cutt.ly", "tinyurl.com", "is.gd", "t.co", "abre.ai",
+  "encurtador.com.br", "compre.vc", "oferta.vc",
+];
 
 export function hostOf(url: string): string | null {
   try {
@@ -137,11 +146,15 @@ export function decodeTrackingUrl(url: string): string {
   }
 }
 
-/** Tira parâmetros de rastreio/afiliado e o fragmento. */
+/** Tira parâmetros de rastreio/afiliado e o fragmento. Em loja de caminho único (KaBuM!, Pichau, Terabyte), tira todos. */
 export function cleanUrl(url: string): string {
   try {
     const u = new URL(url);
     u.hash = "";
+    if (storeForUrl(url)?.pathOnly) {
+      u.search = "";
+      return u.toString();
+    }
     const drop = [/^utm_/i, /^tag$/i, /^ref/i, /^aff/i, /^gclid$/i, /^fbclid$/i, /^matt_/i, /^partner/i, /^pdp_/i, /^sc_/i, /^spm$/i, /^ascsub/i, /^linkCode$/i, /^camp$/i, /^creative/i];
     for (const key of [...u.searchParams.keys()]) {
       if (drop.some((re) => re.test(key))) u.searchParams.delete(key);

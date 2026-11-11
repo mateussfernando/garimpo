@@ -6,7 +6,7 @@ import { setPauseListener } from "./http/polite";
 import { runInsights } from "./ai/insights";
 import { collectVitrines } from "./collect/vitrines";
 import { startTelegram } from "./ingest/telegram";
-import { ensureSeed, notify } from "./pipeline";
+import { ensureSeed, notify, rematchOffers } from "./pipeline";
 import { verifyTick } from "./verify/verify";
 
 // Plano acelerado: nada de agendamento. A coleta roda só enquanto o worker
@@ -25,6 +25,8 @@ async function main() {
     process.exit(1);
   }
   await ensureSeed();
+  const rm = await rematchOffers();
+  console.log(`[alvos] ${rm.total} ofertas reclassificadas (${rm.changed} mudaram de Alvo ou faixa), ${rm.bands} faixas com referência recalculada`);
   setPauseListener((host, until) => {
     console.warn(`[pausa] ${host} respondeu 429/403. Volta às ${new Date(until).toLocaleTimeString("pt-BR")}.`);
     void notify({ type: "pause", host, until });

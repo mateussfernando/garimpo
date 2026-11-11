@@ -1,26 +1,69 @@
 // Escuta do Telegram (GramJS), SOMENTE LEITURA.
 // Nunca envia mensagem, não entra em grupo, não marca como lida e ignora conversas individuais.
-// Na primeira conexão lista seus grupos e canais, grava cada um em `sources` (kind "telegram")
-// e liga sozinho só os que têm cara de promoção. Para ligar ou desligar outro, mude `enabled` em sources.
+//
+// Como funciona:
+// 1. Lista seus grupos e canais a cada minuto e grava cada um em `sources` (kind "telegram").
+//    Só os de promoção ligam sozinhos; os outros você decide na tela Fontes.
+// 2. De cada canal ligado, lê as mensagens que ainda não leu (na primeira vez, as últimas 30 das últimas 24 h).
+// 3. Mensagem nova chega por evento, em segundos. A leitura de 1 em 1 minuto é a rede de segurança:
+//    se um evento se perder, a mensagem entra na próxima passada.
+// 4. Oferta que vem daqui é conferida na loja na hora (via rápida), sem esperar a fila.
 import { eq, sql } from "drizzle-orm";
+import { Client } from "pg";
 import { TelegramClient } from "telegram";
 import { NewMessage, type NewMessageEvent } from "telegram/events";
 import { StringSession } from "telegram/sessions";
-import { isShortener, storeForUrl } from "@/config/stores";
+import { hostOf } from "@/config/stores";
 import { isOffTopicGroup, isPromoGroup } from "@/config/telegram-filter";
-import { Client } from "pg";
 import { CMD_CHANNEL, db, schema } from "@/lib/db";
-import { touchesAnyAlvo } from "../match/alvos";
+import type { SourceStats } from "@/lib/db/schema";
 import { activeAlvos, ingestRaw, notify } from "../pipeline";
+import { verifyNow } from "../verify/verify";
+import { offerFromMessage } from "./message";
 
 const { sources } = schema;
 
 const INVITE_RE = /(?:https?:\/\/)?(t\.me\/(?:\+|joinchat\/)[A-Za-z0-9_-]{8,}|t\.me\/[A-Za-z][A-Za-z0-9_]{4,}|chat\.whatsapp\.com\/[A-Za-z0-9]{10,}|whatsapp\.com\/channel\/[A-Za-z0-9]{10,})/gi;
-const URL_RE = /https?:\/\/[^\s<>"')\]]+/gi;
 const REFRESH_EVERY = 60 * 1000;
+const FLUSH_EVERY = 10 * 1000;
+const BACKFILL_LIMIT = 30;
+const BACKFILL_HOURS = 24;
 
-type Watched = { sourceId: number; username: string | null };
-const sourceNames = new Map<number, string>();
+type Peer = Parameters<TelegramClient["getMessages"]>[0];
+type Chat = {
+  key: string;
+  sourceId: number;
+  name: string;
+  username: string | null;
+  peer: Peer;
+  stats: SourceStats;
+  lastMessageAt: Date | null;
+  dirty: boolean;
+  chain: Promise<void>;
+  /** Sites dos links de mensagens que não tinham loja conhecida. Serve para descobrir encurtador ou loja que falta na lista. */
+  unknownHosts: Map<string, number>;
+};
+
+/**
+ * Texto da mensagem mais os links que não aparecem no texto: os de palavras clicáveis ("COMPRE AQUI")
+ * e os dos botões embaixo da mensagem. Muitos canais de oferta só põem o link da loja ali.
+ */
+function textWithLinks(m: { message?: string; entities?: unknown; replyMarkup?: unknown }): string {
+  const links: string[] = [];
+  for (const e of (Array.isArray(m.entities) ? m.entities : []) as { url?: unknown }[]) {
+    if (typeof e.url === "string") links.push(e.url);
+  }
+  const rows = (m.replyMarkup as { rows?: { buttons?: { url?: unknown }[] }[] } | undefined)?.rows;
+  for (const r of Array.isArray(rows) ? rows : []) {
+    for (const b of r.buttons ?? []) if (typeof b.url === "string") links.push(b.url);
+  }
+  const text = m.message ?? "";
+  const extra = [...new Set(links)].filter((l) => !text.includes(l));
+  return [text, ...extra].join(String.fromCharCode(10));
+}
+
+const today = () => new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+const freshStats = (lastId = 0): SourceStats => ({ day: today(), read: 0, withLink: 0, touched: 0, offers: 0, lastId });
 
 /** Guarda convites (t.me, chat.whatsapp.com) vistos nas mensagens. O app nunca entra sozinho em nenhum. */
 async function saveInvites(text: string, ownUsername: string | null, from: string | null) {
@@ -34,20 +77,6 @@ async function saveInvites(text: string, ownUsername: string | null, from: strin
       .onConflictDoUpdate({ target: schema.invites.link, set: { mentions: sql`${schema.invites.mentions} + 1`, lastSeenAt: new Date() } })
       .catch(() => undefined);
   }
-}
-
-export function extractOutbound(text: string): string | null {
-  const urls = (text.match(URL_RE) ?? []).map((u) => u.replace(/[.,;!?]+$/, ""));
-  return urls.find((u) => storeForUrl(u) || isShortener(u)) ?? null;
-}
-
-export function titleFrom(text: string): string {
-  const line =
-    text
-      .split("\n")
-      .map((l) => l.replace(URL_RE, "").replace(/\s+/g, " ").trim())
-      .find((l) => l.length > 3) ?? text;
-  return line.slice(0, 200);
 }
 
 export function telegramCredentials() {
@@ -79,10 +108,78 @@ export async function startTelegram() {
     return;
   }
 
-  const watched = new Map<string, Watched>();
-  // Mesmo filtro das comunidades: só entra mensagem que toca um Alvo (mouse, teclado, monitor...).
+  const chats = new Map<string, Chat>();
+  // Mesmo filtro das comunidades: só entra mensagem que nomeia um produto de algum Alvo.
   let alvos = await activeAlvos();
   setInterval(() => activeAlvos().then((a) => (alvos = a)).catch(() => undefined), REFRESH_EVERY);
+
+  /** Uma mensagem por vez em cada chat, na ordem, para o contador e o `lastId` nunca se atropelarem. */
+  const enqueue = (chat: Chat, job: () => Promise<void>) => {
+    chat.chain = chat.chain.then(job).catch((e) => console.error(`[telegram] erro em ${chat.name}:`, (e as Error).message));
+    return chat.chain;
+  };
+
+  async function handleMessage(chat: Chat, msg: { id: number; text: string; date: number }) {
+    if (msg.id <= chat.stats.lastId) return; // já lida (o evento e a leitura de segurança podem trazer a mesma)
+    if (chat.stats.day !== today()) chat.stats = freshStats(chat.stats.lastId);
+    chat.stats.lastId = msg.id;
+    chat.stats.read++;
+    chat.lastMessageAt = new Date(msg.date * 1000);
+    chat.dirty = true;
+    if (!msg.text.trim()) return;
+    void saveInvites(msg.text, chat.username, chat.name);
+    const verdict = offerFromMessage(msg.text, alvos);
+    if (verdict.kind === "sem-link") {
+      for (const u of msg.text.match(/https?:\/\/[^\s<>"')\]]+/gi) ?? []) {
+        const host = hostOf(u);
+        if (host && !/^(t\.me|telegram\.me)$/.test(host) && chat.unknownHosts.size < 40) chat.unknownHosts.set(host, (chat.unknownHosts.get(host) ?? 0) + 1);
+      }
+    }
+    if (verdict.kind === "vazia" || verdict.kind === "sem-link") return;
+    chat.stats.withLink++;
+    if (verdict.kind === "fora-dos-alvos") return;
+    chat.stats.touched++;
+    const offerId = await ingestRaw({
+      sourceId: chat.sourceId,
+      externalId: `${chat.key}/${msg.id}`,
+      title: verdict.title,
+      text: msg.text,
+      url: chat.username ? `https://t.me/${chat.username}/${msg.id}` : null,
+      outboundUrl: verdict.outboundUrl,
+      imageUrl: null,
+    });
+    if (!offerId) return;
+    chat.stats.offers++;
+    const t0 = Date.now();
+    console.log(`[telegram] oferta ${offerId} de ${chat.name}: ${verdict.title.slice(0, 70)}`);
+    // Via rápida: confere na loja já. Não espera terminar para ler a próxima mensagem.
+    void verifyNow(offerId)
+      .then(() => console.log(`[telegram] oferta ${offerId} conferida em ${((Date.now() - t0) / 1000).toFixed(1)} s`))
+      .catch((e) => console.error("[telegram] erro na via rápida:", (e as Error).message));
+  }
+
+  /** Lê o que ainda não foi lido do chat. Na primeira vez, só as últimas 24 h. */
+  async function catchUp(chat: Chat) {
+    const first = chat.stats.lastId === 0;
+    const msgs = await client.getMessages(chat.peer, { limit: BACKFILL_LIMIT, ...(first ? {} : { minId: chat.stats.lastId }) });
+    const cutoff = Date.now() / 1000 - BACKFILL_HOURS * 3600;
+    const list = msgs.filter((m) => m.id > chat.stats.lastId && (!first || m.date >= cutoff)).sort((a, b) => a.id - b.id);
+    const before = { ...chat.stats };
+    for (const m of list) await handleMessage(chat, { id: m.id, text: textWithLinks(m), date: m.date });
+    if (first) {
+      // Marca o ponto de partida mesmo se não havia nada nas últimas 24 h, para não reler tudo na próxima vez.
+      const newest = msgs.reduce((mx, m) => Math.max(mx, m.id), chat.stats.lastId);
+      if (newest > chat.stats.lastId) {
+        chat.stats.lastId = newest;
+        chat.dirty = true;
+      }
+      console.log(
+        `[telegram] ${chat.name}: ${chat.stats.read - before.read} lidas das últimas ${BACKFILL_HOURS} h, ${chat.stats.withLink - before.withLink} com link de loja, ${chat.stats.touched - before.touched} nos Alvos, ${chat.stats.offers - before.offers} ofertas`,
+      );
+      const hosts = [...chat.unknownHosts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+      if (hosts.length) console.log(`[telegram] ${chat.name}: links sem loja conhecida: ${hosts.map(([h, n]) => `${h} (${n})`).join(", ")}`);
+    }
+  }
 
   async function syncDialogs() {
     const dialogs = await client.getDialogs({ limit: 300 });
@@ -111,19 +208,60 @@ export async function startTelegram() {
         await db.update(sources).set({ name, url }).where(eq(sources.id, row.id));
       }
       await db.update(sources).set({ lastRunAt: new Date() }).where(eq(sources.id, row.id));
-      if (row.enabled) {
-        watched.set(id, { sourceId: row.id, username });
-        sourceNames.set(row.id, name);
-        on++;
-      } else {
-        watched.delete(id);
+
+      if (!row.enabled) {
+        chats.delete(id);
         off++;
+        continue;
+      }
+      on++;
+      const peer = (d.inputEntity ?? d.entity) as Peer;
+      let chat = chats.get(id);
+      if (!chat) {
+        chat = {
+          key: id,
+          sourceId: row.id,
+          name,
+          username,
+          peer,
+          stats: row.stats ?? freshStats(),
+          lastMessageAt: row.lastMessageAt,
+          dirty: false,
+          chain: Promise.resolve(),
+          unknownHosts: new Map(),
+        };
+        chats.set(id, chat);
+        const c = chat;
+        void enqueue(c, () => catchUp(c)); // primeira leitura deste canal nesta execução
+      } else {
+        chat.name = name;
+        chat.username = username;
+        chat.peer = peer;
+        // Rede de segurança: a última mensagem do canal é mais nova do que a última lida? Então lê o que faltou.
+        const top = d.message?.id ?? 0;
+        if (top > chat.stats.lastId) {
+          const c = chat;
+          void enqueue(c, () => catchUp(c));
+        }
       }
     }
     return { on, off };
   }
 
-  // A tela Fontes avisa por pg_notify ("fontes" = o usuário mudou uma fonte; "rescan" = procurar de novo).
+  /** Grava os contadores dos canais que mudaram e avisa as telas. */
+  async function flush() {
+    let any = false;
+    for (const chat of chats.values()) {
+      if (!chat.dirty) continue;
+      chat.dirty = false;
+      any = true;
+      await db.update(sources).set({ stats: chat.stats, lastMessageAt: chat.lastMessageAt }).where(eq(sources.id, chat.sourceId));
+    }
+    if (any) await notify({ type: "source" });
+  }
+  setInterval(() => flush().catch((e) => console.error("[telegram] erro ao gravar contadores:", (e as Error).message)), FLUSH_EVERY);
+
+  // A tela Fontes avisa por pg_notify quando o usuário muda uma fonte ou pede "Procurar de novo".
   const cmd = new Client({ connectionString: process.env.DATABASE_URL });
   await cmd.connect();
   await cmd.query(`LISTEN ${CMD_CHANNEL}`);
@@ -132,33 +270,13 @@ export async function startTelegram() {
 
   const first = await syncDialogs();
   console.log(`[telegram] escutando ${first.on} grupos/canais (${first.off} desligados em sources)`);
-  setInterval(() => syncDialogs().catch((e) => console.error("[telegram] erro ao listar chats:", e)), REFRESH_EVERY);
+  setInterval(() => syncDialogs().catch((e) => console.error("[telegram] erro ao listar chats:", (e as Error).message)), REFRESH_EVERY);
 
-  client.addEventHandler(async (event: NewMessageEvent) => {
-    try {
-      const msg = event.message;
-      if (event.isPrivate || msg.out) return; // nunca conversas individuais nem o que eu mesmo enviei
-      const w = watched.get(String(event.chatId));
-      if (!w) return;
-      const text = (msg.message ?? "").trim();
-      if (!text) return;
-      void saveInvites(text, w.username, sourceNames.get(w.sourceId) ?? null);
-      const outboundUrl = extractOutbound(text);
-      if (!outboundUrl) return; // papo sem link de loja não é oferta
-      if (!touchesAnyAlvo(text, alvos)) return; // assunto fora dos Alvos
-      const externalId = `${String(event.chatId)}/${msg.id}`;
-      const id = await ingestRaw({
-        sourceId: w.sourceId,
-        externalId,
-        title: titleFrom(text),
-        text,
-        url: w.username ? `https://t.me/${w.username}/${msg.id}` : null,
-        outboundUrl,
-        imageUrl: null,
-      });
-      if (id) console.log(`[telegram] oferta ${id}: ${titleFrom(text).slice(0, 70)}`);
-    } catch (e) {
-      console.error("[telegram] erro na mensagem:", e);
-    }
+  client.addEventHandler((event: NewMessageEvent) => {
+    const msg = event.message;
+    if (event.isPrivate || msg.out) return; // nunca conversas individuais nem o que eu mesmo enviei
+    const chat = chats.get(String(event.chatId));
+    if (!chat) return;
+    void enqueue(chat, () => handleMessage(chat, { id: msg.id, text: textWithLinks(msg), date: msg.date }));
   }, new NewMessage({ incoming: true }));
 }

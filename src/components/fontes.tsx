@@ -108,6 +108,15 @@ export function Fontes() {
                 <span role="cell" className="flex min-w-0 flex-col">
                   <span className="truncate text-sm font-medium">{f.name}</span>
                   <span className="truncate text-xs text-muted">{f.why}</span>
+                  {f.kind === "telegram" && f.state === "confirmada" && (
+                    <span className="truncate font-mono text-[11px] text-ink-3">
+                      {f.stats
+                        ? `hoje: ${f.stats.read} lidas · ${f.stats.withLink} com link de loja · ${f.stats.touched} nos Alvos · ${f.stats.offers} ofertas`
+                        : "ainda sem leitura"}
+                      {f.lastMessageAt ? ` · última mensagem ${ago(f.lastMessageAt, now)}` : ""}
+                    </span>
+                  )}
+                  {f.kind !== "telegram" && f.statusNote && <span className="truncate font-mono text-[11px] text-ink-3">{f.statusNote}</span>}
                 </span>
                 <span role="cell" className="text-[13px] text-ink-2">{f.where}</span>
                 <span role="cell" className="font-mono tnum text-[13px]">{f.perDay || "—"}</span>

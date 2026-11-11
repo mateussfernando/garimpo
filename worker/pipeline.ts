@@ -1,20 +1,21 @@
-import { and, desc, eq, gte, isNotNull, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNotNull, ne, notInArray, sql } from "drizzle-orm";
 import { ALVOS_V0 } from "@/config/alvos";
 import { STORES, cleanUrl, decodeTrackingUrl, storeByName, storeForUrl } from "@/config/stores";
 import { db, NOTIFY_CHANNEL, pool, schema } from "@/lib/db";
 import { COMMUNITIES } from "./collect/communities-config";
 import { VITRINES } from "./collect/vitrines-config";
-import { matchAlvo, targetsFrom } from "./match/alvos";
+import { matchAlvo, median, targetsFrom, type AlvoLite } from "./match/alvos";
+import { bandOf, extractSpecs, type Band } from "./match/specs";
 import { parseOfferText } from "./parse/parser";
 import { notaRapida } from "./score/nota";
 
-const { sources, rawMessages, offers, alvos } = schema;
+const { sources, rawMessages, offers, alvos, alvoRefs, marketObs, products } = schema;
 
 export async function notify(payload: Record<string, unknown>) {
   await pool.query("select pg_notify($1, $2)", [NOTIFY_CHANNEL, JSON.stringify(payload)]);
 }
 
-/** Fontes e Alvos v0 entram sozinhos; o usuário não digita nada. */
+/** Fontes e Alvos entram sozinhos; o usuário não digita nada. */
 export async function ensureSeed() {
   for (const c of COMMUNITIES) {
     await db
@@ -32,12 +33,25 @@ export async function ensureSeed() {
     await db
       .insert(alvos)
       .values({ slug: a.slug, name: a.name, terms: a.terms, exclusions: a.exclusions })
-      .onConflictDoUpdate({ target: alvos.slug, set: { name: a.name, terms: a.terms, exclusions: a.exclusions } });
+      .onConflictDoUpdate({ target: alvos.slug, set: { name: a.name, terms: a.terms, exclusions: a.exclusions, active: true } });
   }
+  // Alvo que saiu da lista (o antigo "Acessórios") fica desligado. Nada é apagado.
+  await db
+    .update(alvos)
+    .set({ active: false })
+    .where(notInArray(alvos.slug, ALVOS_V0.map((a) => a.slug)));
 }
 
 export async function activeAlvos() {
   return db.select().from(alvos).where(eq(alvos.active, true));
+}
+
+/** Alvo, especificações e faixa de um título. Tudo sem IA. */
+export function classify<T extends AlvoLite>(title: string, list: T[]) {
+  const alvo = matchAlvo(title, list);
+  if (!alvo) return { alvo: null, specs: null, band: null as Band | null };
+  const specs = extractSpecs(title);
+  return { alvo, specs, band: bandOf(alvo.slug, specs) };
 }
 
 export type RawInput = {
@@ -72,7 +86,7 @@ export async function ingestRaw(input: RawInput): Promise<number | null> {
 async function createOffer(rawId: number, input0: RawInput): Promise<number> {
   const input = { ...input0, outboundUrl: input0.outboundUrl ? decodeTrackingUrl(input0.outboundUrl) : null };
   const parsed = parseOfferText(input.text);
-  const alvo = matchAlvo(input.title, await activeAlvos());
+  const { alvo, specs, band } = classify(input.title, await activeAlvos());
   const store =
     (input.outboundUrl && storeForUrl(input.outboundUrl)) || (input.storeName ? storeByName(input.storeName) : null);
   const buyUrl = input.outboundUrl ? cleanUrl(input.outboundUrl) : input.url;
@@ -82,6 +96,8 @@ async function createOffer(rawId: number, input0: RawInput): Promise<number> {
       rawMessageId: rawId,
       sourceId: input.sourceId,
       alvoId: alvo?.id ?? null,
+      specs,
+      bandKey: band?.key ?? null,
       title: input.title.slice(0, 300),
       store: store?.slug ?? null,
       url: buyUrl,
@@ -100,25 +116,60 @@ async function createOffer(rawId: number, input0: RawInput): Promise<number> {
       verifyNote: input.outboundUrl ? null : "sem link da loja no post",
     })
     .returning({ id: offers.id });
-  if (alvo) await refreshTarget(alvo.id);
+  if (alvo && band) await refreshRef(alvo.id, band.key, band.label);
   await scoreOffer(row.id);
   return row.id;
 }
 
-/** Recalcula preço-alvo e teto do Alvo com as ofertas dos últimos 7 dias. */
-export async function refreshTarget(alvoId: number) {
+/**
+ * Recalcula a referência de uma faixa: mediana, preço-alvo (85%) e teto (115%) dos preços vistos em 7 dias.
+ * Entram as ofertas da faixa e os preços de mercado das vitrines; cada produto conta uma vez só.
+ * Devolve true se o preço-alvo mudou.
+ */
+export async function refreshRef(alvoId: number, bandKey: string, label?: string): Promise<boolean> {
+  const week = sql`now() - interval '7 days'`;
+  const obs = await db
+    .select()
+    .from(marketObs)
+    .where(and(eq(marketObs.alvoId, alvoId), eq(marketObs.bandKey, bandKey), gte(marketObs.seenAt, week)));
   const rows = await db
-    .select({ p: offers.priceCardCents })
+    .select({ id: offers.id, p: offers.priceCardCents, store: products.store, code: products.storeProductId })
     .from(offers)
-    .where(and(eq(offers.alvoId, alvoId), isNotNull(offers.priceCardCents), gte(offers.createdAt, sql`now() - interval '7 days'`)));
-  const t = targetsFrom(rows.map((r) => r.p!));
-  await db.update(alvos).set(t).where(eq(alvos.id, alvoId));
+    .leftJoin(products, eq(offers.productId, products.id))
+    .where(and(eq(offers.alvoId, alvoId), eq(offers.bandKey, bandKey), isNotNull(offers.priceCardCents), gte(offers.createdAt, week)));
+
+  const byProduct = new Map<string, number>();
+  for (const o of obs) byProduct.set(`${o.store}:${o.code}`, o.priceCardCents);
+  // O preço conferido na loja vale mais que o da vitrine; entre ofertas do mesmo produto, vale o menor.
+  const fromOffers = new Map<string, number>();
+  for (const r of rows) {
+    const key = r.store && r.code ? `${r.store}:${r.code}` : `oferta:${r.id}`;
+    fromOffers.set(key, Math.min(fromOffers.get(key) ?? Infinity, r.p!));
+  }
+  for (const [k, v] of fromOffers) byProduct.set(k, v);
+
+  const prices = [...byProduct.values()];
+  const t = targetsFrom(prices);
+  const medianCents = prices.length >= 5 ? median(prices) : null;
+  const [prev] = await db
+    .select()
+    .from(alvoRefs)
+    .where(and(eq(alvoRefs.alvoId, alvoId), eq(alvoRefs.bandKey, bandKey)));
+  const values = { medianCents, ...t, n: prices.length, updatedAt: new Date() };
+  await db
+    .insert(alvoRefs)
+    .values({ alvoId, bandKey, label: label ?? prev?.label ?? bandKey, ...values })
+    .onConflictDoUpdate({ target: [alvoRefs.alvoId, alvoRefs.bandKey], set: { ...(label ? { label } : {}), ...values } });
+  return (prev?.targetCents ?? null) !== t.targetCents;
 }
 
-export async function scoreOffer(offerId: number) {
+export async function scoreOffer(offerId: number, opts: { silent?: boolean } = {}) {
   const [o] = await db.select().from(offers).where(eq(offers.id, offerId));
   if (!o) return;
-  const alvo = o.alvoId ? (await db.select().from(alvos).where(eq(alvos.id, o.alvoId)))[0] : null;
+  const ref =
+    o.alvoId && o.bandKey
+      ? (await db.select().from(alvoRefs).where(and(eq(alvoRefs.alvoId, o.alvoId), eq(alvoRefs.bandKey, o.bandKey))))[0]
+      : null;
   const store = o.store ? STORES.find((s) => s.slug === o.store) : null;
   // Calor social: fontes distintas com o mesmo produto (ou título igual) em 15 min.
   const same = o.productId
@@ -130,15 +181,60 @@ export async function scoreOffer(offerId: number) {
     .where(and(same, gte(offers.createdAt, sql`${o.createdAt}::timestamptz - interval '15 minutes'`)));
   const r = notaRapida({
     priceCardCents: o.priceCardCents,
-    targetCents: alvo?.targetCents ?? null,
-    ceilingCents: alvo?.ceilingCents ?? null,
+    targetCents: ref?.targetCents ?? null,
+    ceilingCents: ref?.ceilingCents ?? null,
     storeTrust: store?.trust ?? null,
     freeShipping: o.freeShipping,
     shippingCents: o.shippingCents,
     sources15: n,
   });
   await db.update(offers).set({ nota: r.nota, notaParts: r.parts }).where(eq(offers.id, offerId));
-  await notify({ type: "offer", id: offerId, alvoAtingido: r.alvoAtingido });
+  if (!opts.silent) await notify({ type: "offer", id: offerId, alvoAtingido: r.alvoAtingido });
+}
+
+/**
+ * Reclassifica as ofertas dos últimos 7 dias com as regras atuais de Alvo e faixa, recalcula as referências
+ * e as notas. Roda quando o worker sobe: é barato e mantém as ofertas antigas coerentes com as regras novas.
+ */
+export async function rematchOffers(): Promise<{ total: number; changed: number; bands: number }> {
+  const list = await activeAlvos();
+  const rows = await db
+    .select({ id: offers.id, title: offers.title, alvoId: offers.alvoId, bandKey: offers.bandKey })
+    .from(offers)
+    .where(gte(offers.createdAt, sql`now() - interval '7 days'`));
+  const bands = new Map<string, { alvoId: number; band: Band }>();
+  let changed = 0;
+  for (const r of rows) {
+    const c = classify(r.title, list);
+    const alvoId = c.alvo?.id ?? null;
+    const bandKey = c.band?.key ?? null;
+    if (alvoId !== r.alvoId || bandKey !== r.bandKey) changed++;
+    await db.update(offers).set({ alvoId, specs: c.specs, bandKey }).where(eq(offers.id, r.id));
+    if (c.alvo && c.band) bands.set(`${alvoId}:${bandKey}`, { alvoId: c.alvo.id, band: c.band });
+  }
+  // Faixas que só existem nos preços de mercado também precisam de referência.
+  const obsBands = await db.selectDistinct({ alvoId: marketObs.alvoId, bandKey: marketObs.bandKey }).from(marketObs);
+  for (const b of bands.values()) await refreshRef(b.alvoId, b.band.key, b.band.label);
+  for (const b of obsBands) if (!bands.has(`${b.alvoId}:${b.bandKey}`)) await refreshRef(b.alvoId, b.bandKey);
+  for (const r of rows) await scoreOffer(r.id, { silent: true });
+  await notify({ type: "offer" });
+  return { total: rows.length, changed, bands: bands.size };
+}
+
+/** Depois que o preço de uma oferta muda: atualiza a referência da faixa e, se o alvo mexeu, as notas da faixa. */
+export async function afterPriceChange(offerId: number) {
+  const [o] = await db.select({ alvoId: offers.alvoId, bandKey: offers.bandKey }).from(offers).where(eq(offers.id, offerId));
+  if (o?.alvoId && o.bandKey) {
+    const moved = await refreshRef(o.alvoId, o.bandKey);
+    if (moved) {
+      const peers = await db
+        .select({ id: offers.id })
+        .from(offers)
+        .where(and(eq(offers.alvoId, o.alvoId), eq(offers.bandKey, o.bandKey), ne(offers.id, offerId), gte(offers.createdAt, sql`now() - interval '48 hours'`)));
+      for (const p of peers) await scoreOffer(p.id, { silent: true });
+    }
+  }
+  await scoreOffer(offerId);
 }
 
 export async function setSourceStatus(slug: string, status: string, note: string | null) {
@@ -146,11 +242,14 @@ export async function setSourceStatus(slug: string, status: string, note: string
   await notify({ type: "source", slug, status });
 }
 
+/** Fila de verificação. Fontes ao vivo (Telegram) passam na frente; depois, as mais novas. */
 export async function pendingOffers(limit: number) {
-  return db
-    .select()
+  const rows = await db
+    .select({ o: offers })
     .from(offers)
+    .innerJoin(sources, eq(offers.sourceId, sources.id))
     .where(and(eq(offers.verifyStatus, "pendente"), ne(offers.dismissed, true)))
-    .orderBy(desc(offers.createdAt))
+    .orderBy(sql`(${sources.kind} = 'telegram') desc`, desc(offers.createdAt))
     .limit(limit);
+  return rows.map((r) => r.o);
 }

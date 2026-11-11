@@ -12,7 +12,8 @@ import { runRadar } from "./ai/radar";
 import { runInsights } from "./ai/insights";
 import { collectVitrines } from "./collect/vitrines";
 import { startTelegram } from "./ingest/telegram";
-import { ensureSeed, notify, rematchOffers } from "./pipeline";
+import { ALVOS_CMD_CHANNEL, type AlvosCmd } from "@/lib/alvos";
+import { ensureSeed, notify, rematchOffers, rescoreBand } from "./pipeline";
 import { verifyTick } from "./verify/verify";
 
 // Plano acelerado: nada de agendamento. A coleta roda só enquanto o worker
@@ -33,6 +34,7 @@ async function main() {
   await ensureSeed();
   const rm = await rematchOffers();
   console.log(`[alvos] ${rm.total} ofertas reclassificadas (${rm.changed} mudaram de Alvo ou faixa), ${rm.bands} faixas com referência recalculada`);
+  await listenAlvos();
   // Pausas pedidas pelos sites antes deste reinício continuam valendo.
   const saved = (await getSetting<Pauses>(PAUSES_KEY))?.value ?? {};
   const fromStores = await db.select().from(schema.storeState);
@@ -141,6 +143,54 @@ async function main() {
     console.log(`[ia] insights ligados (${process.env.AI_PROVIDER ?? "claude-cli"}, modelo único claude-haiku-5-5)`);
   }
   console.log(`worker ok · papéis: ${roles.join(", ")}`);
+}
+
+/**
+ * A tela Alvos avisa quando o usuário cria, edita, liga, desliga ou apaga um Alvo (reclassifica as ofertas de 7 dias)
+ * ou muda o preço-alvo de uma faixa (refaz as notas dela). Um pedido por vez; vários seguidos viram uma rodada só.
+ */
+async function listenAlvos() {
+  let busy = false;
+  let rematch = false;
+  const bands = new Map<string, { alvoId: number; bandKey: string }>();
+  const drain = async () => {
+    if (busy) return;
+    busy = true;
+    try {
+      while (rematch || bands.size) {
+        if (rematch) {
+          rematch = false;
+          bands.clear(); // a reclassificação já refaz todas as faixas e notas
+          const r = await rematchOffers();
+          console.log(`[alvos] Alvos mudaram na tela: ${r.total} ofertas reclassificadas (${r.changed} mudaram)`);
+        } else {
+          const [k, b] = bands.entries().next().value!;
+          bands.delete(k);
+          await rescoreBand(b.alvoId, b.bandKey);
+          console.log(`[alvos] preço-alvo da faixa ${b.bandKey} mudou: notas refeitas`);
+        }
+      }
+    } catch (e) {
+      console.error("[alvos] erro ao aplicar mudança da tela Alvos:", e);
+    } finally {
+      busy = false;
+      await notify({ type: "alvos" });
+    }
+  };
+  const cmd = new Client({ connectionString: process.env.DATABASE_URL });
+  await cmd.connect();
+  await cmd.query(`LISTEN ${ALVOS_CMD_CHANNEL}`);
+  cmd.on("notification", (n) => {
+    try {
+      const c = JSON.parse(n.payload ?? "{}") as AlvosCmd;
+      if (c.acao === "rematch") rematch = true;
+      else if (c.acao === "faixa") bands.set(`${c.alvoId}:${c.bandKey}`, { alvoId: c.alvoId, bandKey: c.bandKey });
+    } catch {
+      return;
+    }
+    setTimeout(() => void drain(), 1500);
+  });
+  cmd.on("error", (e) => console.error("[alvos] canal de comandos caiu:", e.message));
 }
 
 for (const sig of ["SIGINT", "SIGTERM"] as const) {

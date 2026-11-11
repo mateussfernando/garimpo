@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ALVOS_V0 } from "@/config/alvos";
-import { matchAlvo, stripPrefixes } from "./alvos";
+import { effectiveTargets, matchAlvo, stripPrefixes } from "./alvos";
 import { bandOf, extractSpecs } from "./specs";
 
 const alvos = ALVOS_V0.map((a, i) => ({ id: i + 1, ...a }));
@@ -104,5 +104,41 @@ describe("Especificações e faixas", () => {
     expect(band("mousepad", "Mousepad Maxprint, Pequeno, 220x178mm, Preto")).toBe("Pequeno");
     expect(band("mousepad", "Mousepad Maxprint, 23x19.5cm, com Apoio em Gel")).toBe("Pequeno");
     expect(band("mousepad", "Mousepad Gamer Colorido")).toBeNull();
+  });
+});
+
+describe("Alvos criados na tela Alvos", () => {
+  const user = (name: string, terms: string[], exclusions: string[] = []) => ({ id: 100, slug: `u-${name}`, name, terms, exclusions });
+  const with_ = (a: ReturnType<typeof user>) => (t: string) => matchAlvo(t, [...alvos, a])?.slug ?? null;
+
+  it("um tipo que era \"outro produto\" vira Alvo quando o usuário cria um com ele", () => {
+    expect(slug("Cadeira Gamer ThunderX3 TGC12 Preta")).toBeNull();
+    const m = with_(user("cadeira", ["cadeira gamer", "cadeira"]));
+    expect(m("Cadeira Gamer ThunderX3 TGC12 Preta")).toBe("u-cadeira");
+    const tv = with_(user("tv", ["tv"]));
+    expect(tv('Smart TV LG 55" 4K UHD 55UT8050PSA ThinQ AI')).toBe("u-tv");
+    // O resto continua igual: suporte de TV não é TV, e o monitor segue no Alvo dele.
+    expect(tv("Suporte de Parede para TV 32 a 75 Polegadas")).toBeNull();
+    expect(tv('Monitor Gamer LG UltraGear 27" 180Hz Full HD')).toBe("monitor");
+  });
+
+  it("exclusões do usuário tiram o título", () => {
+    const m = with_(user("cadeira", ["cadeira"], ["infantil"]));
+    expect(m("Cadeira Infantil de Plástico")).toBeNull();
+  });
+});
+
+describe("preço-alvo do usuário", () => {
+  const auto = { targetCents: 85000, ceilingCents: 115000 };
+  it("vale no lugar do calculado; vazio volta ao automático", () => {
+    expect(effectiveTargets(auto, null)).toEqual(auto);
+    expect(effectiveTargets(auto, { manualTargetCents: null, manualCeilingCents: null })).toEqual(auto);
+    expect(effectiveTargets(auto, { manualTargetCents: 70000, manualCeilingCents: 90000 })).toEqual({ targetCents: 70000, ceilingCents: 90000 });
+  });
+  it("só o preço-alvo: o teto fica 35% acima dele, mesmo sem referência", () => {
+    expect(effectiveTargets({ targetCents: null, ceilingCents: null }, { manualTargetCents: 100000, manualCeilingCents: null })).toEqual({ targetCents: 100000, ceilingCents: 135000 });
+  });
+  it("só o teto: o alvo calculado fica", () => {
+    expect(effectiveTargets(auto, { manualTargetCents: null, manualCeilingCents: 120000 })).toEqual({ targetCents: 85000, ceilingCents: 120000 });
   });
 });

@@ -1,11 +1,11 @@
-import { and, desc, eq, gte, isNotNull, ne, notInArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNotNull, isNull, ne, notInArray, sql } from "drizzle-orm";
 import { ALVOS_V0 } from "@/config/alvos";
 import { STORES, cleanUrl, decodeTrackingUrl, isShortener, storeByName, storeForUrl } from "@/config/stores";
 import { db, NOTIFY_CHANNEL, pool, schema } from "@/lib/db";
 import { COMMUNITIES } from "./collect/communities-config";
 import { VITRINES } from "./collect/vitrines-config";
 import { offerFromMessage } from "./ingest/message";
-import { matchAlvo, median, targetsFrom, type AlvoLite } from "./match/alvos";
+import { effectiveTargets, matchAlvo, median, targetsFrom, type AlvoLite } from "./match/alvos";
 import { categorize } from "./match/category";
 import { couponFromPost, couponKey, couponsFromPost, isCouponMessage, type CouponInfo } from "./parse/coupons";
 import { bandOf, extractSpecs, type Band } from "./match/specs";
@@ -18,7 +18,7 @@ export async function notify(payload: Record<string, unknown>) {
   await pool.query("select pg_notify($1, $2)", [NOTIFY_CHANNEL, JSON.stringify(payload)]);
 }
 
-/** Fontes e Alvos entram sozinhos; o usuário não digita nada. */
+/** Fontes e os Alvos iniciais entram sozinhos. Os Alvos depois se ajustam na tela Alvos. */
 export async function ensureSeed() {
   for (const c of COMMUNITIES) {
     await db
@@ -32,21 +32,24 @@ export async function ensureSeed() {
       .values({ slug: v.slug, kind: "loja", name: v.name, url: v.url })
       .onConflictDoUpdate({ target: sources.slug, set: { name: v.name, url: v.url } });
   }
+  // Os Alvos de config/alvos.ts entram uma vez. Depois, quem manda é a tela Alvos: um Alvo que o usuário editou
+  // ou apagou não é mais sobrescrito, e ligar/desligar é sempre dele.
   for (const a of ALVOS_V0) {
+    await db.insert(alvos).values({ slug: a.slug, name: a.name, terms: a.terms, exclusions: a.exclusions }).onConflictDoNothing();
     await db
-      .insert(alvos)
-      .values({ slug: a.slug, name: a.name, terms: a.terms, exclusions: a.exclusions })
-      .onConflictDoUpdate({ target: alvos.slug, set: { name: a.name, terms: a.terms, exclusions: a.exclusions, active: true } });
+      .update(alvos)
+      .set({ name: a.name, terms: a.terms, exclusions: a.exclusions })
+      .where(and(eq(alvos.slug, a.slug), isNull(alvos.editedAt), isNull(alvos.deletedAt)));
   }
-  // Alvo que saiu da lista (o antigo "Acessórios") fica desligado. Nada é apagado.
+  // Alvo do código que saiu da lista (o antigo "Acessórios") fica desligado. Nada é apagado.
   await db
     .update(alvos)
     .set({ active: false })
-    .where(notInArray(alvos.slug, ALVOS_V0.map((a) => a.slug)));
+    .where(and(eq(alvos.origin, "seed"), isNull(alvos.editedAt), notInArray(alvos.slug, ALVOS_V0.map((a) => a.slug))));
 }
 
 export async function activeAlvos() {
-  return db.select().from(alvos).where(eq(alvos.active, true));
+  return db.select().from(alvos).where(and(eq(alvos.active, true), isNull(alvos.deletedAt)));
 }
 
 /** Alvo, especificações e faixa de um título. Tudo sem IA. */
@@ -170,18 +173,30 @@ export async function refreshRef(alvoId: number, bandKey: string, label?: string
   for (const [k, v] of fromOffers) byProduct.set(k, v);
 
   const prices = [...byProduct.values()];
-  const t = targetsFrom(prices);
   const medianCents = prices.length >= 5 ? median(prices) : null;
   const [prev] = await db
     .select()
     .from(alvoRefs)
     .where(and(eq(alvoRefs.alvoId, alvoId), eq(alvoRefs.bandKey, bandKey)));
+  // O preço-alvo e o teto que o usuário pôs na tela Alvos valem no lugar dos calculados.
+  const t = effectiveTargets(targetsFrom(prices), prev ?? null);
   const values = { medianCents, ...t, n: prices.length, updatedAt: new Date() };
   await db
     .insert(alvoRefs)
     .values({ alvoId, bandKey, label: label ?? prev?.label ?? bandKey, ...values })
     .onConflictDoUpdate({ target: [alvoRefs.alvoId, alvoRefs.bandKey], set: { ...(label ? { label } : {}), ...values } });
   return (prev?.targetCents ?? null) !== t.targetCents;
+}
+
+/** Reescreve o preço-alvo de uma faixa (o usuário mexeu nele) e refaz as notas das ofertas da faixa. */
+export async function rescoreBand(alvoId: number, bandKey: string) {
+  await refreshRef(alvoId, bandKey);
+  const peers = await db
+    .select({ id: offers.id })
+    .from(offers)
+    .where(and(eq(offers.alvoId, alvoId), eq(offers.bandKey, bandKey), gte(offers.createdAt, sql`now() - interval '7 days'`)));
+  for (const p of peers) await scoreOffer(p.id, { silent: true });
+  await notify({ type: "offer" });
 }
 
 export async function scoreOffer(offerId: number, opts: { silent?: boolean } = {}) {

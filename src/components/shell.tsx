@@ -101,6 +101,7 @@ export function useStatus() {
 
 const NAV = [
   { key: "vitrine", href: "/", label: "Vitrine" },
+  { key: "alvos", href: "/alvos", label: "Alvos" },
   { key: "fontes", href: "/fontes", label: "Fontes" },
   { key: "cupons", href: "/cupons", label: "Cupons" },
   { key: "ia", href: "/ia", label: "Fila da IA" },

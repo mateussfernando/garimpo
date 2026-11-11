@@ -29,7 +29,8 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 | Preço | Total no cartão no maior número de parcelas sem juros, em centavos. Frete grátis em destaque. |
 | Alertas | Só na Vitrine. Nada de notificação no celular ou no WhatsApp. |
 | WhatsApp e Telegram | Somente leitura. O app nunca envia mensagem nem entra em grupo. Conversas individuais nunca são lidas. |
-| Fontes e Alvos | Descobertos sozinhos. O usuário só confirma e nunca digita configuração. |
+| Fontes e Alvos | Descobertos sozinhos. O usuário só confirma e nunca digita configuração. Vale para as Fontes; os Alvos mudaram em 11/11 (linha abaixo). |
+| Alvos configuráveis (11/11, 17:55) | A pedido do usuário, os Alvos se ajustam na tela Alvos: criar, editar nome, termos e exclusões, ligar e desligar, voltar ao padrão, apagar, e preço-alvo e teto por faixa (vazio = automático, 85% e 115% da mediana). Os Alvos de `config/alvos.ts` são só o ponto de partida: um Alvo editado ou apagado na tela não é mais sobrescrito pelo worker. |
 | Coleta educada | robots.txt, 1 pedido a cada 5 a 10 s por loja, cache, sem proxy. Pausa em 429, 403 ou 503 vale para o domínio inteiro, segura a fila, sobrevive ao reinício e cresce se o site reclamar de novo (1 h, 6 h, 24 h). Atualizado em 11/11 a pedido do usuário: o IP não pode entrar em lista de bloqueio. |
 | Qualquer produto (11/11) | Telegram e comunidades trazem qualquer produto com link de loja; o usuário escolhe pelos grupos em que entra. Alvos só classificam. Categorias por regra e, no que sobrar, IA em lote. Posts de cupom vão para a tela Cupons. |
 | IA sem teto (11/11) | A trava de US$ 4,50 e `AI_MAX_CHAMADAS_DIA` saíram. O usuário pausa e continua a IA no cabeçalho, chama a IA quando quiser e vê o custo e o uso da assinatura (5 h e semana). |
@@ -58,6 +59,23 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 - Design (canvas clicável): https://claude.ai/artifact/KpCmQB2sKdW9GvHR9Z7MD2
 
 ## Registro (mais recente primeiro)
+
+### 11/11/2026, 17:55 · Alvos configuráveis na tela Alvos
+
+- **Pedido:** "eu quero que os alvos sejam configuraveis". Antes, os Alvos vinham fixos de `config/alvos.ts` e o worker sobrescrevia termos, exclusões e "ligado" a cada partida.
+- **Feito:**
+  - **Tela Alvos** (`/alvos`, novo item no menu; `src/components/alvos.tsx`): um card por Alvo, com nome editável, termos e exclusões como chips (× tira, Enter ou vírgula põe), Ligar/Desligar, "Voltar ao padrão" (Alvos do código editados) e Apagar com confirmação. "Novo Alvo" cria um Alvo do zero;
+  - **Teste ao vivo:** enquanto você edita, o card mostra quantas das ofertas dos últimos 7 dias o Alvo pegaria, com exemplos, e quais ele deixaria de pegar e para onde iriam. É o mesmo `matchAlvo` do worker, sem IA (`POST /api/alvos/teste`, cerca de 1 s para 3.000 ofertas);
+  - **Preço-alvo e teto por faixa:** cada faixa mostra preços vistos e mediana; os campos aceitam o seu preço-alvo e o seu teto. Vazio = automático (85% e 115% da mediana, a partir de 5 preços). Só o preço-alvo: o teto fica 35% acima dele. Alvo novo sem ofertas já aceita preço-alvo na faixa "Geral";
+  - **Banco:** `alvos.origin` ("seed" ou "usuario"), `alvos.edited_at`, `alvos.deleted_at`, `alvo_refs.manual_target_cents` e `alvo_refs.manual_ceiling_cents` (`db:push` aplicado);
+  - **Worker:** `ensureSeed` só insere os Alvos do código e atualiza os que você não editou; nunca mexe em "ligado" nem traz de volta um apagado. `refreshRef` usa o seu preço quando existe (`effectiveTargets`). O canal `garimpo_alvos` (pg_notify) recebe "rematch" (reclassifica as ofertas de 7 dias) ou "faixa" (refaz as notas da faixa); pedidos seguidos viram uma rodada só;
+  - **Casamento:** um tipo da lista "outro produto" (cadeira, tv, smart tv...) deixa de bloquear quando vira termo de um Alvo seu. Com um Alvo "TV", "Smart TV LG 55" entra nele e "Suporte para TV" continua fora.
+- **Decisões:** Alvos configuráveis (nova linha na tabela). Apagar é definitivo para a tela, mas o histórico de preços fica no banco. Alvo criado na tela ganha slug `u-...`, para nunca usar as faixas especiais de monitor, SSD etc.
+- **Testado:** 100 testes (5 novos: Alvos do usuário e preço-alvo manual), `tsc` e `eslint`. No navegador, com um worker de teste sem papéis: criar "Cadeira gamer" (89 ofertas entraram, faixa Geral com mediana R$ 384,47), preço-alvo R$ 300 (teto R$ 405, notas refeitas), teste mostrando o que sairia com a exclusão "escritorio", erros de teto menor que o alvo e Alvo sem nome, e Apagar (as 89 ofertas saíram do Alvo). Subindo o worker com as regras novas, nenhuma das 4.264 ofertas mudou de Alvo. O Alvo de teste foi apagado do banco depois.
+- **Pendente:**
+  - O worker em execução (desde 15:43, sem watch) não tem o canal novo: as mudanças da tela ficam gravadas, mas só reclassificam as ofertas quando ele for reiniciado com `pnpm worker`;
+  - Criar Alvo escrevendo em português (a IA compila os termos), como no `docs/garimpo.md`, fica para depois.
+- **Como testar:** `pnpm worker`, abra `/alvos`, clique em "Novo Alvo", ponha um nome e termos e veja o teste à direita; crie, ponha um preço-alvo numa faixa e confira a nota das ofertas na Vitrine.
 
 ### 11/11/2026, 17:00 · Sem produto falso para link que não é de produto
 

@@ -57,6 +57,23 @@ export function isObjectOfPreposition(text: string, pos: number): boolean {
   return before.slice(0, -1).some((w) => !PROMO_WORDS.has(w) && !PREPOSITIONS.has(w));
 }
 
+/**
+ * Os "outros tipos" que valem para esta lista de Alvos: sai o que o usuário transformou em Alvo. Com um Alvo
+ * "TV" (termo "tv"), "smart tv" e "tv" deixam de ser outro produto; com um Alvo "Cadeira", "cadeira" também.
+ */
+const othersCache = new WeakMap<object, string[]>();
+function othersFor(alvos: AlvoLite[]): string[] {
+  const hit = othersCache.get(alvos);
+  if (hit) return hit;
+  const terms = alvos.flatMap((a) => a.terms.map(plain)).filter(Boolean);
+  const list = OTHER_TYPES.filter((o) => {
+    const p = plain(o);
+    return !terms.some((t) => t === p || wordIndex(p, t) >= 0);
+  });
+  othersCache.set(alvos, list);
+  return list;
+}
+
 const MULTI_UNIT = /\bgrupo de \d|\b\d+ ?(unidades|unid|pecas|pcs)\b|\bpack\b|\blote\b|\bkit (com|de) \d|\b(leve|compre) \d\b/;
 const COMBO = /\b(teclado|mouse) (e|com|mais) (teclado|mouse)\b/;
 
@@ -81,7 +98,7 @@ export function matchAlvo<T extends AlvoLite>(title: string, alvos: T[]): T | nu
       if (pos >= 0 && !isObjectOfPreposition(text, pos)) consider(pos, plain(term).length, alvo);
     }
   }
-  for (const other of OTHER_TYPES) consider(wordIndex(text, other), other.length, null);
+  for (const other of othersFor(alvos)) consider(wordIndex(text, other), other.length, null);
 
   const winner = (best as { pos: number; len: number; alvo: T | null } | null)?.alvo ?? null;
   if (!winner) return null;
@@ -106,4 +123,17 @@ export function targetsFrom(prices: number[]): { targetCents: number | null; cei
   if (prices.length < 5) return { targetCents: null, ceilingCents: null };
   const m = median(prices)!;
   return { targetCents: Math.round(m * 0.85), ceilingCents: Math.round(m * 1.15) };
+}
+
+/** Preço-alvo e teto valendo: o do usuário, se houver; senão, o calculado. Teto sem número do usuário fica 35% acima do alvo dele. */
+export function effectiveTargets(
+  auto: { targetCents: number | null; ceilingCents: number | null },
+  manual: { manualTargetCents: number | null; manualCeilingCents: number | null } | null,
+) {
+  const mt = manual?.manualTargetCents ?? null;
+  const mc = manual?.manualCeilingCents ?? null;
+  const targetCents = mt ?? auto.targetCents;
+  let ceilingCents = mc ?? (mt != null ? Math.round(mt * 1.35) : auto.ceilingCents);
+  if (targetCents != null && ceilingCents != null && ceilingCents <= targetCents) ceilingCents = Math.round(targetCents * 1.35);
+  return { targetCents, ceilingCents };
 }

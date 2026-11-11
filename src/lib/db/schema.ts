@@ -104,6 +104,12 @@ export const alvos = pgTable("alvos", {
   targetCents: integer("target_cents"), // preço-alvo (null = sem referência)
   ceilingCents: integer("ceiling_cents"), // teto
   active: boolean("active").notNull().default(true),
+  /** "seed" = veio de config/alvos.ts; "usuario" = criado na tela Alvos. */
+  origin: text("origin").notNull().default("seed"),
+  /** Editado na tela Alvos: o worker não sobrescreve mais termos e exclusões com os de config/alvos.ts. */
+  editedAt: timestamp("edited_at", { withTimezone: true }),
+  /** Apagado na tela Alvos: some da tela e não volta quando o worker sobe. */
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const offers = pgTable(
@@ -286,6 +292,9 @@ export const alvoRefs = pgTable(
     medianCents: integer("median_cents"),
     targetCents: integer("target_cents"),
     ceilingCents: integer("ceiling_cents"),
+    /** Preço-alvo e teto que o usuário pôs na tela Alvos. Quando existem, valem no lugar dos 85% e 115% da mediana. */
+    manualTargetCents: integer("manual_target_cents"),
+    manualCeilingCents: integer("manual_ceiling_cents"),
     n: integer("n").notNull().default(0),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

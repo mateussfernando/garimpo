@@ -28,7 +28,6 @@ export function Cupons() {
   const [withCode, setWithCode] = useState(false);
   const [noMin, setNoMin] = useState(false);
   const [sort, setSort] = useState<Sort>("recentes");
-  const [focus, setFocus] = useState(0);
   const { status, live } = useStatus();
   const now = useNow(30_000);
   const input = useRef<HTMLInputElement>(null);
@@ -85,28 +84,18 @@ export function Cupons() {
     [load],
   );
 
-  // Atalhos: / busca, J/K navegam, C copia o código, Enter abre na loja, X esconde.
+  // Único atalho: / põe o cursor na busca.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       if (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable || e.metaKey || e.ctrlKey || e.altKey) return;
-      const cur = shown[focus];
-      const k = e.key.toLowerCase();
-      if (k === "/") input.current?.focus();
-      else if (k === "j" || k === "arrowdown") setFocus((f) => Math.min(f + 1, shown.length - 1));
-      else if (k === "k" || k === "arrowup") setFocus((f) => Math.max(f - 1, 0));
-      else if (k === "c" && cur) void copy(cur);
-      else if (k === "enter" && cur?.url && !/^(BUTTON|A)$/.test(t.tagName)) window.open(cur.url, "_blank", "noopener,noreferrer");
-      else if (k === "x" && cur) void hide(cur);
-      else return;
+      if (e.key !== "/") return;
       e.preventDefault();
+      input.current?.focus();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [shown, focus, copy, hide]);
-  useEffect(() => {
-    document.querySelector(`[data-cupom="${focus}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [focus]);
+  }, []);
 
   const chip = (on: boolean) =>
     `flex h-11 flex-none items-center gap-2 rounded-full border px-4 text-[13px] font-medium ${on ? "border-ink bg-ink text-bg" : "border-control text-ink-2 hover:text-ink"}`;
@@ -144,7 +133,6 @@ export function Cupons() {
                 value={q}
                 onChange={(e) => {
                   setQ(e.target.value);
-                  setFocus(0);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Escape") {
@@ -206,8 +194,7 @@ export function Cupons() {
                 <article
                   key={c.id}
                   data-cupom={i}
-                  onMouseEnter={() => setFocus(i)}
-                  className={`flex flex-col gap-3 rounded-[14px] border bg-surface p-4 ${i === focus ? "border-ink-3" : "border-card-line"} ${stale ? "opacity-75" : ""}`}
+                  className={`flex flex-col gap-3 rounded-[14px] border bg-surface p-4 border-card-line hover:border-ink-3 ${stale ? "opacity-75" : ""}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 flex-col gap-0.5">
@@ -218,7 +205,7 @@ export function Cupons() {
                         {c.capCents ? ` · até ${brl(c.capCents).replace(",00", "")}` : ""}
                       </span>
                     </div>
-                    <button type="button" onClick={() => void hide(c)} className="flex h-9 w-9 flex-none items-center justify-center rounded-full text-label hover:bg-active hover:text-ink" aria-label="Esconder este cupom" title="Esconder (X)">
+                    <button type="button" onClick={() => void hide(c)} className="flex h-9 w-9 flex-none items-center justify-center rounded-full text-label hover:bg-active hover:text-ink" aria-label="Esconder este cupom" title="Esconder">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                         <path d="M6 6l12 12M18 6L6 18" />
                       </svg>
@@ -230,7 +217,7 @@ export function Cupons() {
                       type="button"
                       onClick={() => void copy(c)}
                       className="flex h-11 items-center justify-between gap-3 rounded-[10px] border border-dashed border-ink-3 bg-deep px-4 font-mono text-[15px] font-semibold tracking-wide text-ink hover:border-ink"
-                      title="Copiar código (C)"
+                      title="Copiar código"
                     >
                       <span className="truncate">{c.code}</span>
                       <span className="flex-none font-sans text-xs font-medium text-muted">Copiar</span>
@@ -277,7 +264,7 @@ export function Cupons() {
         )}
       </main>
       <footer className="mt-auto flex flex-wrap items-center justify-center gap-x-5 gap-y-2 px-8 pb-7 pt-4 text-xs text-label">
-        {[["/", "buscar"], ["J K", "navegar"], ["C", "copiar código"], ["Enter", "abrir na loja"], ["X", "esconder"]].map(([k, v]) => (
+        {[["/", "buscar"]].map(([k, v]) => (
           <span key={k} className="flex items-center gap-1.5">
             <Kbd>{k}</Kbd> {v}
           </span>

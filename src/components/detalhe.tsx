@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { OfferDetailDTO } from "@/lib/detail";
 import { AiAnalysis } from "./ia";
-import { AppHeader, Badge, Kbd, ago, brl, useLive, useNow, useStatus } from "./shell";
+import { AppHeader, Badge, ago, brl, useLive, useNow, useStatus } from "./shell";
 
 const dayBR = (iso: string) => iso.slice(8, 10) + "/" + iso.slice(5, 7);
 
@@ -129,22 +129,6 @@ export function Detalhe({ id }: { id: number }) {
     },
     [id],
   );
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      if (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || e.metaKey || e.ctrlKey || e.altKey || !d) return;
-      const k = e.key.toLowerCase();
-      if (k === "escape") window.history.back();
-      else if (k === "enter" && d.offer.url && !/^(BUTTON|A)$/.test(t.tagName)) window.open(d.offer.url, "_blank", "noopener,noreferrer");
-      else if (k === "w") void patch({ watched: !d.offer.watched });
-      else if (k === "x") void patch({ dismissed: true }).then(() => window.history.back());
-      else return;
-      e.preventDefault();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [d, patch]);
 
   const rows = useMemo(() => (d ? [...d.history].reverse() : []), [d]);
 
@@ -429,13 +413,6 @@ export function Detalhe({ id }: { id: number }) {
           </>
         )}
       </main>
-      <footer className="mt-auto flex flex-wrap items-center justify-center gap-x-5 gap-y-2 px-8 pb-7 pt-4 text-xs text-label">
-        {[["Esc", "voltar"], ["Enter", "comprar"], ["W", "vigiar"], ["X", "descartar"]].map(([k, v]) => (
-          <span key={k} className="flex items-center gap-1.5">
-            <Kbd>{k}</Kbd> {v}
-          </span>
-        ))}
-      </footer>
     </div>
   );
 }

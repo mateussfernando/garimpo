@@ -38,7 +38,6 @@ export function Vitrine() {
   const [events, setEvents] = useState<EventDTO[]>([]);
   const [version, setVersion] = useState(0);
   const [flash, setFlash] = useState<Flash>({});
-  const [focus, setFocus] = useState(0);
   const [openId, setOpenId] = useState<number | null>(null);
   const now = useNow(15_000);
   const { muted, toggleMute, play, flashTitle } = useAlertSound();
@@ -117,7 +116,33 @@ export function Vitrine() {
   );
 
   const filters = useSmartFilters(offers);
-  const shown = filters.shown;
+
+  // Rolagem livre: enquanto você está lendo mais abaixo, a grade não se reordena nem ganha cards novos em cima
+  // (isso empurrava a página). As novas esperam num aviso "N ofertas novas"; no topo, tudo entra na hora.
+  const [frozen, setFrozen] = useState<number[] | null>(null);
+  const liveIds = useRef<number[]>([]);
+  const filterKey = JSON.stringify(filters.st);
+  useEffect(() => {
+    liveIds.current = filters.shown.map((o) => o.id);
+  }, [filters.shown]);
+  useEffect(() => {
+    const onScroll = () => {
+      const down = window.scrollY > 240;
+      setFrozen((cur) => (down ? (cur ?? liveIds.current) : null));
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  useEffect(() => {
+    // Mudou o filtro: a grade nova vale já, mesmo rolada.
+    setFrozen((cur) => (cur ? liveIds.current : null));
+  }, [filterKey]);
+  const { shown, pendingNew } = useMemo(() => {
+    if (!frozen) return { shown: filters.shown, pendingNew: 0 };
+    const byId = new Map(filters.shown.map((o) => [o.id, o]));
+    const keep = frozen.map((id) => byId.get(id)).filter((o): o is OfferDTO => !!o);
+    return { shown: keep, pendingNew: filters.shown.length - keep.length };
+  }, [frozen, filters.shown]);
   const alvoNames = useMemo(() => new Map((status?.alvos ?? []).map((a) => [a.slug, a.name])), [status]);
   const atingidos = shown.filter((o) => o.alvoAtingido).slice(0, 6);
   const lastOfferAt = useMemo(() => (offers ?? []).reduce((mx, o) => (o.createdAt > mx ? o.createdAt : mx), ""), [offers]);
@@ -125,42 +150,10 @@ export function Vitrine() {
   const open = useCallback(
     (id: number) => {
       setOpenId(id);
-      const i = shown.findIndex((o) => o.id === id);
-      if (i >= 0) setFocus(i);
     },
-    [shown],
+    [],
   );
 
-  // Atalhos: J/K navegam, Enter compra, Espaço abre o painel, Esc fecha, W vigia, X descarta, M silencia.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      if (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
-      const cur = shown[focus];
-      const k = e.key.toLowerCase();
-      const move = (dir: 1 | -1) => {
-        const next = Math.max(0, Math.min(focus + dir, shown.length - 1));
-        setFocus(next);
-        if (openId != null && shown[next]) setOpenId(shown[next].id);
-      };
-      if (k === "j" || k === "arrowdown") move(1);
-      else if (k === "k" || k === "arrowup") move(-1);
-      else if (k === "enter" && cur?.url && !/^(BUTTON|A)$/.test(t.tagName)) window.open(cur.url, "_blank", "noopener,noreferrer");
-      else if ((k === " " || k === "arrowright") && cur && !/^(BUTTON|A)$/.test(t.tagName)) setOpenId(cur.id);
-      else if ((k === "escape" || k === "arrowleft") && openId != null) setOpenId(null);
-      else if (k === "w" && cur) void patch(cur.id, { watched: !cur.watched });
-      else if (k === "x" && cur) dismiss(cur);
-      else if (k === "m") toggleMute();
-      else return;
-      e.preventDefault();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [shown, focus, openId, patch, dismiss, toggleMute]);
-
-  useEffect(() => {
-    document.querySelector(`[data-card="${focus}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [focus]);
 
 
 
@@ -178,7 +171,7 @@ export function Vitrine() {
             </div>
             <div className="flex items-center gap-3 text-[13px] text-muted">
               {lastOfferAt && <span>última oferta {ago(lastOfferAt, now)}</span>}
-              <button type="button" onClick={toggleMute} aria-pressed={!muted} className="flex h-11 items-center gap-2 rounded-[10px] border border-control px-3.5 text-ink-2 hover:text-ink" title="Som do alerta de Alvo atingido (tecla M)">
+              <button type="button" onClick={toggleMute} aria-pressed={!muted} className="flex h-11 items-center gap-2 rounded-[10px] border border-control px-3.5 text-ink-2 hover:text-ink" title="Som do alerta de Alvo atingido">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M11 5L6 9H3v6h3l5 4z" />
                   {muted ? <path d="M22 9l-6 6M16 9l6 6" /> : <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />}
@@ -220,7 +213,17 @@ export function Vitrine() {
             </section>
           )}
 
-          <FiltersBar {...filters} alvoNames={alvoNames} onChange={() => setFocus(0)} />
+          <FiltersBar {...filters} alvoNames={alvoNames} />
+
+          {pendingNew > 0 && (
+            <button
+              type="button"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              className="fixed left-1/2 top-4 z-40 flex h-10 -translate-x-1/2 items-center gap-2 rounded-full bg-ink px-4 text-[13px] font-semibold text-bg shadow-lg"
+            >
+              ↑ {pendingNew} {pendingNew === 1 ? "oferta nova" : "ofertas novas"}
+            </button>
+          )}
 
           {offers == null ? (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-5" aria-busy="true" aria-label="Carregando ofertas">
@@ -242,13 +245,11 @@ export function Vitrine() {
                       key={o.id}
                       o={o}
                       index={i}
-                      focused={i === focus}
                       now={now}
                       flash={flash[o.id]}
                       onOpen={() => open(o.id)}
                       onWatch={() => void patch(o.id, { watched: !o.watched })}
                       onDismiss={() => dismiss(o)}
-                      onFocus={() => setFocus(i)}
                     />
                   ))}
                 </AnimatePresence>
@@ -257,12 +258,10 @@ export function Vitrine() {
           )}
         </main>
 
-        <footer className="mt-auto flex flex-wrap items-center justify-center gap-x-5 gap-y-2 px-8 pb-7 pt-4 text-xs text-label">
-          {[["/", "buscar"], ["J K", "navegar"], ["Espaço", "abrir o painel"], ["Enter", "comprar"], ["W", "vigiar"], ["X", "descartar"], ["M", "som"], ["Esc", "fechar"]].map(([k, v]) => (
-            <span key={k} className="flex items-center gap-1.5">
-              <Kbd>{k}</Kbd> {v}
-            </span>
-          ))}
+        <footer className="mt-auto flex items-center justify-center px-8 pb-7 pt-4 text-xs text-label">
+          <span className="flex items-center gap-1.5">
+            <Kbd>/</Kbd> buscar
+          </span>
         </footer>
       </div>
 

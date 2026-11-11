@@ -209,6 +209,8 @@ export function groupByProduct(list: Row[]): Row[] {
         sources: [...new Set(g.map((o) => o.source))],
         groupIds: g.map((o) => o.id),
         watched: g.some((o) => o.watched),
+        // A análise de qualquer cópia do produto vale para o card.
+        ia: best.ia ?? g.find((o) => o.ia)?.ia ?? null,
         createdAt: g.reduce((mx, o) => (o.createdAt > mx ? o.createdAt : mx), best.createdAt),
       };
     })

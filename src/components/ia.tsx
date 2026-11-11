@@ -20,11 +20,22 @@ const Spark = () => (
 );
 
 /** Linha curta no card: nota da IA, veredito e o resumo. */
-export function AiLine({ ia }: { ia: OfferAiDTO }) {
+export function AiLine({ ia }: { ia: OfferAiDTO | null }) {
+  // Altura fixa, com ou sem análise: todos os cards da grade ficam do mesmo tamanho.
+  const box = "flex h-[78px] flex-none flex-col gap-1.5 overflow-hidden rounded-[10px] border border-line bg-deep px-3 py-2";
+  if (!ia)
+    return (
+      <div className={box}>
+        <span className="flex items-center gap-1 text-xs font-medium text-label">
+          <Spark /> IA
+        </span>
+        <p className="text-[12.5px] leading-snug text-label">Na fila da análise. Ela chega sozinha em poucos minutos.</p>
+      </div>
+    );
   const v = VERDICT[ia.verdict];
   return (
-    <div className="flex flex-col gap-1.5 rounded-[10px] border border-line bg-deep px-3 py-2">
-      <span className="flex items-center gap-2 text-xs">
+    <div className={box}>
+      <span className="flex items-center gap-2 overflow-hidden whitespace-nowrap text-xs">
         <span className="flex items-center gap-1 font-medium text-ink-2">
           <Spark /> IA
         </span>

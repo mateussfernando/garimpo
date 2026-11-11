@@ -60,3 +60,5 @@ export async function getAiStatus(): Promise<AiStatus> {
     run: run?.value ?? null,
   };
 }
+
+export { AI_AUTO_STOP_PCT } from "@/config/pricing";

@@ -127,7 +127,7 @@ export function useSmartFilters(offers: OfferDTO[] | null) {
   return { st, setSt, parsed, ...result, active, reset: () => setSt((s) => ({ ...DEFAULT, sort: s.sort })) };
 }
 
-type Props = ReturnType<typeof useSmartFilters> & { alvoNames: Map<string, string>; onChange: () => void };
+type Props = ReturnType<typeof useSmartFilters> & { alvoNames: Map<string, string>; onChange?: () => void };
 
 const chip = (on: boolean) =>
   `flex h-11 flex-none items-center gap-2 rounded-full border px-4 text-[13px] font-medium ${on ? "border-ink bg-ink text-bg" : "border-control text-ink-2 hover:text-ink"}`;
@@ -139,7 +139,7 @@ export function FiltersBar({ st, setSt, parsed, cats, alvos, stores, prices, tot
   const [allCats, setAllCats] = useState(false);
   const set = (patch: Partial<FilterState>) => {
     setSt((s) => ({ ...s, ...patch }));
-    onChange();
+    onChange?.();
   };
 
   // "/" põe o cursor na busca; Esc dentro dela limpa e sai.

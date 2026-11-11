@@ -90,13 +90,14 @@ async function main() {
         .catch((e) => console.error("[ia] erro nas categorias:", e));
     setTimeout(categorias, 20 * 1000);
     setInterval(categorias, 3 * 60 * 1000);
-    // Análise de cada oferta (vale a pena?) a cada 5 min, e o radar geral a cada 15 min. Nada roda se a IA estiver pausada.
+    // Análise de cada oferta (vale a pena?): a cada 2 min, até 5 lotes de 12 por rodada, até a fila zerar.
+    // O radar geral a cada 15 min. Nada roda se a IA estiver pausada.
     const analises = () =>
-      runAnalises()
-        .then((r) => r.analisadas && console.log(`[ia] análises: ${r.analisadas} ofertas em ${r.lotes} lote(s)`))
+      runAnalises({ maxBatches: 5 })
+        .then((r) => r.analisadas && console.log(`[ia] análises: ${r.analisadas} ofertas em ${r.lotes} lote(s), faltam ${r.faltam} produtos`))
         .catch((e) => console.error("[ia] erro nas análises:", e));
     setTimeout(analises, 45 * 1000);
-    setInterval(analises, 5 * 60 * 1000);
+    setInterval(analises, 2 * 60 * 1000);
     const radar = () => runRadar().catch((e) => console.error("[ia] erro no radar:", e));
     setTimeout(radar, 3 * 60 * 1000);
     setInterval(radar, 15 * 60 * 1000);
@@ -112,7 +113,12 @@ async function main() {
       let note = "";
       try {
         const c = await runCategorias(4);
-        const a = await runAnalises(4);
+        // Vai até zerar a fila (ou 60 lotes). Se uma rodada automática já estiver andando, ela segue até o fim.
+        let a = await runAnalises({ manual: true });
+        while (a.faltam === -1) {
+          await new Promise((r) => setTimeout(r, 5000));
+          a = await runAnalises({ manual: true });
+        }
         const r = await runRadar(true);
         const i = await runInsights(3);
         note = `${c.classificadas} categorias, ${a.analisadas} análises, radar ${r}, ${i.gerados} insights`;

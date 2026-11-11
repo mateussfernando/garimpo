@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import type { OfferDetailDTO } from "@/lib/detail";
 import { AiAnalysis } from "./ia";
 import { endsIn, parcelaText, vsBand } from "./offer-card";
-import { Badge, Kbd, ago, brl } from "./shell";
+import { Badge, ago, brl } from "./shell";
 
 const PARTS = [
   ["A", "Encaixe no Alvo", 45],
@@ -26,7 +26,7 @@ function Row({ label, value, strong, tone }: { label: string; value: string; str
 
 /**
  * Painel do foco: o Detalhe da oferta ao lado da Vitrine, sem sair da página.
- * Abre com Espaço ou seta para a direita; fecha com Esc ou seta para a esquerda; J e K trocam de oferta com ele aberto.
+ * Abre com O ou clique no card; fecha com Esc; J e K trocam de oferta com ele aberto. Setas e espaço rolam a página.
  */
 export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { id: number; now: number | null; version: number; onClose: () => void; onWatch: (watched: boolean) => void; onDismiss: () => void }) {
   const [d, setD] = useState<OfferDetailDTO | null>(null);
@@ -61,7 +61,7 @@ export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { 
     >
       <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
         <span className="flex items-center gap-2 text-xs text-label">
-          <Kbd>Esc</Kbd> fecha <Kbd>J K</Kbd> troca
+          Detalhe da oferta
         </span>
         <div className="flex items-center gap-2">
           <Link href={`/oferta/${id}`} className="flex h-9 items-center rounded-[10px] border border-control px-3 text-xs text-ink-2 hover:text-ink">

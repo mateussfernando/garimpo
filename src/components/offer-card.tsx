@@ -41,16 +41,14 @@ function Placeholder() {
 type Props = {
   o: OfferDTO;
   index: number;
-  focused: boolean;
   now: number | null;
   flash: "down" | "up" | undefined;
   onOpen: () => void;
   onWatch: () => void;
   onDismiss: () => void;
-  onFocus: () => void;
 };
 
-export function OfferCard({ o, index, focused, now, flash, onOpen, onWatch, onDismiss, onFocus }: Props) {
+export function OfferCard({ o, index, now, flash, onOpen, onWatch, onDismiss }: Props) {
   const ageMin = now == null ? 0 : (now - new Date(o.createdAt).getTime()) / 60_000;
   const fresh = ageMin < 1.5;
   const soldOut = o.available === false;
@@ -76,13 +74,13 @@ export function OfferCard({ o, index, focused, now, flash, onOpen, onWatch, onDi
       exit={{ opacity: 0, scale: 0.94 }}
       transition={{ type: "spring", stiffness: 420, damping: 36, mass: 0.7 }}
       data-card={index}
-      onMouseEnter={onFocus}
-      className={`group flex min-w-0 flex-col overflow-hidden rounded-[14px] border bg-surface ${o.alvoAtingido ? "border-gold" : "border-card-line"} ${focused ? "ring-2 ring-ink ring-offset-2 ring-offset-bg" : ""} ${fresh ? "fresh" : ""} ${dim}`}
+      className={`group flex min-w-0 flex-col overflow-hidden rounded-[14px] border bg-surface ${o.alvoAtingido ? "border-gold" : "border-card-line"} ${fresh ? "fresh" : ""} ${dim}`}
     >
-      <button type="button" onClick={onOpen} aria-label={`Abrir ${o.title}`} className="dots relative flex aspect-[4/3] items-center justify-center">
+      {/* Foto numa caixa 4:3 fixa: imagem alta ou larga nunca muda o tamanho do card. */}
+      <button type="button" onClick={onOpen} aria-label={`Abrir ${o.title}`} className="dots relative flex aspect-[4/3] w-full flex-none items-center justify-center overflow-hidden">
         {o.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={o.imageUrl} alt="" className="h-full w-full object-contain p-4 transition-transform duration-300 group-hover:scale-[1.04]" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+          <img src={o.imageUrl} alt="" className="absolute inset-0 h-full w-full object-contain p-4 transition-transform duration-300 group-hover:scale-[1.04]" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
         ) : (
           <Placeholder />
         )}
@@ -96,16 +94,16 @@ export function OfferCard({ o, index, focused, now, flash, onOpen, onWatch, onDi
       </button>
 
       <div className="flex flex-1 flex-col gap-3 p-4">
-        <button type="button" onClick={onOpen} className="line-clamp-2 min-h-10 text-left text-[15px] font-medium leading-snug text-ink hover:underline">
+        <button type="button" onClick={onOpen} title={o.title} className="line-clamp-2 h-10 text-left text-[15px] font-medium leading-snug text-ink hover:underline">
           {o.title}
         </button>
 
         <div className="flex flex-col gap-1">
-          <div className={`flex flex-wrap items-baseline gap-x-2 ${flash === "down" ? "flash-down" : flash === "up" ? "flash-up" : ""}`}>
+          <div className={`flex items-baseline gap-x-2 overflow-hidden whitespace-nowrap ${flash === "down" ? "flash-down" : flash === "up" ? "flash-up" : ""}`}>
             <span className="font-mono tnum text-[26px] font-semibold leading-none tracking-tight text-num">{brl(o.priceCardCents)}</span>
             <span className="text-xs text-muted">no cartão</span>
           </div>
-          <span className="font-mono text-[12.5px] text-ink-3">
+          <span className="block h-[19px] truncate font-mono text-[12.5px] text-ink-3">
             {parcela}
             {hasPix && (
               <span className="text-good">
@@ -116,7 +114,8 @@ export function OfferCard({ o, index, focused, now, flash, onOpen, onWatch, onDi
         </div>
 
         {/* Só selos com significado: ouro, verde e vermelho. O resto vai na linha de estado. */}
-        <div className="flex min-h-6 flex-wrap gap-1.5">
+        {/* Uma linha só de selos: o que não couber fica de fora (está no painel), para todo card ter a mesma altura. */}
+        <div className="flex h-6 flex-wrap gap-1.5 overflow-hidden">
           {o.alvoAtingido && (
             <Badge tone="gold" title={o.band ? `Abaixo do preço-alvo da faixa ${o.band.label}: ${brl(o.alvo?.targetCents)}` : undefined}>
               Alvo atingido
@@ -137,7 +136,7 @@ export function OfferCard({ o, index, focused, now, flash, onOpen, onWatch, onDi
           {o.coupon && <Badge tone="neutral" title={o.extra?.couponNote}>Cupom {o.coupon}</Badge>}
         </div>
 
-        {o.ia && <AiLine ia={o.ia} />}
+        <AiLine ia={o.ia} />
 
         <p className="flex items-center gap-1.5 truncate text-[11.5px] text-label" title={o.verifyNote ?? undefined}>
           <span className={`h-1.5 w-1.5 flex-none rounded-full ${o.verifyStatus === "verificado" ? "bg-good-dot" : o.verifyStatus === "pendente" ? "bg-ink-3" : "bg-pause"}`} />

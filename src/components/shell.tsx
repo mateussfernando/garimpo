@@ -103,6 +103,7 @@ const NAV = [
   { key: "vitrine", href: "/", label: "Vitrine" },
   { key: "fontes", href: "/fontes", label: "Fontes" },
   { key: "cupons", href: "/cupons", label: "Cupons" },
+  { key: "ia", href: "/ia", label: "Fila da IA" },
   { key: "lojas", href: "/lojas", label: "Lojas" },
   { key: "war-room", href: "/war-room", label: "War Room" },
 ] as const;

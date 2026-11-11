@@ -59,6 +59,20 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 11/11/2026, 13:30 · Rolagem livre, cards do mesmo tamanho, IA cobrindo todas as ofertas e Fila da IA
+
+- **Feito:**
+  - **Rolagem livre:** o mouse sobre um card não rola mais a página (o foco seguia o mouse e o `scrollIntoView` puxava a página para baixo, em cadeia). Setas e espaço voltaram a rolar a página. Rolado para baixo, a grade não se reordena nem ganha cards em cima: as novas esperam num aviso "↑ N ofertas novas";
+  - **Atalhos:** a pedido do usuário, só o `/` (busca) ficou, na Vitrine, em Cupons e no Detalhe. A War Room, que é toda pelo teclado, ficou como estava;
+  - **Cards do mesmo tamanho:** foto numa caixa 4:3 fixa, título em 2 linhas, uma linha de selos e o quadro da IA sempre com a mesma altura (60 de 60 cards com 635 px);
+  - **IA cobrindo tudo:** antes, 16 análises a cada 5 min só das 150 de nota mais alta e com preço (195 de 1.675). Agora: todas as ofertas de produto de 48 h, mesmo produto em vários grupos analisado uma vez só (964 produtos para 1.480 ofertas), lotes de 12 em sequência a cada 2 min, nunca analisadas primeiro, resposta mais curta. "Chamar IA agora" vai até zerar a fila, mesmo com uma rodada em andamento. O card agrupado usa a análise de qualquer cópia;
+  - **Freio da assinatura:** as rodadas automáticas esperam quando a janela de 5 h passa de 85% (`AI_AUTO_STOP_PCT` em `src/config/pricing.ts`); o botão passa por cima;
+  - **Fila da IA** (`/ia`, menu): quantas ofertas têm análise, quantas esperam, a fila na ordem em que a IA vai pegar (com posts iguais juntos) e as analisadas há pouco.
+- **Decidido:** só o atalho de busca; freio automático da IA em 85% da janela de 5 h.
+- **Testado:** 85 testes, `tsc` e `eslint`. No navegador: Fila da IA com os números do banco; cards com a mesma altura; rodapé só com "/ buscar". O congelamento da grade com ofertas chegando não foi exercitado ao vivo.
+- **Próximo passo:** acompanhar a fila zerar na aba Fila da IA e o uso da janela de 5 h.
+
+
 ### 11/11/2026, 12:00 · Porta pelo .env, títulos do Telegram, encurtadores e fila de conferência
 
 - **Feito:**

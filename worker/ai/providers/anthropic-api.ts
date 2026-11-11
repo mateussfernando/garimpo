@@ -10,7 +10,7 @@ export const anthropicApi: AiProvider = {
     const client = new Anthropic();
     const res = await client.messages.create({
       model: AI_MODEL,
-      max_tokens: 1500,
+      max_tokens: 4000,
       system: req.system,
       messages: [{ role: "user", content: req.prompt }],
       output_config: {

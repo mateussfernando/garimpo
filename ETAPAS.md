@@ -8,7 +8,7 @@
 | 2 | Ofertas ao vivo e Parser | `prompts/hoje/02` | 10/11, 19:15 às 20:30 | [x] código pronto, falta conferir com os sites |
 | 3 | Verificação ao vivo e Alvos | `prompts/hoje/03` | 10/11, 20:30 às 21:30 | [x] código pronto, falta conferir com as lojas |
 | 4 | Vitrine ao vivo e Nota rápida | `prompts/hoje/04` | 10/11, 21:30 às 22:30 | [x] código pronto |
-| 5 | Ensaio e congelamento | nenhum | 10/11, 22:30 às 23:45 | [ ] |
+| 5 | Ensaio e congelamento | nenhum | 10/11, 22:30 às 23:45 | [ ] dispensado pelo usuário em 10/11 |
 | 6 | Operação do 11.11 | nenhum | 11/11 | [ ] |
 | 7 | Depois do 11.11 | `prompts/01` a `08` | 12/11 a 26/11 | [ ] |
 

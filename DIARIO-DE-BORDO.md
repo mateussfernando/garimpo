@@ -33,6 +33,7 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 | Coleta educada | robots.txt, 1 pedido a cada 5 a 10 s por loja, cache, pausa de 1 h em 429 ou 403, sem proxy. |
 | Plano acelerado (10/11, 18:20) | Até o fim do 11.11 não há coleta rodando sozinha, agendamento nem pg-boss. Fica a verificação ao vivo de cada oferta que chega. Telegram e WhatsApp fora hoje: ofertas só do scraping ao vivo de comunidades e vitrines das lojas. Tudo num PC; o outro abre a Vitrine pela rede. Nota rápida, sem desconto real nem Black Fraude. |
 | Telegram entra no 11.11 (10/11, 21:10) | Reverte a parte do plano acelerado que deixava o Telegram de fora. GramJS na conta do usuário, só leitura, papel `listen`. Chats de grupo e canal: os com nome de promoção ligam sozinhos, os outros ficam desligados em `sources.enabled`. WhatsApp segue fora. |
+| Sem ensaio (10/11, 22:40) | O usuário pulou a Etapa 5 (ensaio e congelamento) e vai pedir melhorias numa sessão com o Fable 5.2. Quem pegar o projeto não precisa começar pelo ensaio. |
 | Entram de novo no 11.11 (10/11, 22:00) | A pedido do usuário: IA com insights, vitrines das lojas, telas Detalhe, Fontes, Lojas e War Room. Continuam fora: WhatsApp, pg-boss e coleta diária, desconto real e Black Fraude. |
 | Fontes bloqueadas (10/11, 21:40) | Bloqueio de site não se contorna: nada de proxy nem disfarce, vale o robots.txt. Alternativas legítimas viram fontes extras, e tudo cai no mesmo funil (a mesma oferta em várias fontes sobe a nota pelo calor social). |
 | Coleta diária | Adiada para depois do 11.11: às 06:00, de 12/11 até a Black Friday (27/11). |
@@ -72,7 +73,7 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
   - ⌘K "Buscar ou criar Alvo" (compilar Alvo por IA) e a triagem em lote não foram feitos; telas Alvos, Cupons e Compras do menu do design também não;
   - Mercado Livre API: precisa de um app seu em developers.mercadolivre.com.br;
   - preço da loja difere do post em alguns casos (ex.: Pix versus cartão): a Vitrine mostra o da loja.
-- **Próximo passo:** Etapa 5, ensaio com tráfego real.
+- **Próximo passo:** o ensaio foi dispensado pelo usuário. Melhorias sugeridas: separar o Alvo "Acessórios" (mousepad e headset distorcem o preço-alvo), conferir se as 5 fontes do Telegram trazem mensagem real e manter o PC acordado.
 - **Como testar:** `pnpm dev`; abra `/`, `/fontes`, `/lojas`, `/war-room` e uma oferta; `pnpm ia:insights`; `pnpm vitrines:debug`; `pnpm test`.
 
 ### 10/11/2026, 21:45 · App rodando, verificação corrigida, filtro do Telegram e Gatry

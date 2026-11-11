@@ -1,62 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { OfferDTO, StatusDTO } from "@/lib/offers";
-
-const brl = (cents: number | null | undefined) =>
-  cents == null ? "—" : (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-const START_11_11 = new Date("2026-11-11T00:00:00-03:00").getTime();
-
-function useNow(everyMs: number) {
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => {
-    const first = setTimeout(() => setNow(Date.now()), 0);
-    const t = setInterval(() => setNow(Date.now()), everyMs);
-    return () => {
-      clearTimeout(first);
-      clearInterval(t);
-    };
-  }, [everyMs]);
-  return now;
-}
-
-function Countdown() {
-  const now = useNow(1000);
-  if (now == null) return <span className="font-mono tnum text-[15px] font-semibold text-gold">--:--:--</span>;
-  const left = START_11_11 - now;
-  if (left <= 0) return <span className="font-mono text-[15px] font-semibold text-gold">ao vivo</span>;
-  const s = Math.floor(left / 1000);
-  const p = (n: number) => String(n).padStart(2, "0");
-  return (
-    <span className="font-mono tnum text-[15px] font-semibold text-gold">
-      {p(Math.floor(s / 3600))}:{p(Math.floor((s % 3600) / 60))}:{p(s % 60)}
-    </span>
-  );
-}
-
-function ago(iso: string | null, now: number | null) {
-  if (!iso || now == null) return "";
-  const min = Math.max(0, Math.round((now - new Date(iso).getTime()) / 60000));
-  return min < 1 ? "agora" : min < 60 ? `há ${min} min` : `há ${Math.round(min / 60)} h`;
-}
-
-type Tone = "gold" | "good" | "bad" | "neutral";
-function Badge({ tone, children, title }: { tone: Tone; children: React.ReactNode; title?: string }) {
-  const cls = {
-    gold: "bg-gold text-on-gold font-semibold",
-    good: "text-good bg-[rgba(61,220,132,0.12)] border border-[rgba(61,220,132,0.35)]",
-    bad: "text-bad bg-[rgba(255,107,107,0.12)] border border-[rgba(255,107,107,0.4)]",
-    neutral: "text-ink-2 bg-active border border-control",
-  }[tone];
-  return (
-    <span title={title} className={`inline-flex h-6 items-center rounded-full px-2.5 text-xs font-medium ${cls}`}>
-      {children}
-    </span>
-  );
-}
-
-const statusDot: Record<string, string> = { ok: "bg-good-dot", pausada: "bg-pause", bloqueada: "bg-label", erro: "bg-bad" };
+import { AppHeader, Badge, ago, brl, useNow } from "./shell";
 
 export function Vitrine() {
   const [offers, setOffers] = useState<OfferDTO[] | null>(null);
@@ -145,47 +92,7 @@ export function Vitrine() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b border-line">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-2.5">
-          <div className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
-            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 2l8 5v10l-8 5-8-5V7z" className="fill-gold" />
-            </svg>
-            Garimpo
-            <span className="ml-3 rounded-[10px] bg-active px-3.5 py-2.5 text-sm font-medium">Vitrine</span>
-          </div>
-          <span className="flex items-center gap-2 text-[13px] text-muted">
-            <span className={`h-2 w-2 rounded-full ${live ? "bg-good-dot" : "bg-pause"}`} />
-            {live ? "Ao vivo" : "Reconectando"}
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-10 gap-y-2 border-t border-line bg-deep px-8 py-2.5">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[11px] uppercase tracking-[0.06em] text-label">11.11 começa em</span>
-            <Countdown />
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[11px] uppercase tracking-[0.06em] text-label">Ofertas hoje</span>
-            <span className="font-mono tnum text-[13px] text-ink-2">{status?.today ?? "—"}</span>
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[11px] uppercase tracking-[0.06em] text-label">Verificando</span>
-            <span className="font-mono tnum text-[13px] text-ink-2">{status?.pending ?? "—"}</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] uppercase tracking-[0.06em] text-label">Fontes</span>
-            <span className="flex flex-wrap items-center gap-3 text-xs text-ink-2">
-              {(status?.sources ?? []).map((s) => (
-                <span key={s.slug} className="flex items-center gap-1.5" title={s.note ?? s.status}>
-                  <span className={`h-[7px] w-[7px] rounded-full ${statusDot[s.status] ?? "bg-label"}`} />
-                  {s.name.replace("Fórum de Promoções do ", "")}
-                  {s.status !== "ok" && <span className="text-label">({s.status})</span>}
-                </span>
-              ))}
-            </span>
-          </div>
-        </div>
-      </header>
+      <AppHeader active="vitrine" status={status} live={live} />
 
       <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-8 pb-8 pt-7">
         <div className="flex flex-col gap-1.5">
@@ -375,9 +282,9 @@ function Card({ o, index, focused, now, onWatch, onDismiss, onFocus }: { o: Offe
         {o.store && <span className="absolute right-3 top-3 rounded-full border border-control bg-pill px-2.5 py-1.5 text-xs text-ink-2">{o.store}</span>}
       </div>
       <div className="flex flex-1 flex-col gap-3 p-4">
-        <a href={o.url ?? "#"} target="_blank" rel="noopener noreferrer" className="line-clamp-2 min-h-10 text-[15px] font-medium leading-snug text-ink">
+        <Link href={`/oferta/${o.id}`} className="line-clamp-2 min-h-10 text-[15px] font-medium leading-snug text-ink hover:underline">
           {o.title}
-        </a>
+        </Link>
         <div className="flex flex-col gap-1">
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span className="font-mono tnum text-[26px] font-semibold tracking-tight text-num">{brl(o.priceCardCents)}</span>

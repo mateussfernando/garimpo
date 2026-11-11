@@ -29,6 +29,8 @@ export async function verifyOffer(o: Offer) {
       await db.update(offers).set({ url: finalUrl }).where(eq(offers.id, o.id));
       return markNotVerified(o, "loja fora da lista (suspeito)");
     }
+    const [state] = await db.select().from(schema.storeState).where(eq(schema.storeState.slug, store.slug));
+    if (state?.pausedByUser) return markNotVerified(o, "loja pausada por você");
     const pid = store.productId?.(new URL(finalUrl)) ?? new URL(finalUrl).pathname;
     const page = await politeFetch(finalUrl);
     if (page.status >= 400) return markNotVerified(o, `a loja respondeu ${page.status}`);
@@ -84,7 +86,7 @@ export async function verifyOffer(o: Offer) {
         productId: prod.id,
         store: store.slug,
         url: finalUrl,
-        imageUrl: o.imageUrl ?? image,
+        imageUrl: image ?? o.imageUrl,
         priceCardCents: priceCard,
         installments,
         installmentCents,

@@ -163,3 +163,14 @@ export const storeState = pgTable("store_state", {
   pauseNote: text("pause_note"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Convites de grupos e canais vistos nas mensagens (t.me, chat.whatsapp.com). O app nunca entra sozinho. */
+export const invites = pgTable("invites", {
+  link: text("link").primaryKey(),
+  kind: text("kind").notNull(), // telegram | whatsapp
+  mentions: integer("mentions").notNull().default(1),
+  fromSource: text("from_source"),
+  dismissed: boolean("dismissed").notNull().default(false),
+  firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+});

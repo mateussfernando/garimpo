@@ -2,7 +2,7 @@
 // Nunca envia mensagem, não entra em grupo, não marca como lida e ignora conversas individuais.
 // Na primeira conexão lista seus grupos e canais, grava cada um em `sources` (kind "telegram")
 // e liga sozinho só os que têm cara de promoção. Para ligar ou desligar outro, mude `enabled` em sources.
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { TelegramClient } from "telegram";
 import { NewMessage, type NewMessageEvent } from "telegram/events";
 import { StringSession } from "telegram/sessions";
@@ -15,10 +15,26 @@ import { activeAlvos, ingestRaw, notify } from "../pipeline";
 
 const { sources } = schema;
 
+const INVITE_RE = /(?:https?:\/\/)?(t\.me\/(?:\+|joinchat\/)[A-Za-z0-9_-]{8,}|t\.me\/[A-Za-z][A-Za-z0-9_]{4,}|chat\.whatsapp\.com\/[A-Za-z0-9]{10,}|whatsapp\.com\/channel\/[A-Za-z0-9]{10,})/gi;
 const URL_RE = /https?:\/\/[^\s<>"')\]]+/gi;
 const REFRESH_EVERY = 60 * 1000;
 
 type Watched = { sourceId: number; username: string | null };
+const sourceNames = new Map<number, string>();
+
+/** Guarda convites (t.me, chat.whatsapp.com) vistos nas mensagens. O app nunca entra sozinho em nenhum. */
+async function saveInvites(text: string, ownUsername: string | null, from: string | null) {
+  const found = new Set((text.match(INVITE_RE) ?? []).map((l) => l.replace(/^https?:\/\//i, "").toLowerCase()));
+  for (const link of found) {
+    if (/^t\.me\/(c|s)\//.test(link) || (ownUsername && link === `t.me/${ownUsername.toLowerCase()}`)) continue;
+    const kind = link.startsWith("t.me") ? "telegram" : "whatsapp";
+    await db
+      .insert(schema.invites)
+      .values({ link, kind, fromSource: from })
+      .onConflictDoUpdate({ target: schema.invites.link, set: { mentions: sql`${schema.invites.mentions} + 1`, lastSeenAt: new Date() } })
+      .catch(() => undefined);
+  }
+}
 
 export function extractOutbound(text: string): string | null {
   const urls = (text.match(URL_RE) ?? []).map((u) => u.replace(/[.,;!?]+$/, ""));
@@ -97,6 +113,7 @@ export async function startTelegram() {
       await db.update(sources).set({ lastRunAt: new Date() }).where(eq(sources.id, row.id));
       if (row.enabled) {
         watched.set(id, { sourceId: row.id, username });
+        sourceNames.set(row.id, name);
         on++;
       } else {
         watched.delete(id);
@@ -125,6 +142,7 @@ export async function startTelegram() {
       if (!w) return;
       const text = (msg.message ?? "").trim();
       if (!text) return;
+      void saveInvites(text, w.username, sourceNames.get(w.sourceId) ?? null);
       const outboundUrl = extractOutbound(text);
       if (!outboundUrl) return; // papo sem link de loja não é oferta
       if (!touchesAnyAlvo(text, alvos)) return; // assunto fora dos Alvos

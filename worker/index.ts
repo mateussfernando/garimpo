@@ -1,5 +1,6 @@
 import "dotenv/config";
-import { pool } from "@/lib/db";
+import { storeForUrl } from "@/config/stores";
+import { db, pool, schema } from "@/lib/db";
 import { collectAll } from "./collect/communities";
 import { setPauseListener } from "./http/polite";
 import { runInsights } from "./ai/insights";
@@ -26,6 +27,12 @@ async function main() {
   setPauseListener((host, until) => {
     console.warn(`[pausa] ${host} respondeu 429/403. Volta às ${new Date(until).toLocaleTimeString("pt-BR")}.`);
     void notify({ type: "pause", host, until });
+    // A tela Lojas mostra a pausa pedida pela loja (o site pode estar em outro processo).
+    const store = storeForUrl(`https://${host}`);
+    if (store) {
+      const set = { pauseUntil: new Date(until), pauseNote: "respondeu 429 ou 403", updatedAt: new Date() };
+      void db.insert(schema.storeState).values({ slug: store.slug, ...set }).onConflictDoUpdate({ target: schema.storeState.slug, set }).catch(() => undefined);
+    }
   });
 
   if (roles.includes("collect")) {

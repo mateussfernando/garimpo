@@ -99,8 +99,18 @@ export function ldProduct(html: string): LdProduct | null {
 
 export type Anchor = { href: string; text: string };
 
-export function anchors(html: string, base: string): Anchor[] {
+export function anchors(html: string, pageUrl: string): Anchor[] {
   const out: Anchor[] = [];
+  // Páginas com <base href> (vBulletin, por exemplo) resolvem os links relativos por ele.
+  const baseTag = html.match(/<base\s[^>]*href=["']([^"']+)["']/i)?.[1];
+  let base = pageUrl;
+  if (baseTag) {
+    try {
+      base = new URL(decodeEntities(baseTag), pageUrl).toString();
+    } catch {
+      /* mantém a URL da página */
+    }
+  }
   for (const m of html.matchAll(/<a\b[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
     try {
       const href = new URL(decodeEntities(m[1]), base).toString();

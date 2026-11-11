@@ -6,7 +6,7 @@ App pessoal que roda em localhost nos dois PCs do usuário. Acha as melhores ofe
 
 ## Plano acelerado (decidido em 10/11 às 18:20, vale até o fim do 11.11)
 - Nada de coleta rodando sozinha: sem coleta diária, sem agendamento e sem pg-boss hoje. Só a verificação ao vivo de cada oferta que chega, numa fila em memória por domínio, com as mesmas regras de coleta educada.
-- Telegram e WhatsApp ficam fora hoje. As ofertas vêm do scraping ao vivo de Pelando, Promobit, fórum do Hardmob e vitrines de ofertas das lojas, só com o app aberto.
+- O WhatsApp fica fora hoje. O Telegram ENTRA no 11.11 (decidido em 10/11 às 21:10): Escuta só leitura com GramJS na conta do usuário, papel `listen`. As outras ofertas vêm do scraping ao vivo de Pelando, Promobit, fórum do Hardmob e vitrines de ofertas das lojas, só com o app aberto.
 - Tudo roda num PC só. O outro só abre a Vitrine pela rede (next dev -H 0.0.0.0).
 - Tabelas de hoje: sources, raw_messages, offers, products, price_points, alvos, ai_usage e insights.
 - Hoje não entram Playwright, War Room, job de insights, Black Fraude nem desconto real. Use a Nota rápida do prompts/hoje/04.

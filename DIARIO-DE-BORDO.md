@@ -14,9 +14,9 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Estado atual
 
-- **Quando:** 10/11/2026, 18:50.
+- **Quando:** 10/11/2026, 21:15.
 - **Fase:** plano acelerado. O código das Etapas 1 a 4 está pronto e testado com exemplos; ainda não rodou contra os sites de verdade.
-- **Próximo passo:** rodar no PC (`pnpm install`, `pnpm db:push`, `pnpm dev`), conferir as comunidades com `pnpm fontes:debug` e ir para o ensaio (Etapa 5).
+- **Próximo passo:** `pnpm telegram:login`, colar `TELEGRAM_SESSION` no `.env`, pôr `listen` em `WORKER_ROLES` e rodar o ensaio (Etapa 5). Comunidades conferidas ao vivo às 21:10.
 - **Prazo:** o 11.11 começa à meia-noite de hoje. A linha de corte é às 21:30 e o congelamento às 23:00.
 
 ## Decisões tomadas
@@ -32,6 +32,7 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 | Fontes e Alvos | Descobertos sozinhos. O usuário só confirma e nunca digita configuração. |
 | Coleta educada | robots.txt, 1 pedido a cada 5 a 10 s por loja, cache, pausa de 1 h em 429 ou 403, sem proxy. |
 | Plano acelerado (10/11, 18:20) | Até o fim do 11.11 não há coleta rodando sozinha, agendamento nem pg-boss. Fica a verificação ao vivo de cada oferta que chega. Telegram e WhatsApp fora hoje: ofertas só do scraping ao vivo de comunidades e vitrines das lojas. Tudo num PC; o outro abre a Vitrine pela rede. Nota rápida, sem desconto real nem Black Fraude. |
+| Telegram entra no 11.11 (10/11, 21:10) | Reverte a parte do plano acelerado que deixava o Telegram de fora. GramJS na conta do usuário, só leitura, papel `listen`. Chats de grupo e canal: os com nome de promoção ligam sozinhos, os outros ficam desligados em `sources.enabled`. WhatsApp segue fora. |
 | Coleta diária | Adiada para depois do 11.11: às 06:00, de 12/11 até a Black Friday (27/11). |
 | IA: provedor | Interface `AiProvider` com `claude-cli` (teste pela assinatura), `anthropic-api` e `ollama`, escolhidos por `AI_PROVIDER`. |
 | IA: modelo | `claude-haiku-5-5` em toda chamada e em todo provedor. Nada de Sonnet ou Opus no app. |
@@ -52,6 +53,21 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 - Design (canvas clicável): https://claude.ai/artifact/KpCmQB2sKdW9GvHR9Z7MD2
 
 ## Registro (mais recente primeiro)
+
+### 10/11/2026, 21:15 · Telegram no 11.11 e Hardmob corrigido
+
+- **Feito:**
+  - `pnpm fontes:debug` rodou ao vivo: Promobit 16 posts, Pelando 20. O Hardmob dava 0 por causa do `<base href>` (links relativos); corrigido em `anchors()` e coberto por teste, agora acha 32;
+  - o `fontes:debug` quebrava com await no topo do arquivo (CJS); agora roda numa função `main`;
+  - Escuta do Telegram (`worker/ingest/telegram.ts`): GramJS, só leitura, ignora conversas individuais, só vira oferta mensagem com link de loja ou encurtador. `pnpm telegram:login` gera a sessão.
+- **Decidido:** o Telegram entra no 11.11 (pedido do usuário). Dependência `telegram` instalada com o OK dele.
+- **Testado:** 11 testes, `tsc` e `eslint` passam. A Escuta em si NÃO foi testada: depende de login interativo na conta.
+- **Pendente:**
+  - rodar `pnpm telegram:login` (telefone, código e senha), colar `TELEGRAM_SESSION` e pôr `listen` em `WORKER_ROLES`;
+  - confirmar quais chats ficaram ligados (log `[telegram] escutando N`) e ajustar `sources.enabled` no DBeaver;
+  - a regra de "mais de 30% das últimas 50 mensagens com preço e link" não foi feita, só o nome do chat.
+- **Próximo passo:** Etapa 5, ensaio com tráfego real.
+- **Como testar:** `pnpm telegram:login`, depois `pnpm dev` e mande uma mensagem com link de loja num grupo ligado (de outra conta): a oferta aparece na Vitrine.
 
 ### 10/11/2026, 18:50 · Etapas 1 a 4 no claude.ai
 

@@ -17,13 +17,14 @@ App pessoal que acha ofertas do 11.11 para os seus Alvos (braço articulado, mou
 | --- | --- |
 | `pnpm dev` | Site e worker juntos. A coleta roda a cada 10 min e a verificação a cada 10 s, só enquanto estiver aberto. |
 | `pnpm simular` | Põe 10 ofertas de exemplo na Vitrine, para ver tudo funcionando e ensaiar. `pnpm simular --limpar` apaga. |
+| `pnpm telegram:login` | Login único na sua conta do Telegram. Imprime a sessão para colar em `TELEGRAM_SESSION` no `.env`. Depois ponha `listen` em `WORKER_ROLES`. |
 | `pnpm fontes:debug` | Baixa a lista de cada comunidade uma vez, salva o HTML em `.garimpo/debug/` e mostra quantos posts achou. |
 | `pnpm test` | Testes do parser, dos Alvos, da Nota e da extração. |
 | `pnpm db:push` | Cria ou atualiza as tabelas. |
 
 ## Se uma comunidade mostrar 0 posts
 
-O padrão dos links de cada site fica em `worker/collect/communities-config.ts`. Rode `pnpm fontes:debug` e mande para o Claude Code o HTML salvo em `.garimpo/debug/`, pedindo para ajustar o padrão. O robots.txt sempre manda: o Fórum do Hardmob não permite robôs e fica de fora.
+O padrão dos links de cada site fica em `worker/collect/communities-config.ts`. Rode `pnpm fontes:debug` e mande para o Claude Code o HTML salvo em `.garimpo/debug/`, pedindo para ajustar o padrão. O robots.txt sempre manda: se o Fórum do Hardmob passar a bloquear robôs, ele aparece como bloqueado e fica de fora.
 
 ## Como funciona
 

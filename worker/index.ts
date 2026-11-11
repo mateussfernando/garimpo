@@ -2,6 +2,7 @@ import "dotenv/config";
 import { pool } from "@/lib/db";
 import { collectAll } from "./collect/communities";
 import { setPauseListener } from "./http/polite";
+import { startTelegram } from "./ingest/telegram";
 import { ensureSeed, notify } from "./pipeline";
 import { verifyTick } from "./verify/verify";
 
@@ -30,6 +31,9 @@ async function main() {
     const run = () => collectAll().catch((e) => console.error("[coleta] erro:", e));
     void run();
     setInterval(run, COLLECT_EVERY);
+  }
+  if (roles.includes("listen")) {
+    startTelegram().catch((e) => console.error("[telegram] erro:", e));
   }
   if (roles.includes("verify")) {
     setInterval(() => verifyTick().catch((e) => console.error("[verificação] erro:", e)), VERIFY_EVERY);

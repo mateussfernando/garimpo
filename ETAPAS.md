@@ -1,6 +1,6 @@
 # Etapas do Garimpo (plano acelerado)
 
-**Mudou em 10/11, às 18:20:** sai a coleta que fica rodando sozinha no PC e fica a verificação ao vivo de cada oferta que chega. Telegram e WhatsApp ficam fora hoje: as ofertas vêm do scraping ao vivo das comunidades e das vitrines de ofertas das lojas. Tudo roda num PC só, e o outro abre a Vitrine pela rede. Siga uma etapa por vez. Cada uma termina com o "Pronto quando" cumprido, um commit e uma entrada no `DIARIO-DE-BORDO.md`.
+**Mudou em 10/11, às 18:20:** sai a coleta que fica rodando sozinha no PC e fica a verificação ao vivo de cada oferta que chega. O WhatsApp fica fora hoje. O Telegram entrou de volta no 11.11 (decidido às 21:10, Escuta só leitura com GramJS, papel `listen`), junto com o scraping ao vivo das comunidades e das vitrines de ofertas das lojas. Tudo roda num PC só, e o outro abre a Vitrine pela rede. Siga uma etapa por vez. Cada uma termina com o "Pronto quando" cumprido, um commit e uma entrada no `DIARIO-DE-BORDO.md`.
 
 | # | Etapa | Prompt | Janela | Status |
 | --- | --- | --- | --- | --- |
@@ -54,7 +54,7 @@
 ## 7. Depois do 11.11 (12/11 a 26/11)
 
 Volta o plano completo, nos `prompts/01` a `08`:
-- Escuta do Telegram (o WhatsApp segue fora);
+- Escuta do WhatsApp (o Telegram já entrou no 11.11) e a tela de Fontes para ligar e desligar chats;
 - coleta diária às 06:00 com pg-boss e o PC de 8 GB na fila;
 - desconto real com histórico e Black Fraude;
 - IA com trava e o job de insights;

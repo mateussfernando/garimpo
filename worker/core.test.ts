@@ -97,3 +97,14 @@ describe("Comunidade (HTML de exemplo)", () => {
     expect(ldProduct(html)).toMatchObject({ name: "Mouse G305", image: "https://img/1.jpg", priceCents: 19990 });
   });
 });
+
+describe("links relativos com <base href> (Hardmob/vBulletin)", () => {
+  it("resolve os links pelo base e acha os tópicos", () => {
+    const hardmob = COMMUNITIES.find((c) => c.slug === "hardmob")!;
+    const html = `<html><head><base href="https://www.hardmob.com.br/" /></head><body>
+      <a href="threads/842496-Netshoes-Pasta-de-Amendoim-R990?s=abc">Netshoes - Pasta de Amendoim 250g - R$9,90</a></body></html>`;
+    const items = listItems(html, hardmob);
+    expect(items).toHaveLength(1);
+    expect(items[0].url).toBe("https://www.hardmob.com.br/threads/842496-Netshoes-Pasta-de-Amendoim-R990");
+  });
+});

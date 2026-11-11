@@ -59,6 +59,18 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 11/11/2026, 15:40 · Análises da IA em 3 pistas ao mesmo tempo
+
+- **Feito:**
+  - **3 lotes ao mesmo tempo:** `runAnalises` agora roda até `AI_PARALLEL` = 3 pistas (`src/config/pricing.ts`, máximo pedido pelo usuário). Cada pista pega os próximos produtos que nenhuma outra pegou (conjunto `claimed`), então nada vai à IA duas vezes. Pausa ou freio param todas; um erro (recusa, timeout) para só a pista dele. As pistas começam com 1,5 s de diferença. Rodada automática: até 6 lotes a cada 2 min; "Chamar IA agora": até 150 lotes;
+  - **Uma pasta de configuração por `claude -p` vivo** (`config`, `config-1`, `config-2`...), para dois processos nunca escreverem o mesmo arquivo;
+  - Fila da IA explica as 3 pistas.
+- **Medido:** antes, um lote de 12 por vez, uns 25 s cada (cerca de 30 produtos por minuto). Teste com 3 pistas: 36 produtos (78 ofertas, contando as cópias) em 46 s, cerca de 47 produtos por minuto. A janela de 5 h não muda de tamanho: as pistas só gastam o mesmo uso mais rápido, e o freio de 85% continua valendo.
+- **Achado:** o worker que estava rodando era `tsx worker/index.ts` sem watch, iniciado às 11:32, ou seja, ainda com o código anterior às 13:30. Precisa reiniciar com `pnpm worker` (com watch).
+- **Corrigido no teste:** `analisadas += await ...` perdia a conta com as pistas juntas (contou 23 de 78); agora lê o resultado antes de somar.
+- **Testado:** 85 testes, `tsc` e `eslint`; rodada real de 3 lotes em paralelo pelo `claude -p`, as 3 chamadas terminaram com 9 s de diferença entre si.
+- **Próximo passo:** reiniciar o worker e acompanhar a Fila da IA.
+
 ### 11/11/2026, 13:30 · Rolagem livre, cards do mesmo tamanho, IA cobrindo todas as ofertas e Fila da IA
 
 - **Feito:**

@@ -11,9 +11,28 @@ import { AiRefusal, jsonSchemaOf, type AiLimits, type AiProvider } from "../type
 const WORK = join(tmpdir(), "garimpo-claude");
 const CONFIG = join(WORK, "config");
 
-function run(args: string[], input: string): Promise<string> {
-  mkdirSync(CONFIG, { recursive: true });
-  const env: NodeJS.ProcessEnv = { ...process.env, CLAUDE_CONFIG_DIR: CONFIG };
+// Várias chamadas ao mesmo tempo (análises em paralelo, categorias, radar): cada `claude -p` vivo usa uma pasta
+// de configuração só dele (config, config-1, config-2...), para dois processos nunca escreverem o mesmo arquivo.
+const slots = new Set<number>();
+function takeSlot(): number {
+  let i = 0;
+  while (slots.has(i)) i++;
+  slots.add(i);
+  return i;
+}
+
+async function run(args: string[], input: string): Promise<string> {
+  const slot = takeSlot();
+  try {
+    return await runIn(slot === 0 ? CONFIG : `${CONFIG}-${slot}`, args, input);
+  } finally {
+    slots.delete(slot);
+  }
+}
+
+function runIn(config: string, args: string[], input: string): Promise<string> {
+  mkdirSync(config, { recursive: true });
+  const env: NodeJS.ProcessEnv = { ...process.env, CLAUDE_CONFIG_DIR: config };
   delete env.ANTHROPIC_API_KEY;
   return new Promise((resolve, reject) => {
     // Sem shell: o claude.exe recebe cada argumento como está. O prompt vai por stdin.

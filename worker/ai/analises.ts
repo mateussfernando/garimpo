@@ -1,7 +1,7 @@
 // Análise da IA de cada oferta: "está muito bom ou não?". As métricas saem do código; a IA julga e explica.
 // Cobre todas as ofertas da Vitrine (48 h), não só as de nota alta:
 // - o mesmo produto postado em vários grupos (mesmo título e preço) é analisado uma vez e vale para todas as cópias;
-// - lotes de 12, um atrás do outro, até a fila zerar; as que nunca foram analisadas vêm primeiro;
+// - lotes de 12, até 3 indo à IA ao mesmo tempo (AI_PARALLEL), até a fila zerar; as que nunca foram analisadas vêm primeiro;
 // - refaz só quando os números da oferta mudam (hash);
 // - as rodadas automáticas param quando a janela de 5 h da assinatura passa de 85% (o botão "Chamar IA agora" não para).
 // O site só lê offer_analyses.
@@ -10,6 +10,7 @@ import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { categoryName } from "@/config/categories";
 import { STORES } from "@/config/stores";
+import { AI_PARALLEL } from "@/config/pricing";
 import { AI_AUTO_STOP_PCT, AI_LIMITS_KEY, type AiLimitsValue } from "@/lib/ai-usage";
 import { db, schema } from "@/lib/db";
 import { normalize } from "@/lib/money";
@@ -139,9 +140,45 @@ let running = false;
 let drain = false;
 let lastSkipLog = 0;
 
+/** Manda um lote à IA e grava a análise em todas as cópias de cada produto. Devolve quantas ofertas ganharam análise. */
+async function analyzeChunk(provider: ReturnType<typeof getProvider>, chunk: Candidate[][]): Promise<number> {
+  const { data } = await guardedCall(provider, {
+    purpose: "analise",
+    system: SYSTEM,
+    prompt: `Ofertas (preços em centavos de real):\n${JSON.stringify(chunk.map((g) => g[0].m))}`,
+    schema: AnalysisSchema,
+  });
+  let n = 0;
+  const byId = new Map(chunk.map((g) => [g[0].m.id, g]));
+  for (const a of data.analises) {
+    const group = byId.get(a.id);
+    if (!group) continue;
+    const base = {
+      verdict: a.veredito,
+      score: a.nota,
+      confidence: a.confianca,
+      summary: a.resumo.slice(0, 140),
+      pros: a.pros.slice(0, 3).map((x) => x.slice(0, 70)),
+      cons: a.contras.slice(0, 3).map((x) => x.slice(0, 70)),
+      createdAt: new Date(),
+    };
+    // Vale para todas as cópias do mesmo produto, cada uma com o seu hash.
+    for (const c of group) {
+      const values = { ...base, hash: c.hash };
+      await db.insert(offerAnalyses).values({ offerId: c.m.id, ...values }).onConflictDoUpdate({ target: offerAnalyses.offerId, set: values });
+      n++;
+    }
+  }
+  await notify({ type: "offer" });
+  return n;
+}
+
 /**
- * Analisa até `maxBatches` lotes. Com `manual` (botão "Chamar IA agora"), ignora o freio da janela de 5 h e,
- * se já houver uma rodada andando, pede para ela seguir até zerar a fila em vez de parar no limite dela.
+ * Analisa até `maxBatches` lotes, com até AI_PARALLEL lotes indo à IA ao mesmo tempo.
+ * Cada "pista" pega os próximos produtos que ninguém pegou (conjunto `claimed`), então nenhum produto vai duas vezes.
+ * Com `manual` (botão "Chamar IA agora"), ignora o freio da janela de 5 h e, se já houver uma rodada andando,
+ * pede para ela seguir até zerar a fila em vez de parar no limite dela.
+ * Um erro numa pista (recusa, timeout, limite da assinatura) para só aquela pista; pausa para todas.
  */
 export async function runAnalises(opts: { maxBatches?: number; manual?: boolean } = {}): Promise<{ analisadas: number; lotes: number; faltam: number }> {
   if (running) {
@@ -153,12 +190,14 @@ export async function runAnalises(opts: { maxBatches?: number; manual?: boolean 
   let analisadas = 0;
   let lotes = 0;
   let faltam = 0;
-  try {
-    const provider = getProvider();
-    for (;;) {
-      if (await aiPaused()) break;
-      const limit = drain ? 60 : (opts.maxBatches ?? 5);
-      if (lotes >= limit) break;
+  let stop = false;
+  const claimed = new Set<string>();
+  const provider = getProvider();
+
+  const lane = async () => {
+    while (!stop) {
+      if (await aiPaused()) return void (stop = true);
+      if (lotes >= (drain ? 150 : (opts.maxBatches ?? 6))) return;
       if (!drain) {
         const p = await fiveHourPct();
         if (p != null && p >= AUTO_STOP_PCT) {
@@ -166,54 +205,40 @@ export async function runAnalises(opts: { maxBatches?: number; manual?: boolean 
             console.warn(`[ia] análises automáticas esperando: janela de 5 h em ${p}% (freio em ${AUTO_STOP_PCT}%). "Chamar IA agora" continua funcionando.`);
             lastSkipLog = Date.now();
           }
-          break;
+          return void (stop = true);
         }
       }
       const { list } = await pendingGroups();
-      faltam = list.length;
-      if (!list.length) break;
-      const chunk = list.slice(0, BATCH);
+      const free = list.filter((g) => !claimed.has(g[0].key));
+      faltam = free.length;
+      if (!free.length) return;
+      const chunk = free.slice(0, BATCH);
+      for (const g of chunk) claimed.add(g[0].key);
       lotes++;
-      let data: z.infer<typeof AnalysisSchema>;
       try {
-        ({ data } = await guardedCall(provider, {
-          purpose: "analise",
-          system: SYSTEM,
-          prompt: `Ofertas (preços em centavos de real):\n${JSON.stringify(chunk.map((g) => g[0].m))}`,
-          schema: AnalysisSchema,
-        }));
+        // Lê o resultado antes de somar: `analisadas += await ...` perde a conta com as pistas rodando juntas.
+        const n = await analyzeChunk(provider, chunk);
+        analisadas += n;
       } catch (err) {
-        if (err instanceof AiBudgetError) console.warn(`[ia] análises paradas: ${err.message}`);
-        else console.error("[ia] erro nas análises:", (err as Error).message.slice(0, 200));
-        break;
+        if (err instanceof AiBudgetError) {
+          console.warn(`[ia] análises paradas: ${err.message}`);
+          stop = true;
+        } else console.error("[ia] erro nas análises:", (err as Error).message.slice(0, 200));
+        return;
+      } finally {
+        for (const g of chunk) claimed.delete(g[0].key);
       }
-      const byId = new Map(chunk.map((g) => [g[0].m.id, g]));
-      for (const a of data.analises) {
-        const group = byId.get(a.id);
-        if (!group) continue;
-        const base = {
-          verdict: a.veredito,
-          score: a.nota,
-          confidence: a.confianca,
-          summary: a.resumo.slice(0, 140),
-          pros: a.pros.slice(0, 3).map((x) => x.slice(0, 70)),
-          cons: a.contras.slice(0, 3).map((x) => x.slice(0, 70)),
-          createdAt: new Date(),
-        };
-        // Vale para todas as cópias do mesmo produto, cada uma com o seu hash.
-        for (const c of group) {
-          const values = { ...base, hash: c.hash };
-          await db.insert(offerAnalyses).values({ offerId: c.m.id, ...values }).onConflictDoUpdate({ target: offerAnalyses.offerId, set: values });
-          analisadas++;
-        }
-      }
-      faltam = Math.max(0, faltam - chunk.length);
-      await notify({ type: "offer" });
     }
+  };
+
+  try {
+    // As pistas começam com 1,5 s de diferença para não abrirem três `claude -p` no mesmo instante.
+    await Promise.all(Array.from({ length: AI_PARALLEL }, (_, i) => new Promise((r) => setTimeout(r, i * 1500)).then(lane)));
   } finally {
     running = false;
     drain = false;
   }
+  if (lotes) faltam = (await pendingGroups()).list.length;
   return { analisadas, lotes, faltam };
 }
 

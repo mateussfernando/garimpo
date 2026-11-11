@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useState } from "react";
-import { AI_AUTO_STOP_PCT } from "@/config/pricing";
+import { AI_AUTO_STOP_PCT, AI_PARALLEL } from "@/config/pricing";
 import type { FilaDTO, FilaItem } from "@/lib/fila-ia";
 import { VERDICT } from "./ia";
 import { AppHeader, Badge, PageTitle, ago, brl, useLive, useNow, useStatus } from "./shell";
@@ -66,10 +66,10 @@ export function FilaIa() {
   const state = ai?.paused
     ? "A IA está pausada. Continue para a fila andar."
     : running
-      ? "A IA está trabalhando agora: lotes de 12 produtos, um atrás do outro, até a fila zerar."
+      ? `A IA está trabalhando agora: ${AI_PARALLEL} lotes de 12 produtos ao mesmo tempo, até a fila zerar.`
       : braked
         ? `A janela de 5 h da sua assinatura está em ${five}%: as análises automáticas esperam abaixo de ${AI_AUTO_STOP_PCT}%. “Chamar IA agora” passa por cima do freio.`
-        : "As análises automáticas rodam a cada 2 minutos, até 5 lotes de 12 por vez.";
+        : `As análises automáticas rodam a cada 2 minutos, até 6 lotes de 12 (${AI_PARALLEL} ao mesmo tempo).`;
 
   return (
     <div className="flex min-h-screen flex-col">

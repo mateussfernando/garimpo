@@ -4,6 +4,7 @@ import { STORES, cleanUrl, decodeTrackingUrl, storeByName, storeForUrl } from "@
 import { db, NOTIFY_CHANNEL, pool, schema } from "@/lib/db";
 import { COMMUNITIES } from "./collect/communities-config";
 import { VITRINES } from "./collect/vitrines-config";
+import { offerFromMessage } from "./ingest/message";
 import { matchAlvo, median, targetsFrom, type AlvoLite } from "./match/alvos";
 import { bandOf, extractSpecs, type Band } from "./match/specs";
 import { parseOfferText } from "./parse/parser";
@@ -199,13 +200,22 @@ export async function scoreOffer(offerId: number, opts: { silent?: boolean } = {
 export async function rematchOffers(): Promise<{ total: number; changed: number; bands: number }> {
   const list = await activeAlvos();
   const rows = await db
-    .select({ id: offers.id, title: offers.title, alvoId: offers.alvoId, bandKey: offers.bandKey })
+    .select({ id: offers.id, title: offers.title, alvoId: offers.alvoId, bandKey: offers.bandKey, kind: sources.kind, text: rawMessages.text })
     .from(offers)
+    .innerJoin(sources, eq(offers.sourceId, sources.id))
+    .innerJoin(rawMessages, eq(offers.rawMessageId, rawMessages.id))
     .where(gte(offers.createdAt, sql`now() - interval '7 days'`));
   const bands = new Map<string, { alvoId: number; band: Band }>();
   let changed = 0;
   for (const r of rows) {
-    const c = classify(r.title, list);
+    // Mensagem de canal: refaz a escolha do título com as regras atuais (a linha do produto, não a chamada).
+    let title = r.title;
+    if (r.kind === "telegram") {
+      const v = offerFromMessage(r.text, list);
+      title = v.kind === "oferta" ? v.title : "";
+      if (title && title !== r.title) await db.update(offers).set({ title: title.slice(0, 300) }).where(eq(offers.id, r.id));
+    }
+    const c = title ? classify(title, list) : { alvo: null, specs: null, band: null };
     const alvoId = c.alvo?.id ?? null;
     const bandKey = c.band?.key ?? null;
     if (alvoId !== r.alvoId || bandKey !== r.bandKey) changed++;

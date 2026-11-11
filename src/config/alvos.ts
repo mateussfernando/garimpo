@@ -49,7 +49,8 @@ export const ALVOS_V0: AlvoSeed[] = [
     slug: "ssd",
     name: "SSD",
     terms: ["ssd", "nvme", "m.2"],
-    exclusions: ["externo", "portatil"],
+    // "512 GB SSD" numa linha com RAM, processador ou tela é a ficha de um notebook ou PC, não um SSD à venda.
+    exclusions: ["externo", "portatil", "expansivel", "ram", "ddr4", "ddr5", "ryzen", "core", "intel", "rtx", "gtx", "tela", "specs"],
   },
   {
     slug: "mousepad",
@@ -99,4 +100,6 @@ export const OTHER_TYPES: string[] = [
   "suporte", "tripe", "ring light", "luminaria", "fita led", "lampada", "kit", "combo", "projetor", "camera", "drone",
   "oculos", "licenca", "windows", "jogo", "game", "gift card", "assinatura", "garantia", "limpador", "escova", "limpeza",
   "spray", "pano", "base", "organizador", "adesivo", "protetor", "etiqueta",
+  // Linhas de notebook que não dizem "notebook".
+  "ideapad", "vivobook", "zenbook", "thinkpad", "legion", "loq", "nitro", "aspire", "inspiron", "galaxy book", "victus", "tuf gaming f15",
 ];

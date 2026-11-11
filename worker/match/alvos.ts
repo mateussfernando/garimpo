@@ -46,9 +46,14 @@ const PROMO_WORDS = new Set([
  * "Escova de limpeza de teclado", "Base para monitor": o termo vem depois de uma preposição, então é o acessório
  * de um teclado ou monitor, e não o próprio. A exceção é a chamada de oferta: em "Promoção de Mouse", o mouse é o produto.
  */
+const ARTICLES = new Set(["o", "a", "os", "as", "um", "uma", "esse", "essa", "este", "esta", "seu", "sua", "teu", "tua", "meu", "minha", "aquele"]);
+
 function isObjectOfPreposition(text: string, pos: number): boolean {
   const before = text.slice(0, pos).trim().split(" ").filter(Boolean);
-  if (!before.length || !PREPOSITIONS.has(before[before.length - 1])) return false;
+  if (!before.length) return false;
+  // "Troca esse teclado", "cabe o monitor": frase de chamada, não nome de produto.
+  if (ARTICLES.has(before[before.length - 1])) return true;
+  if (!PREPOSITIONS.has(before[before.length - 1])) return false;
   return before.slice(0, -1).some((w) => !PROMO_WORDS.has(w) && !PREPOSITIONS.has(w));
 }
 

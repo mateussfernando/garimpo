@@ -64,7 +64,11 @@ export const STORES: Store[] = [
     name: "Shopee",
     domains: ["shopee.com.br"],
     trust: 0.6,
-    productId: (u) => u.pathname.match(/i\.(\d+\.\d+)/)?.[1] ?? null,
+    // Mesmo item em três formatos de link: nome-i.LOJA.ITEM, /product/LOJA/ITEM e /opaanlp/LOJA/ITEM (link do app).
+    productId: (u) => {
+      const m = u.pathname.match(/i\.(\d+)\.(\d+)/) ?? u.pathname.match(/\/(?:product|opaanlp)\/(\d+)\/(\d+)/);
+      return m ? `${m[1]}.${m[2]}` : null;
+    },
   },
   {
     slug: "aliexpress",
@@ -91,7 +95,8 @@ export const STORES: Store[] = [
     name: "Americanas",
     domains: ["americanas.com.br"],
     trust: 0.6,
-    productId: (u) => u.pathname.match(/\/produto\/(\d+)/)?.[1] ?? null,
+    // Link antigo /produto/ID e o novo /nome-do-produto-ID/p.
+    productId: (u) => u.pathname.match(/\/produto\/(\d+)/)?.[1] ?? u.pathname.match(/-(\d{5,})\/p\/?$/)?.[1] ?? null,
   },
 ];
 
@@ -117,6 +122,19 @@ export function storeForUrl(url: string): Store | null {
   const host = hostOf(url);
   if (!host) return null;
   return STORES.find((s) => s.domains.some((d) => host === d || host.endsWith("." + d))) ?? null;
+}
+
+/**
+ * ID do produto na loja a partir do link. null = o link não é de um produto (erro, moedas, live, promoção, busca, home):
+ * nada disso pode virar um "produto", senão ofertas sem nada a ver dividem o mesmo histórico de preço.
+ */
+export function productIdFor(store: Store, url: string): string | null {
+  const u = new URL(url);
+  if (store.productId) return store.productId(u);
+  // Loja sem leitor de ID: o caminho serve, menos a home e páginas que claramente não são de produto.
+  const path = u.pathname.replace(/\/+$/, "");
+  if (!path || /(^|\/)(error|erro|404|busca|search|s|promocao|promotion|carrinho|cart|login|categoria|category)(\/|$)/i.test(path)) return null;
+  return path;
 }
 
 export function storeByName(name: string): Store | null {

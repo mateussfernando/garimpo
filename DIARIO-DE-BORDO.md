@@ -59,6 +59,17 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 11/11/2026, 17:00 · Sem produto falso para link que não é de produto
+
+- **Problema:** a verificação usava o caminho do link como ID quando o leitor da loja não achava um. Páginas de moedas da AliExpress (105 ofertas), erro 404 (18), live da Shopee (7), promoções da Amazon e da KaBuM! e a home da Amazon viraram "produtos". As ofertas ficavam "conferidas na loja" com o preço lido dessas páginas (55 preços diferentes só nas moedas) e dividiam o mesmo histórico.
+- **Feito:**
+  - `productIdFor` (`src/config/stores.ts`, com testes): só devolve ID para link de produto. Loja sem leitor usa o caminho, menos home, erro, busca, promoção, carrinho e categoria;
+  - A verificação nem abre um link sem ID: a oferta fica "não conferida" com o motivo, e o preço continua o do post;
+  - A Shopee entende os três formatos de link do mesmo item (`-i.LOJA.ITEM`, `/product/LOJA/ITEM`, `/opaanlp/LOJA/ITEM`); a Americanas, o formato novo `/nome-ID/p`;
+  - Limpeza única no banco: 14 produtos falsos apagados com os preços e insights deles; 144 ofertas voltaram ao preço, parcelas, frete e foto do post, como "não conferidas", e sem a análise da IA (ela será refeita); 12 produtos da Shopee e da Americanas renomeados para o ID novo e 1 juntado ao que já existia.
+- **Testado:** 95 testes, `tsc` e `eslint`. A limpeza rodou de novo em simulação e não achou mais nada.
+- **Pendente:** o worker em execução ainda tem o código antigo (sem watch, desde 11:32) e pode criar produto falso até ser reiniciado com `pnpm worker`.
+
 ### 11/11/2026, 16:30 · Mesmo produto num card só e comparação entre lojas
 
 - **Feito:**

@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { STORES, cleanUrl, decodeTrackingUrl, isShortener, storeForUrl } from "@/config/stores";
+import { STORES, cleanUrl, decodeTrackingUrl, isShortener, productIdFor, storeForUrl } from "@/config/stores";
 import { db, schema } from "@/lib/db";
 import type { OfferExtra } from "@/lib/db/schema";
 import { ldProduct, meta, stripTags } from "../http/html";
@@ -81,6 +81,8 @@ export function readGeneric(html: string, o: Pick<Offer, "priceCardCents" | "ins
   };
 }
 
+export const NOT_PRODUCT = "o link não abre a página de um produto (promoção, busca, live ou erro da loja)";
+
 async function markNotVerified(o: Offer, note: string) {
   await db.update(offers).set({ verifyStatus: "nao_verificado", verifyNote: note, verifiedAt: new Date() }).where(eq(offers.id, o.id));
   await notify({ type: "offer", id: o.id });
@@ -145,7 +147,14 @@ async function verifyInner(o: Offer) {
     }
     const [state] = await db.select().from(schema.storeState).where(eq(schema.storeState.slug, store.slug));
     if (state?.pausedByUser) return markNotVerified(o, "loja pausada por você");
-    const pid = store.productId?.(new URL(finalUrl)) ?? new URL(finalUrl).pathname;
+    // Só vira "produto" um link que é de um produto. Página de erro (AliExpress /error/404), moedas, live da Shopee,
+    // promoção da Amazon ou a home davam um product_id único para ofertas sem nada a ver, e o preço lido dali
+    // ia para o card como "conferido". Esses links nem são abertos: o preço continua o do post.
+    const pid = productIdFor(store, finalUrl);
+    if (!pid) {
+      await db.update(offers).set({ url: finalUrl, store: store.slug }).where(eq(offers.id, o.id));
+      return markNotVerified(o, NOT_PRODUCT);
+    }
     const page = await politeFetch(finalUrl);
     if (page.status >= 400) return markNotVerified(o, `a loja respondeu ${page.status}`);
 

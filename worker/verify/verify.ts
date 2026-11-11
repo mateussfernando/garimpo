@@ -10,6 +10,16 @@ const { offers, products, pricePoints, rawMessages } = schema;
 
 type Offer = typeof offers.$inferSelect;
 
+/**
+ * O texto da página pode trazer a parcela de OUTRO produto (itens relacionados). O total no cartão vindo do texto só vale
+ * se for parecido com o preço de referência (JSON-LD ou o do post): entre 75% e 220% dele. Sem referência, vale.
+ */
+export function plausibleCardPrice(candidate: number | null, reference: number | null): boolean {
+  if (candidate == null) return false;
+  if (!reference) return true;
+  return candidate >= reference * 0.75 && candidate <= reference * 2.2;
+}
+
 async function markNotVerified(o: Offer, note: string) {
   await db.update(offers).set({ verifyStatus: "nao_verificado", verifyNote: note, verifiedAt: new Date() }).where(eq(offers.id, o.id));
   await notify({ type: "offer", id: o.id });
@@ -48,12 +58,12 @@ export async function verifyOffer(o: Offer) {
     let installments = o.installments;
     let installmentCents = o.installmentCents;
     let interest = o.interest;
-    if (fromPage.installments && fromPage.installmentCents) {
+    if (fromPage.installments && fromPage.installmentCents && plausibleCardPrice(fromPage.priceCardCents, ldPrice ?? o.priceCardCents)) {
       installments = fromPage.installments;
       installmentCents = fromPage.installmentCents;
       interest = fromPage.interest;
       priceCard = fromPage.priceCardCents;
-    } else if (ldPrice) {
+    } else if (ldPrice && plausibleCardPrice(ldPrice, o.priceCardCents ?? ldPrice)) {
       priceCard = ldPrice;
     }
     const freeShipping = fromPage.freeShipping ?? o.freeShipping;

@@ -13,6 +13,7 @@ import { ldProduct } from "./http/html";
 import { __test } from "./http/polite";
 import { matchAlvo, targetsFrom } from "./match/alvos";
 import { notaRapida } from "./score/nota";
+import { plausibleCardPrice } from "./verify/verify";
 
 const alvos = ALVOS_V0.map((a, i) => ({ id: i + 1, ...a }));
 const promobit = COMMUNITIES.find((c) => c.slug === "promobit")!;
@@ -171,5 +172,15 @@ describe("filtro de grupos do Telegram", () => {
   });
   it("não liga grupos de outros assuntos, mesmo com palavra de promoção", () => {
     for (const n of ["Extreme Cursos", "BATE PAPO : NOTEBOOKS NAS HORAS VAGAS", "Grupinho de Putaria", "Cursos em promoção", "Guilda Cloud"]) expect(isPromoGroup(n)).toBe(false);
+  });
+});
+
+describe("verificação: preço plausível", () => {
+  it("recusa a parcela de outro produto e aceita o total do cartão", () => {
+    expect(plausibleCardPrice(4_22, 9_99)).toBe(false); // mousepad de R$ 9,99 não custa R$ 4,22
+    expect(plausibleCardPrice(11_75, 9_99)).toBe(true); // total no cartão um pouco acima do pix
+    expect(plausibleCardPrice(900_00, 9_99)).toBe(false);
+    expect(plausibleCardPrice(50_00, null)).toBe(true);
+    expect(plausibleCardPrice(null, 9_99)).toBe(false);
   });
 });

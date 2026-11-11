@@ -26,15 +26,16 @@ App pessoal que roda em localhost num PC só do usuário (decisão de 10/11: o s
 
 ## Regras
 - Determinístico primeiro. IA só como fallback, em lote, via worker/ai.
-- Toda chamada de IA passa por worker/ai/budget.ts: registra usage, calcula o custo com config/pricing.ts e recusa se o total for >= US$ 4,50 (no claude-cli, se passar de AI_MAX_CHAMADAS_DIA).
+- Toda chamada de IA passa por worker/ai/budget.ts: registra usage e custo (no claude-cli, o total_cost_usd do próprio claude -p; senão, config/pricing.ts). Sem teto de gasto (decisão do usuário em 11/11): quem para a IA é o botão Pausar do cabeçalho (app_settings "ia"). O uso da assinatura (janela de 5 h e semanal) vem do rate_limit_event do claude -p e aparece no cabeçalho. O botão "Chamar IA agora" só avisa o worker por pg_notify (canal garimpo_ia); o site nunca chama a IA.
 - Haiku 5.5: sem temperature/top_p/top_k, sem prefill, resposta via output_config.format (JSON Schema gerado do Zod), effort baixo para extração, prompt abaixo de 100 mil tokens, tratar stop_reason "refusal".
 - Preço em centavos (inteiro). Preço principal = total no cartão no maior número de parcelas sem juros. "10x de R$ 129,90 sem juros" -> 129900. Guardar parcela, juros (sim/não), à vista e frete.
 - Domínio fora de config/stores.ts = suspeito: não abrir, não mostrar na Vitrine principal.
-- Coleta educada: ler robots.txt, 1 requisição por domínio a cada 5-10 s, cache (10 min na verificação, 12 h na coleta diária), pausa de 1 h em 429/403, User-Agent fixo, sem proxy. Falhou = "não verificado".
+- Coleta educada: ler robots.txt, 1 requisição por domínio a cada 5-10 s, cache (10 min na verificação, 12 h na coleta diária), pausa em 429/403/503 que vale para o domínio inteiro (www, api...), segura os pedidos já na fila, sobrevive ao reinício do worker (app_settings "pausas") e cresce se o site reclamar de novo em 24 h (1 h, 6 h, 24 h; Retry-After maior vence), User-Agent fixo, sem proxy. O objetivo é nunca insistir num site que pediu para parar. Falhou = "não verificado".
 - Não adicionar dependências sem perguntar. Nunca instalar forks de whatsapp-web.js ou baileys.
 - O parser só muda com os testes Vitest de fixtures/messages passando.
 
 ## Interface
+- Ofertas de qualquer produto (decisão de 11/11): os grupos em que o usuário entra são o filtro. Alvos só classificam. Cada oferta ganha categoria (src/config/categories.ts, por regra; o resto vai para a IA em lote) e posts que são só cupom vão para a tabela coupons e a tela Cupons, não para a Vitrine.
 - Home = Vitrine: grade de cards com foto, total no cartão, parcela, selos (frete grátis, desconto real, Black Fraude, com juros), nota e botão Comprar.
 - Tema escuro, Geist + Geist Mono com tabular-nums. Ouro só para "Alvo atingido", verde para desconto real e frete grátis, vermelho para Black Fraude e "com juros".
 - Atalhos: J/K, Enter (Comprar), C, B, X, S, W, Cmd+K.

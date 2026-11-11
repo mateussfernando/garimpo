@@ -1,0 +1,158 @@
+"use client";
+
+// O que a IA acha: selo do veredito, análise completa da oferta e o radar geral da Vitrine.
+import type { OfferAiDTO, RadarDTO, Verdict } from "@/lib/offers";
+import { Badge, ago, brl, type Tone } from "./shell";
+
+export const VERDICT: Record<Verdict, { label: string; tone: Tone; bar: string }> = {
+  excelente: { label: "Excelente compra", tone: "good", bar: "bg-good-dot" },
+  boa: { label: "Boa compra", tone: "good", bar: "bg-good" },
+  ok: { label: "Preço ok", tone: "neutral", bar: "bg-ink-3" },
+  fraca: { label: "Oferta fraca", tone: "neutral", bar: "bg-pause" },
+  evitar: { label: "Evite", tone: "bad", bar: "bg-bad" },
+};
+const CONF = { alta: "confiança alta", media: "confiança média", baixa: "confiança baixa" } as const;
+
+const Spark = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="flex-none">
+    <path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z" />
+  </svg>
+);
+
+/** Linha curta no card: nota da IA, veredito e o resumo. */
+export function AiLine({ ia }: { ia: OfferAiDTO }) {
+  const v = VERDICT[ia.verdict];
+  return (
+    <div className="flex flex-col gap-1.5 rounded-[10px] border border-line bg-deep px-3 py-2">
+      <span className="flex items-center gap-2 text-xs">
+        <span className="flex items-center gap-1 font-medium text-ink-2">
+          <Spark /> IA
+        </span>
+        <span className="font-mono tnum font-semibold text-num">{ia.score}</span>
+        <Badge tone={v.tone} title={`${CONF[ia.confidence]}`}>
+          {v.label}
+        </Badge>
+      </span>
+      <p className="line-clamp-2 text-[12.5px] leading-snug text-ink-3" title={ia.summary}>
+        {ia.summary}
+      </p>
+    </div>
+  );
+}
+
+/** Análise completa (painel e detalhe): nota, veredito, prós, contras e confiança. */
+export function AiAnalysis({ ia, now }: { ia: OfferAiDTO | null; now: number | null }) {
+  if (!ia)
+    return (
+      <section className="flex flex-col gap-2 rounded-xl border border-dashed border-control p-4 text-[13px] text-muted">
+        <span className="flex items-center gap-1.5 font-medium text-ink-2">
+          <Spark /> Análise da IA
+        </span>
+        Ainda não analisada. A IA analisa as ofertas novas em lote a cada poucos minutos; use “Chamar IA agora” no topo para não esperar.
+      </section>
+    );
+  const v = VERDICT[ia.verdict];
+  return (
+    <section className="flex flex-col gap-3 rounded-xl border border-card-line bg-surface p-4" aria-label="Análise da IA">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex items-center gap-1.5 text-[13px] font-medium text-ink-2">
+          <Spark /> Análise da IA
+        </span>
+        <span className="text-[11px] text-label">
+          {CONF[ia.confidence]} · {ago(ia.at, now)}
+        </span>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="font-mono tnum text-[30px] font-semibold leading-none text-num">{ia.score}</span>
+        <div className="flex flex-1 flex-col gap-1.5">
+          <Badge tone={v.tone}>{v.label}</Badge>
+          <span className="block h-1.5 w-full overflow-hidden rounded-full bg-active" aria-hidden="true">
+            <span className={`block h-full ${v.bar}`} style={{ width: `${ia.score}%` }} />
+          </span>
+        </div>
+      </div>
+      <p className="text-sm text-ink">{ia.summary}</p>
+      {(ia.pros.length > 0 || ia.cons.length > 0) && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {ia.pros.length > 0 && (
+            <ul className="flex flex-col gap-1 text-[13px] text-ink-2">
+              {ia.pros.map((p) => (
+                <li key={p} className="flex gap-2">
+                  <span className="text-good" aria-hidden="true">+</span>
+                  {p}
+                </li>
+              ))}
+            </ul>
+          )}
+          {ia.cons.length > 0 && (
+            <ul className="flex flex-col gap-1 text-[13px] text-ink-2">
+              {ia.cons.map((p) => (
+                <li key={p} className="flex gap-2">
+                  <span className="text-bad" aria-hidden="true">−</span>
+                  {p}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Radar da IA no topo da Vitrine: manchete, destaques clicáveis, alertas e dicas. */
+export function RadarPanel({ radar, now, onOpen }: { radar: RadarDTO; now: number | null; onOpen: (id: number) => void }) {
+  return (
+    <section aria-labelledby="radar-ia" className="flex flex-col gap-3.5 rounded-2xl border border-card-line bg-surface p-[18px]">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="radar-ia" className="flex items-center gap-2 text-[15px] font-semibold text-ink">
+          <Spark /> Radar da IA
+        </h2>
+        <span className="text-xs text-label">atualizado {ago(radar.at, now)}</span>
+      </div>
+      <p className="text-base font-medium text-ink">{radar.manchete}</p>
+      {radar.destaques.length > 0 && (
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(260px,100%),1fr))] gap-2.5">
+          {radar.destaques.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              onClick={() => onOpen(d.id)}
+              className="flex min-w-0 flex-col gap-1 rounded-xl border border-line bg-deep p-3 text-left hover:border-ink-3"
+            >
+              <span className="flex items-baseline justify-between gap-2">
+                <span className="truncate text-[13px] font-medium text-ink">{d.title ?? `Oferta ${d.id}`}</span>
+                <span className="flex-none font-mono tnum text-[13px] text-num">{brl(d.priceCardCents)}</span>
+              </span>
+              <span className="line-clamp-2 text-xs text-muted">{d.porque}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {(radar.alertas.length > 0 || radar.dicas.length > 0) && (
+        <div className="grid gap-3 text-[13px] sm:grid-cols-2">
+          {radar.alertas.length > 0 && (
+            <ul className="flex flex-col gap-1">
+              {radar.alertas.map((a) => (
+                <li key={a} className="flex gap-2 text-ink-2">
+                  <span className="text-bad" aria-hidden="true">!</span>
+                  {a}
+                </li>
+              ))}
+            </ul>
+          )}
+          {radar.dicas.length > 0 && (
+            <ul className="flex flex-col gap-1">
+              {radar.dicas.map((a) => (
+                <li key={a} className="flex gap-2 text-ink-2">
+                  <span className="text-good" aria-hidden="true">→</span>
+                  {a}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}

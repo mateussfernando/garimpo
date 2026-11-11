@@ -2,6 +2,7 @@
 
 import { motion } from "motion/react";
 import type { OfferDTO } from "@/lib/offers";
+import { AiLine } from "./ia";
 import { Badge, ago, brl } from "./shell";
 
 /** Quanto falta para o fim da oferta, em texto curto. null se já passou ou não há prazo. */
@@ -135,6 +136,8 @@ export function OfferCard({ o, index, focused, now, flash, onOpen, onWatch, onDi
           )}
           {o.coupon && <Badge tone="neutral" title={o.extra?.couponNote}>Cupom {o.coupon}</Badge>}
         </div>
+
+        {o.ia && <AiLine ia={o.ia} />}
 
         <p className="flex items-center gap-1.5 truncate text-[11.5px] text-label" title={o.verifyNote ?? undefined}>
           <span className={`h-1.5 w-1.5 flex-none rounded-full ${o.verifyStatus === "verificado" ? "bg-good-dot" : o.verifyStatus === "pendente" ? "bg-ink-3" : "bg-pause"}`} />

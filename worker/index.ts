@@ -1,8 +1,14 @@
 import "dotenv/config";
-import { storeForUrl } from "@/config/stores";
+import { STORES, storeForUrl } from "@/config/stores";
+import { PAUSES_KEY, getSetting, setSetting, type Pauses } from "@/lib/settings";
 import { db, pool, schema } from "@/lib/db";
 import { collectAll } from "./collect/communities";
-import { setPauseListener } from "./http/polite";
+import { pausedHosts, restorePauses, setPauseListener } from "./http/polite";
+import { Client } from "pg";
+import { AI_CMD_CHANNEL, AI_RUN_KEY } from "@/lib/ai-usage";
+import { runAnalises } from "./ai/analises";
+import { runCategorias } from "./ai/categorias";
+import { runRadar } from "./ai/radar";
 import { runInsights } from "./ai/insights";
 import { collectVitrines } from "./collect/vitrines";
 import { startTelegram } from "./ingest/telegram";
@@ -27,13 +33,32 @@ async function main() {
   await ensureSeed();
   const rm = await rematchOffers();
   console.log(`[alvos] ${rm.total} ofertas reclassificadas (${rm.changed} mudaram de Alvo ou faixa), ${rm.bands} faixas com referência recalculada`);
+  // Pausas pedidas pelos sites antes deste reinício continuam valendo.
+  const saved = (await getSetting<Pauses>(PAUSES_KEY))?.value ?? {};
+  const fromStores = await db.select().from(schema.storeState);
+  restorePauses([
+    ...Object.entries(saved).map(([host, until]) => ({ host, until })),
+    ...fromStores.flatMap((s) => {
+      const domain = STORES.find((x) => x.slug === s.slug)?.domains[0];
+      return domain && s.pauseUntil ? [{ host: domain, until: s.pauseUntil.getTime() }] : [];
+    }),
+  ]);
+  const active = pausedHosts();
+  if (active.length) console.log(`[pausa] continuam pausados: ${active.map((p) => `${p.host} até ${new Date(p.until).toLocaleTimeString("pt-BR")}`).join(", ")}`);
+
   setPauseListener((host, until) => {
-    console.warn(`[pausa] ${host} respondeu 429/403. Volta às ${new Date(until).toLocaleTimeString("pt-BR")}.`);
+    console.warn(`[pausa] ${host} pediu para parar (429/403/503). Nenhum pedido a ele até ${new Date(until).toLocaleString("pt-BR")}.`);
     void notify({ type: "pause", host, until });
+    void (async () => {
+      const cur = (await getSetting<Pauses>(PAUSES_KEY))?.value ?? {};
+      const now = Date.now();
+      const next = Object.fromEntries(Object.entries({ ...cur, [host]: until }).filter(([, u]) => u > now));
+      await setSetting(PAUSES_KEY, next);
+    })().catch(() => undefined);
     // A tela Lojas mostra a pausa pedida pela loja (o site pode estar em outro processo).
     const store = storeForUrl(`https://${host}`);
     if (store) {
-      const set = { pauseUntil: new Date(until), pauseNote: "respondeu 429 ou 403", updatedAt: new Date() };
+      const set = { pauseUntil: new Date(until), pauseNote: "pediu para parar (429, 403 ou 503)", updatedAt: new Date() };
       void db.insert(schema.storeState).values({ slug: store.slug, ...set }).onConflictDoUpdate({ target: schema.storeState.slug, set }).catch(() => undefined);
     }
   });
@@ -58,6 +83,55 @@ async function main() {
     const insightsPass = () => runInsights().then((r) => r.gerados && console.log(`[ia] ${r.gerados} insight(s) novo(s)`)).catch((e) => console.error("[ia] erro:", e));
     setTimeout(insightsPass, 60 * 1000);
     setInterval(insightsPass, 30 * 60 * 1000);
+    // Categorias: o que as regras não classificaram vai para a IA em lote, a cada 3 min (só se houver pendentes).
+    const categorias = () =>
+      runCategorias()
+        .then((r) => r.lotes && console.log(`[ia] categorias: ${r.classificadas} ofertas classificadas em ${r.lotes} lote(s)`))
+        .catch((e) => console.error("[ia] erro nas categorias:", e));
+    setTimeout(categorias, 20 * 1000);
+    setInterval(categorias, 3 * 60 * 1000);
+    // Análise de cada oferta (vale a pena?) a cada 5 min, e o radar geral a cada 15 min. Nada roda se a IA estiver pausada.
+    const analises = () =>
+      runAnalises()
+        .then((r) => r.analisadas && console.log(`[ia] análises: ${r.analisadas} ofertas em ${r.lotes} lote(s)`))
+        .catch((e) => console.error("[ia] erro nas análises:", e));
+    setTimeout(analises, 45 * 1000);
+    setInterval(analises, 5 * 60 * 1000);
+    const radar = () => runRadar().catch((e) => console.error("[ia] erro no radar:", e));
+    setTimeout(radar, 3 * 60 * 1000);
+    setInterval(radar, 15 * 60 * 1000);
+
+    // Botão "Chamar IA agora" do site: o site avisa por pg_notify e a rodada acontece aqui, no worker.
+    let rodando = false;
+    const rodarAgora = async () => {
+      if (rodando) return;
+      rodando = true;
+      const startedAt = Date.now();
+      await setSetting(AI_RUN_KEY, { running: true, startedAt, finishedAt: null, note: null });
+      await notify({ type: "ai" });
+      let note = "";
+      try {
+        const c = await runCategorias(4);
+        const a = await runAnalises(4);
+        const r = await runRadar(true);
+        const i = await runInsights(3);
+        note = `${c.classificadas} categorias, ${a.analisadas} análises, radar ${r}, ${i.gerados} insights`;
+        console.log(`[ia] rodada pedida pelo site: ${note}`);
+      } catch (e) {
+        note = `erro: ${(e as Error).message.slice(0, 120)}`;
+        console.error("[ia] erro na rodada pedida:", e);
+      } finally {
+        rodando = false;
+        await setSetting(AI_RUN_KEY, { running: false, startedAt, finishedAt: Date.now(), note });
+        await notify({ type: "ai" });
+      }
+    };
+    await setSetting(AI_RUN_KEY, { running: false, startedAt: null, finishedAt: null, note: null });
+    const aiCmd = new Client({ connectionString: process.env.DATABASE_URL });
+    await aiCmd.connect();
+    await aiCmd.query(`LISTEN ${AI_CMD_CHANNEL}`);
+    aiCmd.on("notification", () => void rodarAgora());
+    aiCmd.on("error", (e) => console.error("[ia] canal de comandos caiu:", e.message));
     console.log(`[ia] insights ligados (${process.env.AI_PROVIDER ?? "claude-cli"}, modelo único claude-haiku-5-5)`);
   }
   console.log(`worker ok · papéis: ${roles.join(", ")}`);

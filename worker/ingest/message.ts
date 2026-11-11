@@ -30,31 +30,46 @@ function productness(line: string): number {
   return score;
 }
 
+/** Linha que só fala de preço, cupom, frete ou link ("💰 R$ 2.779", "Cupom: BLACK10", "🛒 Compre aqui"): não é nome de produto. */
+function isNoiseLine(l: string): boolean {
+  const t = l.replace(/^[^\p{L}\p{N}]+/u, "").toLowerCase();
+  if (/^(r\$|por\b|de r\$|cupo[mn]|frete|parcel|em at[eé]|ou\b|à vista|a vista|pre[cç]o|valor|link|compre|acesse|resgate|aplique|use o|ative|\d+\s*x\b)/.test(t)) return true;
+  // Precisa de pelo menos duas palavras de verdade (letras), senão é só número, emoji ou preço.
+  return (t.match(/\p{L}{2,}/gu) ?? []).length < 2;
+}
+
 export type MessageVerdict =
   | { kind: "vazia" }
   | { kind: "sem-link" }
-  | { kind: "fora-dos-alvos"; outboundUrl: string }
+  | { kind: "sem-produto"; outboundUrl: string }
   | { kind: "oferta"; title: string; outboundUrl: string };
 
 /**
- * Mensagem sem link de loja não é oferta. Com link, o título é a linha que mais parece nome de um produto de algum Alvo.
- * Linha de ficha técnica não conta, e chamada de efeito sem modelo nem número só vale se não houver linha melhor
- * e se for a primeira coisa que a mensagem diz sobre o produto.
+ * Mensagem sem link de loja não é oferta. Com link, é oferta de qualquer produto: quem escolhe o que entra são
+ * os grupos em que o usuário está. O título é a linha que mais parece nome de produto (modelo com número);
+ * uma linha que nomeia um Alvo ganha o desempate. Ficha técnica, preço e cupom não contam. Sem linha com número,
+ * vale a primeira linha com palavras; a conferência na loja traz o nome certo depois.
  */
 export function offerFromMessage(text: string, alvos: AlvoLite[]): MessageVerdict {
   const body = text.trim();
   if (!body) return { kind: "vazia" };
   const outboundUrl = extractOutbound(body);
   if (!outboundUrl) return { kind: "sem-link" };
-  const candidates = body
+  const lines = body
     .split("\n")
     .filter((l) => !isSpecLine(l))
     .map(cleanLine)
-    .filter((l) => l.length > 3 && matchAlvo(l, alvos))
-    .map((l, i) => ({ l, score: productness(l) - i * 0.01 }))
+    .map((l) => l.replace(/^[^\p{L}\p{N}]+/u, "").trim())
+    .filter((l) => l.length > 3 && !isNoiseLine(l));
+  if (!lines.length) return { kind: "sem-produto", outboundUrl };
+  const ranked = lines
+    .map((l, i) => {
+      const base = productness(l);
+      // Linha do Alvo só ganha bônus quando já parece nome de produto (chamada de efeito com "monitor" não vale).
+      const alvoBonus = base >= 3 && matchAlvo(l, alvos) ? 1 : 0;
+      return { l, score: base + alvoBonus - i * 0.01 };
+    })
     .sort((a, b) => b.score - a.score);
-  const best = candidates[0];
-  // Sem nenhum número na linha, não dá para saber de que produto se fala: fica de fora (a triagem por IA pega depois).
-  if (!best || best.score < 3) return { kind: "fora-dos-alvos", outboundUrl };
-  return { kind: "oferta", title: best.l.slice(0, 200), outboundUrl };
+  const best = ranked[0].score >= 3 ? ranked[0].l : lines[0];
+  return { kind: "oferta", title: best.slice(0, 200), outboundUrl };
 }

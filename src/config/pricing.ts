@@ -3,7 +3,6 @@
 // acima disso, US$ 0,50 e US$ 2,50. O app só usa este modelo, em qualquer provedor.
 
 export const AI_MODEL = "claude-haiku-5-5";
-export const AI_LIMIT_USD = 4.5;
 
 const HAIKU = { inPerM: 0.1, outPerM: 0.5, inPerMLong: 0.5, outPerMLong: 2.5, longAbove: 100_000 };
 

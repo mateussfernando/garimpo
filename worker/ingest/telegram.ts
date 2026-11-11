@@ -109,7 +109,8 @@ export async function startTelegram() {
   }
 
   const chats = new Map<string, Chat>();
-  // Mesmo filtro das comunidades: só entra mensagem que nomeia um produto de algum Alvo.
+  // Entra qualquer produto com link de loja: quem escolhe são os grupos em que o usuário está.
+  // Os Alvos só servem para classificar a oferta e escolher o título.
   let alvos = await activeAlvos();
   setInterval(() => activeAlvos().then((a) => (alvos = a)).catch(() => undefined), REFRESH_EVERY);
 
@@ -137,7 +138,7 @@ export async function startTelegram() {
     }
     if (verdict.kind === "vazia" || verdict.kind === "sem-link") return;
     chat.stats.withLink++;
-    if (verdict.kind === "fora-dos-alvos") return;
+    if (verdict.kind === "sem-produto") return;
     chat.stats.touched++;
     const offerId = await ingestRaw({
       sourceId: chat.sourceId,
@@ -174,7 +175,7 @@ export async function startTelegram() {
         chat.dirty = true;
       }
       console.log(
-        `[telegram] ${chat.name}: ${chat.stats.read - before.read} lidas das últimas ${BACKFILL_HOURS} h, ${chat.stats.withLink - before.withLink} com link de loja, ${chat.stats.touched - before.touched} nos Alvos, ${chat.stats.offers - before.offers} ofertas`,
+        `[telegram] ${chat.name}: ${chat.stats.read - before.read} lidas das últimas ${BACKFILL_HOURS} h, ${chat.stats.withLink - before.withLink} com link de loja, ${chat.stats.touched - before.touched} com produto, ${chat.stats.offers - before.offers} ofertas`,
       );
       const hosts = [...chat.unknownHosts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
       if (hosts.length) console.log(`[telegram] ${chat.name}: links sem loja conhecida: ${hosts.map(([h, n]) => `${h} (${n})`).join(", ")}`);

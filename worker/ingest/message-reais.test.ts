@@ -12,9 +12,11 @@ const titleOf = (text: string) => {
 
 // Formatos reais de mensagem vistos nos canais em 11/11/2026.
 describe("mensagens reais de canal", () => {
-  it("ficha de notebook não vira oferta de SSD", () => {
-    expect(titleOf(`🔥 LENOVO IDEAPAD SLIM 3 (RYZEN 5 7535HS/ 512 GB SSD/ 16 GB RAM)\n-16GB RAM\n-512GB SSD (EXPANSÍVEL)\n💰 R$ 2.779\n${LINK}`)).toBe("fora-dos-alvos");
-    expect(titleOf(`SPECS: RTX 3050 6 GB/ Core 5 210H/ 8 GB RAM DDR4/ 512 GB SSD\n${LINK}`)).toBe("fora-dos-alvos");
+  it("ficha de notebook entra como notebook, não como SSD", () => {
+    const t = titleOf(`🔥 LENOVO IDEAPAD SLIM 3 (RYZEN 5 7535HS/ 512 GB SSD/ 16 GB RAM)\n-16GB RAM\n-512GB SSD (EXPANSÍVEL)\n💰 R$ 2.779\n${LINK}`);
+    expect(t).toBe("LENOVO IDEAPAD SLIM 3 (RYZEN 5 7535HS/ 512 GB SSD/ 16 GB RAM)");
+    expect(matchAlvo(t, alvos)).toBeNull();
+    expect(titleOf(`SPECS: RTX 3050 6 GB/ Core 5 210H/ 8 GB RAM DDR4/ 512 GB SSD\n${LINK}`)).toBe("sem-produto");
     expect(matchAlvo("-512GB SSD (EXPANSÍVEL)", alvos)).toBeNull();
   });
 
@@ -23,10 +25,12 @@ describe("mensagens reais de canal", () => {
     expect(titleOf(`TEU OLHO NÃO ACOMPANHA, MAS O MONITOR SIM 🖥️\nMonitor TCL 25" Gamer FHD QD Mini LED 300Hz\n${LINK}`)).toBe('Monitor TCL 25" Gamer FHD QD Mini LED 300Hz');
   });
 
-  it("chamada de efeito sozinha, sem modelo nem número, fica de fora", () => {
-    expect(titleOf(`CABE O MONITOR, O TECLADO E A BAGUNÇA 🪑\n💰 R$ 317\n${LINK}`)).toBe("fora-dos-alvos");
-    expect(titleOf(`TROCA ESSE TECLADO DE ESCRITÓRIO AÍ 🖱️\n${LINK}`)).toBe("fora-dos-alvos");
-    expect(titleOf(`Monitor Oled da Samsung\n${LINK}`)).toBe("fora-dos-alvos");
+  it("chamada de efeito sozinha entra com a própria chamada, mas não conta como Alvo", () => {
+    const t = titleOf(`CABE O MONITOR, O TECLADO E A BAGUNÇA 🪑\n💰 R$ 317\n${LINK}`);
+    expect(t).toContain("CABE O MONITOR");
+    expect(matchAlvo(t, alvos)).toBeNull();
+    expect(matchAlvo(titleOf(`TROCA ESSE TECLADO DE ESCRITÓRIO AÍ 🖱️\n${LINK}`), alvos)).toBeNull();
+    expect(titleOf(`Monitor Oled da Samsung\n${LINK}`)).toBe("Monitor Oled da Samsung");
   });
 
   it("SSD de verdade continua entrando", () => {

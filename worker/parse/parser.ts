@@ -1,4 +1,5 @@
 import { normalize, parseBRL } from "@/lib/money";
+import { extractCouponCode } from "./coupons";
 
 // Parser BR: lê preço no cartão, parcelas, juros, à vista, frete, cupom e links
 // de um texto de oferta (título de comunidade, post ou mensagem).
@@ -150,11 +151,8 @@ export function parseOfferText(input: string): ParsedOffer {
     result.freeShipping = false;
   }
 
-  // Cupom: "cupom: BLACK10", "use o cupom X", "código X"
-  const cm = text.match(/(?:cupom|c[oó]digo|cupon)\s*[:\-–]?\s*["“']?([A-Z0-9][A-Z0-9_-]{3,24})\b/i);
-  if (cm && /\d/.test(cm[1]) || (cm && cm[1] === cm[1].toUpperCase() && !/^(GRATIS|VALIDO|APLICADO|DESCONTO)$/i.test(cm[1]))) {
-    result.coupon = cm![1].toUpperCase();
-  }
+  // Cupom: "cupom: BLACK10", "use o cupom X", "código X". "Cupom AQUI" e "cupom EXCLUSIVO" não são código.
+  result.coupon = extractCouponCode(text);
 
   return result;
 }

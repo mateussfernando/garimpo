@@ -3,7 +3,7 @@ import { mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AI_MODEL } from "@/config/pricing";
-import { AiRefusal, jsonSchemaOf, type AiProvider } from "../types";
+import { AiRefusal, jsonSchemaOf, type AiLimits, type AiProvider } from "../types";
 
 // Teste pela assinatura: `claude -p` oficial, numa pasta vazia, com CLAUDE_CONFIG_DIR próprio,
 // sem ANTHROPIC_API_KEY no ambiente do filho (senão ela vence a assinatura) e sem --bare.
@@ -28,10 +28,10 @@ function run(args: string[], input: string): Promise<string> {
       clearTimeout(timer);
       if (code === 0) resolve(out);
       else {
-        // Com --output-format json o motivo vem no campo "result" do stdout.
+        // Com stream-json o motivo vem no campo "result" da última linha.
         let why = (err || out).slice(0, 300);
         try {
-          why = String((JSON.parse(out) as { result?: string }).result ?? why).slice(0, 300);
+          why = String(lastResult(out)?.result ?? why).slice(0, 300);
         } catch {
           /* mantém o texto cru */
         }
@@ -43,11 +43,43 @@ function run(args: string[], input: string): Promise<string> {
 }
 
 type CliJson = {
+  type?: string;
   is_error?: boolean;
   result?: string;
   structured_output?: unknown;
+  total_cost_usd?: number;
   usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number };
 };
+
+type Window = { utilization?: number; resetsAt?: number; status?: string };
+type RateLimitLine = { type: "rate_limit_event"; rate_limit_info?: { unifiedWindows?: { five_hour?: Window; seven_day?: Window } } };
+
+const lines = (out: string) =>
+  out
+    .split(/\r?\n/)
+    .filter((l) => l.trim().startsWith("{"))
+    .flatMap((l) => {
+      try {
+        return [JSON.parse(l) as Record<string, unknown>];
+      } catch {
+        return [];
+      }
+    });
+
+/** A linha final do stream-json (a que traz resultado, uso e custo). */
+function lastResult(out: string): CliJson | null {
+  const all = lines(out);
+  return (all.reverse().find((j) => j.type === "result" || "total_cost_usd" in j) as CliJson | undefined) ?? null;
+}
+
+/** Uso da assinatura: janela de 5 h e semanal, em fração (0 a 1), que o claude -p manda a cada chamada. */
+function limitsFrom(out: string): AiLimits | null {
+  const ev = lines(out).find((j) => j.type === "rate_limit_event") as RateLimitLine | undefined;
+  const w = ev?.rate_limit_info?.unifiedWindows;
+  if (!w) return null;
+  const win = (x?: Window) => (x && typeof x.utilization === "number" ? { pct: Math.round(x.utilization * 1000) / 10, resetsAt: x.resetsAt ? x.resetsAt * 1000 : null, status: x.status ?? null } : null);
+  return { fiveHour: win(w.five_hour), sevenDay: win(w.seven_day), at: Date.now() };
+}
 
 export const claudeCli: AiProvider = {
   name: "claude-cli",
@@ -60,7 +92,8 @@ export const claudeCli: AiProvider = {
       [
         "-p",
         "--model", AI_MODEL,
-        "--output-format", "json",
+        "--output-format", "stream-json",
+        "--verbose",
         "--tools", "",
         "--no-session-persistence",
         "--json-schema", JSON.stringify(jsonSchemaOf(req.schema)),
@@ -68,7 +101,8 @@ export const claudeCli: AiProvider = {
       ],
       req.prompt,
     );
-    const out = JSON.parse(raw) as CliJson;
+    const out = lastResult(raw);
+    if (!out) throw new Error("claude -p não devolveu o resultado");
     if (out.is_error) throw new Error(`claude -p devolveu erro: ${String(out.result).slice(0, 200)}`);
     let payload: unknown = out.structured_output;
     if (payload == null && typeof out.result === "string") {
@@ -78,6 +112,12 @@ export const claudeCli: AiProvider = {
     }
     const u = out.usage ?? {};
     const input = (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
-    return { data: req.schema.parse(payload), inputTokens: input, outputTokens: u.output_tokens ?? 0 };
+    return {
+      data: req.schema.parse(payload),
+      inputTokens: input,
+      outputTokens: u.output_tokens ?? 0,
+      costUsd: typeof out.total_cost_usd === "number" ? out.total_cost_usd : undefined,
+      limits: limitsFrom(raw),
+    };
   },
 };

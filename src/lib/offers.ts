@@ -1,10 +1,23 @@
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { STORES } from "@/config/stores";
 import { db, schema } from "@/lib/db";
 import type { OfferExtra, OfferSpecs } from "@/lib/db/schema";
 import { getAiStatus, type AiStatus } from "@/lib/ai-usage";
+import { getSetting } from "@/lib/settings";
 
-const { offers, alvos, alvoRefs, sources, products } = schema;
+const { offers, alvos, alvoRefs, sources, products, offerAnalyses } = schema;
+
+export type Verdict = "excelente" | "boa" | "ok" | "fraca" | "evitar";
+/** Análise da IA da oferta (worker/ai/analises.ts). */
+export type OfferAiDTO = {
+  verdict: Verdict;
+  score: number;
+  confidence: "alta" | "media" | "baixa";
+  summary: string;
+  pros: string[];
+  cons: string[];
+  at: string;
+};
 
 /** Posts do Pelando começam com "Por R$ 26,69:"; o preço já aparece à parte. */
 export const cleanTitle = (t: string) => t.replace(/^\s*Por\s+R\$\s*[\d.,]+\s*:\s*/i, "").trim();
@@ -25,6 +38,12 @@ export type OfferDTO = {
   freeShipping: boolean | null;
   shippingCents: number | null;
   coupon: string | null;
+  /** Slug da categoria (src/config/categories.ts); null = ainda sem categoria (a IA classifica em lote). */
+  category: string | null;
+  /** O que a IA acha da oferta; null = ainda não analisada. */
+  ia: OfferAiDTO | null;
+  /** "regra" ou "ia". */
+  categorySource: string | null;
   verifyStatus: string;
   verifyNote: string | null;
   verifiedAt: string | null;
@@ -59,8 +78,10 @@ export async function listOffers(opts: { onlyId?: number } = {}): Promise<OfferD
       source: sources.name,
       sourceKind: sources.kind,
       productImage: products.imageUrl,
+      ia: offerAnalyses,
     })
     .from(offers)
+    .leftJoin(offerAnalyses, eq(offerAnalyses.offerId, offers.id))
     .leftJoin(alvos, and(eq(offers.alvoId, alvos.id), eq(alvos.active, true)))
     .leftJoin(alvoRefs, and(eq(alvoRefs.alvoId, offers.alvoId), eq(alvoRefs.bandKey, offers.bandKey)))
     .innerJoin(sources, eq(offers.sourceId, sources.id))
@@ -68,11 +89,11 @@ export async function listOffers(opts: { onlyId?: number } = {}): Promise<OfferD
     .where(
       opts.onlyId != null
         ? eq(offers.id, opts.onlyId)
-        : and(eq(offers.dismissed, false), gte(offers.createdAt, sql`now() - interval '48 hours'`)),
+        : and(eq(offers.dismissed, false), eq(offers.kind, "produto"), gte(offers.createdAt, sql`now() - interval '48 hours'`)),
     )
     .orderBy(sql`${offers.nota} desc nulls last`, desc(offers.createdAt))
-    .limit(300);
-  const all = rows.map(({ o, alvo, ref, source, sourceKind, productImage }) => ({
+    .limit(800);
+  const all = rows.map(({ o, alvo, ref, source, sourceKind, productImage, ia }) => ({
     groupKey: o.productId ? `p:${o.productId}` : null,
     sources: [source],
     groupIds: [o.id],
@@ -92,6 +113,19 @@ export async function listOffers(opts: { onlyId?: number } = {}): Promise<OfferD
     freeShipping: o.freeShipping,
     shippingCents: o.shippingCents,
     coupon: o.coupon,
+    category: o.category,
+    ia: ia
+      ? {
+          verdict: ia.verdict as Verdict,
+          score: ia.score,
+          confidence: ia.confidence as OfferAiDTO["confidence"],
+          summary: ia.summary,
+          pros: ia.pros,
+          cons: ia.cons,
+          at: ia.createdAt.toISOString(),
+        }
+      : null,
+    categorySource: o.categorySource,
     verifyStatus: o.verifyStatus,
     verifyNote: o.verifyNote,
     verifiedAt: o.verifiedAt?.toISOString() ?? null,
@@ -189,6 +223,16 @@ export type StatusDTO = {
   pending: number;
   today: number;
   alvos: { slug: string; name: string; targetCents: number | null; ceilingCents: number | null }[];
+  /** Comentário geral da IA sobre o momento (worker/ai/radar.ts). */
+  radar: RadarDTO | null;
+};
+
+export type RadarDTO = {
+  manchete: string;
+  destaques: { id: number; porque: string; title: string | null; priceCardCents: number | null }[];
+  alertas: string[];
+  dicas: string[];
+  at: string;
 };
 
 export async function getStatus(): Promise<StatusDTO> {
@@ -201,6 +245,7 @@ export async function getStatus(): Promise<StatusDTO> {
     .from(offers)
     .where(gte(offers.createdAt, sql`date_trunc('day', now())`));
   const al = await db.select().from(alvos).where(eq(alvos.active, true)).orderBy(alvos.id);
+  const radar = await getRadar();
   return {
     telegram: tg.length ? { on: tg.filter((s) => s.enabled).length, total: tg.length } : null,
     ai: await getAiStatus(),
@@ -208,5 +253,26 @@ export async function getStatus(): Promise<StatusDTO> {
     pending,
     today,
     alvos: al.map((a) => ({ slug: a.slug, name: a.name, targetCents: a.targetCents, ceilingCents: a.ceilingCents })),
+    radar,
+  };
+}
+
+type RadarSaved = { radar: { manchete: string; destaques: { id: number; porque: string }[]; alertas: string[]; dicas: string[] }; at: number };
+
+async function getRadar(): Promise<RadarDTO | null> {
+  const saved = await getSetting<RadarSaved>("ia_radar");
+  if (!saved?.value.radar) return null;
+  const r = saved.value.radar;
+  const ids = r.destaques.map((d) => d.id);
+  const rows = ids.length
+    ? await db.select({ id: offers.id, title: offers.title, p: offers.priceCardCents }).from(offers).where(inArray(offers.id, ids))
+    : [];
+  const byId = new Map(rows.map((x) => [x.id, x]));
+  return {
+    manchete: r.manchete,
+    destaques: r.destaques.map((d) => ({ id: d.id, porque: d.porque, title: byId.get(d.id) ? cleanTitle(byId.get(d.id)!.title) : null, priceCardCents: byId.get(d.id)?.p ?? null })),
+    alertas: r.alertas,
+    dicas: r.dicas,
+    at: new Date(saved.value.at).toISOString(),
   };
 }

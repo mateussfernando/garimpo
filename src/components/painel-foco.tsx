@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import type { OfferDetailDTO } from "@/lib/detail";
+import { AiAnalysis } from "./ia";
 import { endsIn, parcelaText, vsBand } from "./offer-card";
 import { Badge, Kbd, ago, brl } from "./shell";
 
@@ -138,6 +139,8 @@ export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { 
             </div>
             {o.extra?.couponNote && <p className="text-xs text-muted">{o.extra.couponNote}</p>}
             {o.verifyStatus === "nao_verificado" && o.verifyNote && <p className="text-xs text-pause">Não conferido: {o.verifyNote}. O preço é o do post.</p>}
+
+            <AiAnalysis ia={o.ia} now={now} />
 
             {ready.insight && (
               <section aria-label="Análise do Garimpo" className="flex flex-col gap-2 rounded-xl border border-card-line p-4">

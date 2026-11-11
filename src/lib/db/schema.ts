@@ -148,10 +148,66 @@ export const offers = pgTable(
     extra: jsonb("extra").$type<OfferExtra>(),
     /** Primeira vez em que a oferta atingiu o preço-alvo da faixa. Serve para o alerta tocar uma vez só. */
     hitAt: timestamp("hit_at", { withTimezone: true }),
+    /** "produto" ou "cupom" (post que é só cupom: vai para a tela Cupons, não para a Vitrine). */
+    kind: text("kind").notNull().default("produto"),
+    /** Slug de src/config/categories.ts. null = ainda sem categoria. */
+    category: text("category"),
+    /** Quem deu a categoria: "regra" (palavras do título) ou "ia" (lote em worker/ai/categorias.ts). */
+    categorySource: text("category_source"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("offers_raw_message").on(t.rawMessageId)],
 );
+
+/** Ajustes e estados pequenos do app (IA pausada, uso da assinatura, pausas pedidas pelos sites, radar da IA). */
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Análise da IA de uma oferta: se está boa mesmo, em lote, refeita só quando os números mudam (hash). */
+export const offerAnalyses = pgTable("offer_analyses", {
+  offerId: integer("offer_id")
+    .primaryKey()
+    .references(() => offers.id),
+  hash: text("hash").notNull(),
+  /** excelente | boa | ok | fraca | evitar */
+  verdict: text("verdict").notNull(),
+  /** 0 a 100: quanto vale a pena comprar agora. */
+  score: integer("score").notNull(),
+  confidence: text("confidence").notNull(), // alta | media | baixa
+  summary: text("summary").notNull(),
+  pros: jsonb("pros").$type<string[]>().notNull().default([]),
+  cons: jsonb("cons").$type<string[]>().notNull().default([]),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Cupons vistos nas fontes. O mesmo cupom em vários posts vira uma linha só (chave loja + código). */
+export const coupons = pgTable("coupons", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  store: text("store"), // slug de config/stores.ts
+  code: text("code"), // null = cupom de resgatar na página
+  title: text("title").notNull(),
+  discountKind: text("discount_kind"), // pct | reais | cashback | frete
+  discountValue: integer("discount_value"), // % ou centavos
+  capCents: integer("cap_cents"),
+  minCents: integer("min_cents"),
+  conditions: jsonb("conditions").$type<string[]>().notNull().default([]),
+  /** Link da loja para resgatar ou testar o cupom. */
+  url: text("url"),
+  /** Post de onde veio (o mais recente). */
+  postUrl: text("post_url"),
+  /** Ofertas que citaram este cupom (posts de cupom e posts de produto). */
+  offerIds: jsonb("offer_ids").$type<number[]>().notNull().default([]),
+  sourceNames: jsonb("source_names").$type<string[]>().notNull().default([]),
+  /** Posts de produto que citam o cupom: o cupom vale para esses produtos. */
+  forProduct: text("for_product"),
+  hidden: boolean("hidden").notNull().default(false),
+  firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const pricePoints = pgTable("price_points", {
   id: serial("id").primaryKey(),

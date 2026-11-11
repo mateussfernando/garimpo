@@ -1,16 +1,18 @@
 import { and, desc, eq, gte, isNotNull, ne, notInArray, sql } from "drizzle-orm";
 import { ALVOS_V0 } from "@/config/alvos";
-import { STORES, cleanUrl, decodeTrackingUrl, storeByName, storeForUrl } from "@/config/stores";
+import { STORES, cleanUrl, decodeTrackingUrl, isShortener, storeByName, storeForUrl } from "@/config/stores";
 import { db, NOTIFY_CHANNEL, pool, schema } from "@/lib/db";
 import { COMMUNITIES } from "./collect/communities-config";
 import { VITRINES } from "./collect/vitrines-config";
 import { offerFromMessage } from "./ingest/message";
 import { matchAlvo, median, targetsFrom, type AlvoLite } from "./match/alvos";
+import { categorize } from "./match/category";
+import { couponFromPost, couponKey, couponsFromPost, isCouponPost, type CouponInfo } from "./parse/coupons";
 import { bandOf, extractSpecs, type Band } from "./match/specs";
 import { parseOfferText } from "./parse/parser";
 import { notaRapida } from "./score/nota";
 
-const { sources, rawMessages, offers, alvos, alvoRefs, marketObs, products } = schema;
+const { sources, rawMessages, offers, alvos, alvoRefs, marketObs, products, coupons } = schema;
 
 export async function notify(payload: Record<string, unknown>) {
   await pool.query("select pg_notify($1, $2)", [NOTIFY_CHANNEL, JSON.stringify(payload)]);
@@ -91,6 +93,9 @@ async function createOffer(rawId: number, input0: RawInput): Promise<number> {
   const store =
     (input.outboundUrl && storeForUrl(input.outboundUrl)) || (input.storeName ? storeByName(input.storeName) : null);
   const buyUrl = input.outboundUrl ? cleanUrl(input.outboundUrl) : input.url;
+  const category = categorize(input.title);
+  // Post que é só cupom não vai para a Vitrine nem para a verificação: vira linha na tela Cupons.
+  const isCoupon = !alvo && isCouponPost(input.title, { hasProduct: category != null });
   const [row] = await db
     .insert(offers)
     .values({
@@ -113,10 +118,24 @@ async function createOffer(rawId: number, input0: RawInput): Promise<number> {
       shippingCents: parsed.shippingCents,
       freeShipping: parsed.freeShipping,
       coupon: parsed.coupon,
-      verifyStatus: input.outboundUrl ? "pendente" : "nao_verificado",
-      verifyNote: input.outboundUrl ? null : "sem link da loja no post",
+      verifyStatus: isCoupon ? "nao_verificado" : input.outboundUrl ? "pendente" : "nao_verificado",
+      verifyNote: isCoupon ? "post de cupom" : input.outboundUrl ? null : "sem link da loja no post",
+      kind: isCoupon ? "cupom" : "produto",
+      category: isCoupon ? null : category,
+      categorySource: !isCoupon && category ? "regra" : null,
     })
     .returning({ id: offers.id });
+  await saveCoupons({
+    offerId: row.id,
+    isCoupon,
+    title: input.title,
+    text: input.text,
+    code: parsed.coupon,
+    store: store?.slug ?? null,
+    url: buyUrl,
+    postUrl: input.url,
+    sourceId: input.sourceId,
+  });
   if (alvo && band) await refreshRef(alvo.id, band.key, band.label);
   await scoreOffer(row.id);
   if (alvo) await logEvent("nova", row.id, input.title, { to: parsed.priceCardCents ?? undefined, store: store?.slug ?? null, band: band?.label });
@@ -222,7 +241,22 @@ export async function logEvent(type: "nova" | "preco" | "esgotou" | "alvo" | "ca
 export async function rematchOffers(): Promise<{ total: number; changed: number; bands: number }> {
   const list = await activeAlvos();
   const rows = await db
-    .select({ id: offers.id, title: offers.title, alvoId: offers.alvoId, bandKey: offers.bandKey, kind: sources.kind, text: rawMessages.text })
+    .select({
+      id: offers.id,
+      title: offers.title,
+      alvoId: offers.alvoId,
+      bandKey: offers.bandKey,
+      kind: sources.kind,
+      text: rawMessages.text,
+      store: offers.store,
+      url: offers.url,
+      postUrl: rawMessages.url,
+      coupon: offers.coupon,
+      sourceId: offers.sourceId,
+      categorySource: offers.categorySource,
+      category: offers.category,
+      createdAt: offers.createdAt,
+    })
     .from(offers)
     .innerJoin(sources, eq(offers.sourceId, sources.id))
     .innerJoin(rawMessages, eq(offers.rawMessageId, rawMessages.id))
@@ -241,7 +275,34 @@ export async function rematchOffers(): Promise<{ total: number; changed: number;
     const alvoId = c.alvo?.id ?? null;
     const bandKey = c.band?.key ?? null;
     if (alvoId !== r.alvoId || bandKey !== r.bandKey) changed++;
-    await db.update(offers).set({ alvoId, specs: c.specs, bandKey }).where(eq(offers.id, r.id));
+    // Categoria e cupom com as regras atuais. A categoria dada pela IA só é trocada se uma regra servir agora.
+    const category = title ? categorize(title) : null;
+    const isCoupon = !c.alvo && !!title && isCouponPost(title, { hasProduct: category != null });
+    const cat = isCoupon
+      ? { category: null, categorySource: null }
+      : category
+        ? { category, categorySource: "regra" }
+        : r.categorySource === "ia"
+          ? { category: r.category, categorySource: "ia" }
+          : { category: null, categorySource: null };
+    await db
+      .update(offers)
+      .set({ alvoId, specs: c.specs, bandKey, kind: isCoupon ? "cupom" : "produto", ...cat })
+      .where(eq(offers.id, r.id));
+    if (title) {
+      await saveCoupons({
+        offerId: r.id,
+        isCoupon,
+        title,
+        text: r.text,
+        code: r.coupon,
+        store: r.store,
+        url: r.url,
+        postUrl: r.postUrl,
+        sourceId: r.sourceId,
+        seenAt: r.createdAt,
+      });
+    }
     if (c.alvo && c.band) bands.set(`${alvoId}:${bandKey}`, { alvoId: c.alvo.id, band: c.band });
   }
   // Faixas que só existem nos preços de mercado também precisam de referência.
@@ -284,4 +345,75 @@ export async function pendingOffers(limit: number) {
     .orderBy(sql`(${sources.kind} = 'telegram') desc`, desc(offers.createdAt))
     .limit(limit);
   return rows.map((r) => r.o);
+}
+
+/**
+ * Grava os cupons de um post. Post de cupom: um por cupom listado. Post de produto com código citado:
+ * o cupom vale para aquele produto. O mesmo cupom visto de novo só ganha a oferta e a fonte na lista.
+ */
+export async function saveCoupons(p: {
+  offerId: number;
+  isCoupon: boolean;
+  title: string;
+  text: string;
+  code: string | null;
+  store: string | null;
+  url: string | null;
+  postUrl: string | null;
+  sourceId: number;
+  /** Quando o post foi visto (na reclassificação, a data da oferta; senão, agora). */
+  seenAt?: Date;
+}) {
+  let list: CouponInfo[];
+  if (p.isCoupon) list = couponsFromPost(p.title, p.text).filter((c) => c.code || c.discountKind);
+  else if (p.code) list = [{ ...couponFromPost(p.title, p.text), code: p.code }];
+  else return;
+  if (!list.length) return;
+  const [src] = await db.select({ name: sources.name }).from(sources).where(eq(sources.id, p.sourceId));
+  for (const c of list) {
+    const store = c.storeFromText ?? p.store;
+    const key = couponKey(store, c, p.title);
+    const values = {
+      key,
+      store,
+      code: c.code,
+      title: p.title.slice(0, 200),
+      discountKind: c.discountKind,
+      discountValue: c.discountValue,
+      capCents: c.capCents,
+      minCents: c.minCents,
+      conditions: c.conditions,
+      // Só link de loja (ou encurtador de loja) serve para resgatar; canal de WhatsApp ou Telegram não.
+      url: p.url && (storeForUrl(p.url) || isShortener(p.url)) && !/whatsapp\.com|t\.me\//.test(p.url) ? p.url : null,
+      postUrl: p.postUrl,
+      offerIds: [p.offerId],
+      sourceNames: src ? [src.name] : [],
+      forProduct: p.isCoupon ? null : p.title.slice(0, 200),
+      firstSeenAt: p.seenAt ?? new Date(),
+      lastSeenAt: p.seenAt ?? new Date(),
+    };
+    const merge = (col: string, v: unknown[]) =>
+      sql`(select coalesce(jsonb_agg(distinct x), '[]'::jsonb) from jsonb_array_elements(${sql.raw(col)} || ${JSON.stringify(v)}::jsonb) x)`;
+    await db
+      .insert(coupons)
+      .values(values)
+      .onConflictDoUpdate({
+        target: coupons.key,
+        set: {
+          title: values.title,
+          discountKind: sql`coalesce(excluded.discount_kind, ${coupons.discountKind})`,
+          discountValue: sql`coalesce(excluded.discount_value, ${coupons.discountValue})`,
+          capCents: sql`coalesce(excluded.cap_cents, ${coupons.capCents})`,
+          minCents: sql`coalesce(excluded.min_cents, ${coupons.minCents})`,
+          conditions: merge("coupons.conditions", c.conditions),
+          url: sql`coalesce(excluded.url, ${coupons.url})`,
+          postUrl: sql`coalesce(excluded.post_url, ${coupons.postUrl})`,
+          offerIds: merge("coupons.offer_ids", [p.offerId]),
+          sourceNames: merge("coupons.source_names", values.sourceNames),
+          firstSeenAt: sql`least(${coupons.firstSeenAt}, excluded.first_seen_at)`,
+          lastSeenAt: sql`greatest(${coupons.lastSeenAt}, excluded.last_seen_at)`,
+        },
+      });
+  }
+  await notify({ type: "coupon" });
 }

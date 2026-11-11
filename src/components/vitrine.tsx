@@ -6,8 +6,10 @@ import { Toaster, toast } from "sonner";
 import type { EventDTO } from "@/app/api/events/route";
 import type { OfferDTO, StatusDTO } from "@/lib/offers";
 import { Feed } from "./feed";
+import { FiltersBar, useSmartFilters } from "./filtros";
 import { OfferCard } from "./offer-card";
 import { PainelFoco } from "./painel-foco";
+import { RadarPanel } from "./ia";
 import { AppHeader, Kbd, ago, brl, useLive, useNow } from "./shell";
 import { useAlertSound } from "./use-alert";
 
@@ -36,9 +38,6 @@ export function Vitrine() {
   const [events, setEvents] = useState<EventDTO[]>([]);
   const [version, setVersion] = useState(0);
   const [flash, setFlash] = useState<Flash>({});
-  const [alvo, setAlvo] = useState<string>("all");
-  const [freeOnly, setFreeOnly] = useState(false);
-  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [focus, setFocus] = useState(0);
   const [openId, setOpenId] = useState<number | null>(null);
   const now = useNow(15_000);
@@ -117,23 +116,9 @@ export function Vitrine() {
     [patch],
   );
 
-  const alvoChips = useMemo(() => {
-    const base = (offers ?? []).filter((o) => (!freeOnly || o.freeShipping) && (!verifiedOnly || o.verifyStatus === "verificado"));
-    const counts = new Map<string, number>();
-    for (const o of base) if (o.alvo) counts.set(o.alvo.slug, (counts.get(o.alvo.slug) ?? 0) + 1);
-    return [
-      { slug: "all", name: "Todos os Alvos", count: base.filter((o) => o.alvo).length },
-      ...(status?.alvos ?? []).map((a) => ({ slug: a.slug, name: a.name, count: counts.get(a.slug) ?? 0 })).filter((c) => c.count > 0),
-    ];
-  }, [offers, status, freeOnly, verifiedOnly]);
-
-  const shown = useMemo(
-    () =>
-      (offers ?? []).filter(
-        (o) => o.alvo && (alvo === "all" || o.alvo.slug === alvo) && (!freeOnly || o.freeShipping) && (!verifiedOnly || o.verifyStatus === "verificado"),
-      ),
-    [offers, alvo, freeOnly, verifiedOnly],
-  );
+  const filters = useSmartFilters(offers);
+  const shown = filters.shown;
+  const alvoNames = useMemo(() => new Map((status?.alvos ?? []).map((a) => [a.slug, a.name])), [status]);
   const atingidos = shown.filter((o) => o.alvoAtingido).slice(0, 6);
   const lastOfferAt = useMemo(() => (offers ?? []).reduce((mx, o) => (o.createdAt > mx ? o.createdAt : mx), ""), [offers]);
 
@@ -177,7 +162,7 @@ export function Vitrine() {
     document.querySelector(`[data-card="${focus}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [focus]);
 
-  const chip = (on: boolean) => `flex h-11 items-center gap-2 rounded-full border px-4 text-[13px] font-medium ${on ? "border-ink bg-ink text-bg" : "border-control text-ink-2 hover:text-ink"}`;
+
 
   return (
     <MotionConfig reducedMotion="user">
@@ -189,7 +174,7 @@ export function Vitrine() {
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="flex flex-col gap-1.5">
               <h1 className="text-[30px] font-semibold tracking-tight">Vitrine</h1>
-              <p className="text-sm text-muted">Ofertas ao vivo para os seus Alvos, ordenadas pela nota. O preço grande é o total no cartão.</p>
+              <p className="text-sm text-muted">Ofertas ao vivo de qualquer produto dos seus grupos e comunidades, ordenadas pela nota. O preço grande é o total no cartão.</p>
             </div>
             <div className="flex items-center gap-3 text-[13px] text-muted">
               {lastOfferAt && <span>última oferta {ago(lastOfferAt, now)}</span>}
@@ -202,6 +187,8 @@ export function Vitrine() {
               </button>
             </div>
           </div>
+
+          {status?.radar && <RadarPanel radar={status.radar} now={now} onOpen={open} />}
 
           {atingidos.length > 0 && (
             <section aria-labelledby="alvos-atingidos" className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-gold)_45%,transparent)] bg-[color-mix(in_srgb,var(--color-gold)_7%,var(--color-bg))] p-[18px]">
@@ -233,33 +220,7 @@ export function Vitrine() {
             </section>
           )}
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div role="group" aria-label="Filtrar por Alvo" className="flex flex-wrap gap-2">
-              {alvoChips.map((c) => (
-                <button
-                  key={c.slug}
-                  type="button"
-                  aria-pressed={alvo === c.slug}
-                  onClick={() => {
-                    setAlvo(c.slug);
-                    setFocus(0);
-                  }}
-                  className={chip(alvo === c.slug)}
-                >
-                  {c.name}
-                  <span className="font-mono text-xs opacity-65">{c.count}</span>
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" aria-pressed={verifiedOnly} onClick={() => setVerifiedOnly((v) => !v)} className={chip(verifiedOnly)}>
-                Só conferidas na loja
-              </button>
-              <button type="button" aria-pressed={freeOnly} onClick={() => setFreeOnly((v) => !v)} className={chip(freeOnly)}>
-                Só frete grátis
-              </button>
-            </div>
-          </div>
+          <FiltersBar {...filters} alvoNames={alvoNames} onChange={() => setFocus(0)} />
 
           {offers == null ? (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-5" aria-busy="true" aria-label="Carregando ofertas">
@@ -297,7 +258,7 @@ export function Vitrine() {
         </main>
 
         <footer className="mt-auto flex flex-wrap items-center justify-center gap-x-5 gap-y-2 px-8 pb-7 pt-4 text-xs text-label">
-          {[["J K", "navegar"], ["Espaço", "abrir o painel"], ["Enter", "comprar"], ["W", "vigiar"], ["X", "descartar"], ["M", "som"], ["Esc", "fechar"]].map(([k, v]) => (
+          {[["/", "buscar"], ["J K", "navegar"], ["Espaço", "abrir o painel"], ["Enter", "comprar"], ["W", "vigiar"], ["X", "descartar"], ["M", "som"], ["Esc", "fechar"]].map(([k, v]) => (
             <span key={k} className="flex items-center gap-1.5">
               <Kbd>{k}</Kbd> {v}
             </span>

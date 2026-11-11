@@ -3,8 +3,7 @@ import { STORES, isShortener, storeForUrl } from "@/config/stores";
 import { db, schema } from "@/lib/db";
 import { anchors, ldProduct, meta, nextData, stripTags } from "../http/html";
 import { PausedError, RobotsError, politeFetch } from "../http/polite";
-import { touchesAnyAlvo } from "../match/alvos";
-import { activeAlvos, ingestRaw, setSourceStatus } from "../pipeline";
+import { ingestRaw, setSourceStatus } from "../pipeline";
 import { COMMUNITIES, type Community } from "./communities-config";
 
 export type ListItem = { url: string; title: string };
@@ -103,10 +102,9 @@ export async function collectCommunity(c: Community): Promise<{ found: number; r
       await setSourceStatus(c.slug, "erro", `a página respondeu ${list.status}`);
       return { found: 0, relevant: 0, added: 0 };
     }
-    const alvos = await activeAlvos();
     const items = listItems(list.body, c);
-    // Pré-filtro sem IA: só abre o post se o título toca um Alvo.
-    const relevant = items.filter((i) => touchesAnyAlvo(i.title, alvos));
+    // Qualquer produto entra; os Alvos só classificam a oferta depois. Até 15 posts novos por ronda (coleta educada).
+    const relevant = items;
     let added = 0;
     for (const item of relevant.slice(0, 15)) {
       const seen = await db
@@ -134,7 +132,7 @@ export async function collectCommunity(c: Community): Promise<{ found: number; r
         if (!(err instanceof RobotsError)) console.warn(`[${c.slug}] post falhou: ${item.url}: ${(err as Error).message}`);
       }
     }
-    await setSourceStatus(c.slug, "ok", `${items.length} posts na lista, ${relevant.length} tocam seus Alvos, ${added} novos`);
+    await setSourceStatus(c.slug, "ok", `${items.length} posts na lista, ${added} novos`);
     return { found: items.length, relevant: relevant.length, added };
   } catch (err) {
     if (err instanceof RobotsError) await setSourceStatus(c.slug, "bloqueada", "o robots.txt do site não permite");
@@ -148,5 +146,5 @@ export async function collectAll() {
   // Comunidades em paralelo: cada uma tem a própria fila de domínio.
   const results = await Promise.all(COMMUNITIES.map(async (c) => [c.slug, await collectCommunity(c)] as const));
   // Com a ronda a cada minuto, só vale registrar quando entra coisa nova.
-  for (const [slug, r] of results) if (r.added > 0) console.log(`[coleta] ${slug}: ${r.found} posts, ${r.relevant} nos Alvos, ${r.added} novos`);
+  for (const [slug, r] of results) if (r.added > 0) console.log(`[coleta] ${slug}: ${r.found} posts, ${r.added} novos`);
 }

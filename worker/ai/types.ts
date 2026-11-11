@@ -8,7 +8,21 @@ export type AiRequest<T> = {
   schema: z.ZodType<T>;
 };
 
-export type AiResult<T> = { data: T; inputTokens: number; outputTokens: number };
+/** Uso da assinatura (claude-cli): % da janela de 5 h e da semanal, e quando cada uma zera. */
+export type AiLimits = {
+  fiveHour: { pct: number; resetsAt: number | null; status: string | null } | null;
+  sevenDay: { pct: number; resetsAt: number | null; status: string | null } | null;
+  at: number;
+};
+
+export type AiResult<T> = {
+  data: T;
+  inputTokens: number;
+  outputTokens: number;
+  /** Custo informado pelo provedor (o claude -p manda o valor exato); sem ele, a tabela de preços. */
+  costUsd?: number;
+  limits?: AiLimits | null;
+};
 
 export interface AiProvider {
   readonly name: "claude-cli" | "anthropic-api" | "ollama";
@@ -23,4 +37,5 @@ export function jsonSchemaOf(schema: z.ZodType): Record<string, unknown> {
 }
 
 export class AiRefusal extends Error {}
+/** A IA está pausada pelo usuário (botão no cabeçalho). */
 export class AiBudgetError extends Error {}

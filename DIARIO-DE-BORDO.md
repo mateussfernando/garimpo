@@ -30,7 +30,9 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 | Alertas | Só na Vitrine. Nada de notificação no celular ou no WhatsApp. |
 | WhatsApp e Telegram | Somente leitura. O app nunca envia mensagem nem entra em grupo. Conversas individuais nunca são lidas. |
 | Fontes e Alvos | Descobertos sozinhos. O usuário só confirma e nunca digita configuração. |
-| Coleta educada | robots.txt, 1 pedido a cada 5 a 10 s por loja, cache, pausa de 1 h em 429 ou 403, sem proxy. |
+| Coleta educada | robots.txt, 1 pedido a cada 5 a 10 s por loja, cache, sem proxy. Pausa em 429, 403 ou 503 vale para o domínio inteiro, segura a fila, sobrevive ao reinício e cresce se o site reclamar de novo (1 h, 6 h, 24 h). Atualizado em 11/11 a pedido do usuário: o IP não pode entrar em lista de bloqueio. |
+| Qualquer produto (11/11) | Telegram e comunidades trazem qualquer produto com link de loja; o usuário escolhe pelos grupos em que entra. Alvos só classificam. Categorias por regra e, no que sobrar, IA em lote. Posts de cupom vão para a tela Cupons. |
+| IA sem teto (11/11) | A trava de US$ 4,50 e `AI_MAX_CHAMADAS_DIA` saíram. O usuário pausa e continua a IA no cabeçalho, chama a IA quando quiser e vê o custo e o uso da assinatura (5 h e semana). |
 | Plano acelerado (10/11, 18:20) | Até o fim do 11.11 não há coleta rodando sozinha, agendamento nem pg-boss. Fica a verificação ao vivo de cada oferta que chega. Telegram e WhatsApp fora hoje: ofertas só do scraping ao vivo de comunidades e vitrines das lojas. Tudo num PC; o outro abre a Vitrine pela rede. Nota rápida, sem desconto real nem Black Fraude. |
 | Telegram entra no 11.11 (10/11, 21:10) | Reverte a parte do plano acelerado que deixava o Telegram de fora. GramJS na conta do usuário, só leitura, papel `listen`. Chats de grupo e canal: os com nome de promoção ligam sozinhos, os outros ficam desligados em `sources.enabled`. WhatsApp segue fora. |
 | Sem ensaio (10/11, 22:40) | O usuário pulou a Etapa 5 (ensaio e congelamento) e vai pedir melhorias numa sessão com o Fable 5.2. Quem pegar o projeto não precisa começar pelo ensaio. |
@@ -48,7 +50,7 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 - [ ] O usuário tem um segundo número para a Escuta?
 - [ ] Qual é o orçamento total de compras do dia 11? O design usa R$ 2.500 só como exemplo.
-- [ ] `AI_MAX_CHAMADAS_DIA=300` é um palpite. Ajuste depois de olhar o medidor.
+- [x] ~~`AI_MAX_CHAMADAS_DIA=300` é um palpite.~~ Saiu em 11/11: sem teto, com botão Pausar.
 
 ## Links
 
@@ -56,6 +58,24 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 - Design (canvas clicável): https://claude.ai/artifact/KpCmQB2sKdW9GvHR9Z7MD2
 
 ## Registro (mais recente primeiro)
+
+### 11/11/2026, 11:30 · Qualquer produto, categorias, Cupons, filtros inteligentes, IA sem teto e pausa mais segura
+
+- **Feito:**
+  - **Qualquer produto:** Telegram aceita toda mensagem com link de loja; o título é a linha que mais parece nome de produto (preço, cupom e ficha técnica não contam). Comunidades abrem qualquer post novo (até 15 por ronda). Vitrine mostra tudo;
+  - **Categorias** (`src/config/categories.ts`, `worker/match/category.ts`): 19 categorias por palavras do primeiro nome de produto do título; o que sobra vai para a IA em lote (`worker/ai/categorias.ts`, 50 títulos por chamada, a cada 3 min);
+  - **Cupons** (`worker/parse/coupons.ts`, tabela `coupons`, tela `/cupons`): post que é só cupom sai da Vitrine e vira cupom (código, desconto, mínimo, limite, condições, loja); mensagem com vários cupons vira um por linha; código citado em post de produto também entra. Atalhos: / J K C Enter X;
+  - **Filtros inteligentes** (`src/lib/smart-filter.ts`, `src/components/filtros.tsx`): busca que entende "tv até 2000 frete grátis", "air fryer shopee", "recomendadas", "mais barato"; categorias com contagem; loja, preço, Alvo, conferidas, frete grátis, sem juros, com cupom e recomendadas pela IA; ordem por nota, IA, preço, novas ou desconto; lembrados no navegador;
+  - **IA:** sem teto; Pausar/Continuar e "Chamar IA agora" no cabeçalho (o worker roda categorias, análises, radar e insights); custo de hoje e total; uso da janela de 5 h e da semanal lido do `rate_limit_event` do `claude -p` (agora em stream-json);
+  - **Análise por oferta** (`worker/ai/analises.ts`, tabela `offer_analyses`): veredito (excelente, boa, ok, fraca, evitar), nota 0 a 100, resumo, prós e contras, 8 ofertas por chamada, só quando os números mudam; aparece no card, no painel e no Detalhe;
+  - **Radar da IA** (`worker/ai/radar.ts`): manchete, destaques clicáveis, alertas e dicas no topo da Vitrine, a cada 15 min se o quadro mudou;
+  - **Pausa de site:** vale para o domínio inteiro, segura a fila, grava em `app_settings` e cresce (1 h, 6 h, 24 h). 503 também pausa.
+- **Decidido:** qualquer produto; IA sem teto com botão; pausa mais rígida para proteger o IP. Ver a tabela.
+- **Testado:** 83 testes, `tsc` e `eslint` passam. Reclassificação rodada no banco: 410 ofertas com categoria por regra, 61 para a IA, 70 posts de cupom viraram 92 cupons. Vitrine conferida no navegador do app (categorias e busca "tv até 3000 mais barato" = 16 de 347). A tela Cupons não foi exercitada no navegador: outro app (`lp-guadalupe-casas-altas`) também escuta na porta 3000 e o `localhost` cai nele.
+- **Pendente:** reiniciar o worker para valer tudo (categorias e cupons novos, análises, radar, pausas). `AI_MAX_CHAMADAS_DIA` no `.env` não é mais lido. Preço de post às vezes errado (ex.: Smart TV LG 55" a R$ 100).
+- **Próximo passo:** reiniciar o worker, olhar o radar e as análises na Vitrine e ajustar as categorias com o que a IA classificar.
+- **Como testar:** `pnpm test`; reinicie o worker; abra a Vitrine e digite "tv até 2000 frete grátis"; abra `/cupons`; no cabeçalho, "Chamar IA agora" e veja as barras de 5 h e semana.
+
 
 ### 11/11/2026, 08:40 · Conferência do Bloco A e interface ao vivo (B1 a B6)
 

@@ -111,7 +111,7 @@ export function Fontes() {
                   {f.kind === "telegram" && f.state === "confirmada" && (
                     <span className="truncate font-mono text-[11px] text-ink-3">
                       {f.stats
-                        ? `hoje: ${f.stats.read} lidas · ${f.stats.withLink} com link de loja · ${f.stats.touched} nos Alvos · ${f.stats.offers} ofertas`
+                        ? `hoje: ${f.stats.read} lidas · ${f.stats.withLink} com link de loja · ${f.stats.touched} com produto · ${f.stats.offers} ofertas`
                         : "ainda sem leitura"}
                       {f.lastMessageAt ? ` · última mensagem ${ago(f.lastMessageAt, now)}` : ""}
                     </span>

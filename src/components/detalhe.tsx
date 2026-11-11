@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { OfferDetailDTO } from "@/lib/detail";
+import { AiAnalysis } from "./ia";
 import { AppHeader, Badge, Kbd, ago, brl, useLive, useNow, useStatus } from "./shell";
 
 const dayBR = (iso: string) => iso.slice(8, 10) + "/" + iso.slice(5, 7);
@@ -402,6 +403,8 @@ export function Detalhe({ id }: { id: number }) {
                     ))}
                   </ul>
                 </Section>
+
+                <AiAnalysis ia={d.offer.ia} now={now} />
 
                 <Section id="analise" title="Análise do Garimpo" sub={d.insight ? `${d.insight.provedor} · claude-haiku-5-5 · ${ago(d.insight.geradoEm, now)}` : "gerada pela IA a cada 30 min, só quando os números mudam"}>
                   {d.insight ? (

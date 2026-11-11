@@ -102,6 +102,7 @@ export function useStatus() {
 const NAV = [
   { key: "vitrine", href: "/", label: "Vitrine" },
   { key: "fontes", href: "/fontes", label: "Fontes" },
+  { key: "cupons", href: "/cupons", label: "Cupons" },
   { key: "lojas", href: "/lojas", label: "Lojas" },
   { key: "war-room", href: "/war-room", label: "War Room" },
 ] as const;
@@ -116,9 +117,71 @@ function Metric({ label, children }: { label: string; children: React.ReactNode 
   );
 }
 
+const usd = (v: number) => `US$ ${v.toFixed(v < 1 ? 4 : 2).replace(".", ",")}`;
+const at = (ms: number | null) =>
+  ms ? new Date(ms).toLocaleString("pt-BR", { weekday: "short", hour: "2-digit", minute: "2-digit" }) : "—";
+
+/** Barra de uso da assinatura (janela de 5 h ou semanal). Vermelha a partir de 80%. */
+function UsageBar({ label, w }: { label: string; w: { pct: number; resetsAt: number | null } | null }) {
+  const pct = w ? Math.min(100, w.pct) : 0;
+  return (
+    <span className="flex items-center gap-2" title={w ? `${label}: ${w.pct}% usado · zera ${at(w.resetsAt)}` : `${label}: aparece depois da primeira chamada`}>
+      <span className="w-12 text-[11px] text-label">{label}</span>
+      <span className="block h-1.5 w-24 overflow-hidden rounded-full bg-active" aria-hidden="true">
+        <span className={`block h-full ${pct >= 80 ? "bg-bad" : pct >= 50 ? "bg-pause" : "bg-ink-3"}`} style={{ width: `${pct}%` }} />
+      </span>
+      <span className="w-11 font-mono tnum text-xs text-ink-2">{w ? `${w.pct.toLocaleString("pt-BR")}%` : "—"}</span>
+    </span>
+  );
+}
+
+/** IA no cabeçalho: custo, uso da assinatura (5 h e semana), Pausar/Continuar e Chamar IA agora. */
+function AiControls({ ai }: { ai: StatusDTO["ai"] | null }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const send = async (acao: "pausar" | "continuar" | "rodar") => {
+    setBusy(acao);
+    try {
+      await fetch("/api/ia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao }) });
+    } finally {
+      setTimeout(() => setBusy(null), 1200);
+    }
+  };
+  const running = ai?.run?.running === true;
+  const btn = "flex h-9 items-center gap-1.5 rounded-[10px] border border-control px-3 text-xs font-medium text-ink-2 hover:text-ink disabled:opacity-50";
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.06em] text-label">
+        IA
+        {ai?.paused ? (
+          <span className="rounded-full bg-[rgba(255,143,90,0.15)] px-2 normal-case tracking-normal text-pause">pausada</span>
+        ) : running ? (
+          <span className="normal-case tracking-normal text-good">trabalhando…</span>
+        ) : null}
+      </span>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+        <span className="flex flex-col gap-1">
+          <UsageBar label="5 horas" w={ai?.limits?.fiveHour ?? null} />
+          <UsageBar label="Semana" w={ai?.limits?.sevenDay ?? null} />
+        </span>
+        <span className="flex flex-col font-mono tnum text-xs text-ink-2" title={ai ? `${ai.provider} · claude-haiku-5-5 · ${ai.callsToday} chamadas hoje` : undefined}>
+          <span>{ai ? usd(ai.spentTodayUsd) : "—"} <span className="font-sans text-label">hoje</span></span>
+          <span>{ai ? usd(ai.spentUsd) : "—"} <span className="font-sans text-label">total</span></span>
+        </span>
+        <span className="flex gap-1.5">
+          <button type="button" onClick={() => void send(ai?.paused ? "continuar" : "pausar")} disabled={!ai || busy != null} className={btn} aria-pressed={ai?.paused}>
+            {ai?.paused ? "▶ Continuar" : "❚❚ Pausar"}
+          </button>
+          <button type="button" onClick={() => void send("rodar")} disabled={!ai || ai.paused || running || busy != null} className={btn} title="Categorias, análises e radar agora, sem esperar o próximo ciclo">
+            {running || busy === "rodar" ? "Chamando…" : "✦ Chamar IA agora"}
+          </button>
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function AppHeader({ active, status, live }: { active: NavKey | null; status: StatusDTO | null; live: boolean }) {
   const ai = status?.ai;
-  const aiPct = ai ? Math.min(100, Math.round(((ai.maxCallsDay != null ? ai.callsToday / ai.maxCallsDay : ai.spentUsd / ai.limitUsd) || 0) * 100)) : 0;
   return (
     <header className="border-b border-line">
       <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-2.5">
@@ -157,17 +220,7 @@ export function AppHeader({ active, status, live }: { active: NavKey | null; sta
         <Metric label="Verificando">
           <span className="font-mono tnum text-[13px] text-ink-2">{status?.pending ?? "—"}</span>
         </Metric>
-        <Metric label="Gasto de IA">
-          <span className="font-mono tnum text-[13px] text-ink-2" title={ai ? `${ai.provider} · modelo claude-haiku-5-5` : undefined}>
-            {ai ? `US$ ${ai.spentUsd.toFixed(4).replace(".", ",")}` : "—"}
-            <span className="text-label">
-              {ai ? (ai.maxCallsDay != null ? ` · ${ai.callsToday} de ${ai.maxCallsDay} chamadas` : ` de US$ ${ai.limitUsd.toFixed(2).replace(".", ",")}`) : ""}
-            </span>
-          </span>
-          <span className="block h-1 w-36 overflow-hidden rounded-full bg-active" aria-hidden="true">
-            <span className={`block h-full ${ai?.blocked ? "bg-bad" : "bg-ink-3"}`} style={{ width: `${aiPct}%` }} />
-          </span>
-        </Metric>
+        <AiControls ai={ai ?? null} />
         <Metric label="Fontes">
           <span className="flex flex-wrap items-center gap-3 text-xs text-ink-2">
             {(status?.sources ?? []).map((s) => (

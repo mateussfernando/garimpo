@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { ALVOS_V0 } from "@/config/alvos";
+import { matchAlvo } from "../match/alvos";
 import { extractOutbound, offerFromMessage } from "./message";
 
 const alvos = ALVOS_V0.map((a, i) => ({ id: i + 1, ...a }));
 
 describe("mensagem do Telegram", () => {
-  it("vira oferta quando tem link de loja e nomeia um produto de um Alvo", () => {
+  it("vira oferta quando tem link de loja e nomeia um produto", () => {
     const v = offerFromMessage(
       "🔥 OFERTA RELÂMPAGO 🔥\n\nMouse Gamer Logitech G203 RGB\n💰 R$ 89,90 em 3x sem juros\n\n🛒 https://amzn.to/3abcDEF",
       alvos,
@@ -25,14 +26,23 @@ describe("mensagem do Telegram", () => {
     expect(offerFromMessage("   ", alvos)).toEqual({ kind: "vazia" });
   });
 
-  it("oferta de produto fora dos Alvos é contada, mas não entra", () => {
+  it("qualquer produto com link de loja entra, mesmo fora dos Alvos", () => {
     const v = offerFromMessage("Air Fryer Mondial 4L por R$ 249\nhttps://www.magazineluiza.com.br/air-fryer/p/abc123/", alvos);
-    expect(v.kind).toBe("fora-dos-alvos");
+    expect(v).toMatchObject({ kind: "oferta", title: "Air Fryer Mondial 4L por R$ 249" });
   });
 
-  it("notebook com SSD no nome não entra como SSD", () => {
+  it("notebook com SSD no nome entra como notebook, não como SSD", () => {
     const v = offerFromMessage("Notebook Lenovo IdeaPad 16GB 512GB SSD R$ 2.999\nhttps://amzn.to/xyz1234", alvos);
-    expect(v.kind).toBe("fora-dos-alvos");
+    expect(v.kind).toBe("oferta");
+    if (v.kind === "oferta") expect(matchAlvo(v.title, alvos)).toBeNull();
+  });
+
+  it("linha de preço ou cupom não vira título; link sem produto não é oferta", () => {
+    expect(offerFromMessage("🔥 Cafeteira Nespresso Essenza Mini\n💰 R$ 399 em 10x\n🎟️ Cupom: BLACK10\nhttps://amzn.to/xyz1234", alvos)).toMatchObject({
+      kind: "oferta",
+      title: "Cafeteira Nespresso Essenza Mini",
+    });
+    expect(offerFromMessage("💰 R$ 399\nhttps://amzn.to/xyz1234", alvos)).toMatchObject({ kind: "sem-produto" });
   });
 
   it("acha o link de loja mesmo com outros links e pontuação no fim", () => {

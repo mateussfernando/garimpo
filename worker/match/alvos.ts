@@ -30,7 +30,7 @@ export function stripPrefixes(title: string): string {
 }
 
 /** Posição da primeira ocorrência do termo como palavra inteira (plural aceito), ou -1. */
-function wordIndex(text: string, term: string): number {
+export function wordIndex(text: string, term: string): number {
   const t = plain(term).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const m = new RegExp(`(^|[^a-z0-9])${t}(?:e?s)?(?=[^a-z0-9]|$)`).exec(text);
   return m ? m.index + m[1].length : -1;
@@ -48,7 +48,7 @@ const PROMO_WORDS = new Set([
  */
 const ARTICLES = new Set(["o", "a", "os", "as", "um", "uma", "esse", "essa", "este", "esta", "seu", "sua", "teu", "tua", "meu", "minha", "aquele"]);
 
-function isObjectOfPreposition(text: string, pos: number): boolean {
+export function isObjectOfPreposition(text: string, pos: number): boolean {
   const before = text.slice(0, pos).trim().split(" ").filter(Boolean);
   if (!before.length) return false;
   // "Troca esse teclado", "cabe o monitor": frase de chamada, não nome de produto.

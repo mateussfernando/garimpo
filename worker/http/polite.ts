@@ -1,13 +1,17 @@
 // Coleta educada: robots.txt, 1 pedido a cada 5 a 10 s por domínio,
-// cache de 10 min, pausa de 1 h em 429/403, User-Agent fixo, sem proxy.
+// cache de 10 min, pausa em 429/403/503, User-Agent fixo, sem proxy.
+// Pausa pedida pelo site vale para o domínio inteiro (www, api, m...), segura até os pedidos que já estavam
+// na fila, sobrevive ao reinício do worker e cresce se o site reclamar de novo: 1 h, 6 h, 24 h.
+// O objetivo é nunca insistir num site que pediu para parar, para o seu IP não entrar em lista de bloqueio.
 
 export const USER_AGENT = "GarimpoBot/0.1 (app pessoal de ofertas; coleta educada)";
 const ROBOTS_TTL = 24 * 60 * 60 * 1000;
-const PAUSE_MS = 60 * 60 * 1000;
+/** Pausa por reclamação: a 1ª em 24 h vale 1 h, a 2ª 6 h, da 3ª em diante 24 h. */
+const PAUSE_STEPS = [60 * 60 * 1000, 6 * 60 * 60 * 1000, 24 * 60 * 60 * 1000];
 const DEFAULT_TTL = 10 * 60 * 1000;
 const MAX_BODY = 3 * 1024 * 1024;
 
-export type FetchResult = { url: string; status: number; body: string; location: string | null };
+export type FetchResult = { url: string; status: number; body: string; location: string | null; retryAfter?: string | null };
 
 export class PausedError extends Error {
   constructor(public host: string, public until: number) {
@@ -22,7 +26,10 @@ export class RobotsError extends Error {
 
 const nextAllowedAt = new Map<string, number>();
 const chains = new Map<string, Promise<unknown>>();
+/** Chave: domínio de registro ("kabum.com.br"), não o host. */
 const pausedUntil = new Map<string, number>();
+/** Quando cada domínio reclamou nas últimas 24 h. */
+const strikes = new Map<string, number[]>();
 const cache = new Map<string, { at: number; res: FetchResult }>();
 const robotsCache = new Map<string, { at: number; ttl: number; rules: RobotsRules }>();
 
@@ -36,9 +43,51 @@ export function setPauseListener(fn: (host: string, until: number) => void) {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** "www.kabum.com.br" -> "kabum.com.br"; "s.shopee.com.br" -> "shopee.com.br"; "amzn.to" -> "amzn.to". */
+export function siteOf(host: string): string {
+  const parts = host.toLowerCase().replace(/\.$/, "").split(".");
+  if (parts.length <= 2) return parts.join(".");
+  const sld = parts[parts.length - 2];
+  const twoLevel = parts[parts.length - 1].length === 2 && ["com", "net", "org", "gov", "edu", "co"].includes(sld);
+  return parts.slice(twoLevel ? -3 : -2).join(".");
+}
+
 export function pausedHosts(): { host: string; until: number }[] {
   const now = Date.now();
   return [...pausedUntil.entries()].filter(([, u]) => u > now).map(([host, until]) => ({ host, until }));
+}
+
+/** Pausas gravadas no banco, lidas quando o worker sobe: o reinício não libera um site que pediu pausa. */
+export function restorePauses(list: { host: string; until: number }[]) {
+  const now = Date.now();
+  for (const { host, until } of list) if (until > now) pausedUntil.set(siteOf(host), Math.max(until, pausedUntil.get(siteOf(host)) ?? 0));
+}
+
+function pausedFor(host: string): number | null {
+  const until = pausedUntil.get(siteOf(host));
+  return until && until > Date.now() ? until : null;
+}
+
+/** Retry-After em segundos ou data HTTP. */
+function retryAfterMs(v: string | null): number | null {
+  if (!v) return null;
+  const n = Number(v);
+  if (Number.isFinite(n)) return n * 1000;
+  const d = Date.parse(v);
+  return Number.isFinite(d) ? d - Date.now() : null;
+}
+
+function pause(host: string, retryAfter: string | null): number {
+  const site = siteOf(host);
+  const now = Date.now();
+  const recent = (strikes.get(site) ?? []).filter((t) => now - t < 24 * 60 * 60 * 1000);
+  recent.push(now);
+  strikes.set(site, recent);
+  const step = PAUSE_STEPS[Math.min(recent.length, PAUSE_STEPS.length) - 1];
+  const until = now + Math.max(step, retryAfterMs(retryAfter) ?? 0);
+  pausedUntil.set(site, Math.max(until, pausedUntil.get(site) ?? 0));
+  onPause?.(site, pausedUntil.get(site)!);
+  return pausedUntil.get(site)!;
 }
 
 /** Enfileira por domínio, com 5 a 10 s entre pedidos ao mesmo domínio. */
@@ -49,6 +98,9 @@ function schedule<T>(host: string, fn: () => Promise<T>): Promise<T> {
     .then(async () => {
       const wait = (nextAllowedAt.get(host) ?? 0) - Date.now();
       if (wait > 0) await sleep(wait);
+      // Pedido que já estava na fila quando o site pediu pausa também não sai.
+      const until = pausedFor(host);
+      if (until) throw new PausedError(siteOf(host), until);
       try {
         return await fn();
       } finally {
@@ -74,7 +126,7 @@ async function rawFetch(url: string, redirect: "follow" | "manual"): Promise<Fet
     const buf = await res.arrayBuffer();
     body = new TextDecoder("utf-8").decode(buf.byteLength > MAX_BODY ? buf.slice(0, MAX_BODY) : buf);
   }
-  return { url: res.url || url, status: res.status, body, location: res.headers.get("location") };
+  return { url: res.url || url, status: res.status, body, location: res.headers.get("location"), retryAfter: res.headers.get("retry-after") };
 }
 
 function parseRobots(txt: string): RobotsRules {
@@ -117,6 +169,9 @@ async function robotsFor(origin: string, host: string): Promise<RobotsRules> {
   if (hit && Date.now() - hit.at < hit.ttl) return hit.rules;
   // Falha de rede não vira bloqueio: o erro sobe e a próxima passada tenta de novo.
   const res = await schedule(host, () => rawFetch(origin + "/robots.txt", "follow"));
+  if (res.status === 429 || res.status === 403 || res.status === 503) {
+    if (res.status !== 403 || /captcha|cloudflare|access denied|blocked/i.test(res.body)) throw new PausedError(siteOf(host), pause(host, res.retryAfter ?? null));
+  }
   let rules: RobotsRules;
   let ttl = ROBOTS_TTL;
   if (res.status >= 200 && res.status < 300) rules = parseRobots(res.body);
@@ -149,8 +204,8 @@ export async function politeFetch(
 ): Promise<FetchResult> {
   const u = new URL(url);
   const host = u.hostname;
-  const until = pausedUntil.get(host);
-  if (until && until > Date.now()) throw new PausedError(host, until);
+  const until = pausedFor(host);
+  if (until) throw new PausedError(siteOf(host), until);
   const redirect = opts.redirect ?? "follow";
   const key = redirect + " " + url;
   const ttl = opts.ttlMs ?? DEFAULT_TTL;
@@ -158,11 +213,9 @@ export async function politeFetch(
   if (hit && Date.now() - hit.at < ttl) return hit.res;
   if (!(await robotsAllows(url))) throw new RobotsError(url);
   const res = await schedule(host, () => rawFetch(url, redirect));
-  if (res.status === 429 || res.status === 403) {
-    const pauseEnd = Date.now() + PAUSE_MS;
-    pausedUntil.set(host, pauseEnd);
-    onPause?.(host, pauseEnd);
-    throw new PausedError(host, pauseEnd);
+  // 429 (muitos pedidos), 403 (bloqueado) e 503 (sobrecarga ou desafio anti-robô): para tudo no domínio.
+  if (res.status === 429 || res.status === 403 || res.status === 503) {
+    throw new PausedError(siteOf(host), pause(host, res.retryAfter ?? null));
   }
   cache.set(key, { at: Date.now(), res });
   return res;
@@ -189,4 +242,4 @@ export async function unshorten(url: string, maxHops = 5): Promise<string> {
 }
 
 // Usado só nos testes.
-export const __test = { parseRobots };
+export const __test = { parseRobots, siteOf };

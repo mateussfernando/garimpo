@@ -57,6 +57,17 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 11/11/2026, 08:40 · Conferência do Bloco A e interface ao vivo (B1 a B6)
+
+- **Conferido ao vivo (A1 a A3):** o Telegram virou a maior fonte (58 de 137 ofertas); oferta nova é conferida em 6 a 8 s; 73 ofertas com preço no Pix; "frete grátis" indevido caiu de 44 para 7. A leitura de botões resolveu o canal "lobão".
+- **Feito (Telegram):** o título é a linha que mais parece nome de produto (tem modelo ou número); ficha técnica ("- 512GB SSD") e chamada de efeito ("CABE O MONITOR...") ficam de fora. A reclassificação da subida refaz o título das ofertas antigas de canal.
+- **Feito (B1 a B6):** Motion e sonner instalados (shadcn completo ficou de fora: não fez falta). Tabela `events` e rota `/api/events`; o worker grava nova oferta, preço que mudou, esgotou e Alvo atingido (`logEvent` em `worker/pipeline.ts`). Vitrine refeita: cards entram animados e trocam de lugar, preço pisca ao mudar, brilho "Agora" por 1 min, faixa "Ao vivo" sob o cabeçalho, card com cartão, Pix, diferença para a faixa, fim da oferta e uma linha só de estado, painel do foco (Espaço abre, Esc fecha, J e K trocam), alerta de Alvo atingido com som, título da aba e aviso em ouro, "Desfazer" ao descartar, filtro "Só conferidas na loja", cards-esqueleto.
+- **Decidido:** "Alvo atingido" só vale com preço conferido na loja e produto à venda.
+- **Testado:** 70 testes, `tsc` e `eslint`. Vitrine e painel abertos no navegador do app, sem erro no console; a faixa mostrou um acontecimento real. NÃO testado: o som e o aviso de Alvo atingido (não houve um Alvo atingido novo durante o teste), a animação de entrada vista a olho e o layout de celular.
+- **Pendente:** Pichau e Hardmob respondem 403 (pausa de 1 h, sem contorno). Shopee e AliExpress bloqueiam robô: 38 ofertas da Shopee ficam "não conferidas", várias com preço de post duvidoso (R$ 40). `pnpm simular --limpar` pode falhar por causa da tabela `events`.
+- **Próximo passo:** A4 a A6 (um card por produto, ronda contínua, não cair), depois B7 a B14.
+- **Como testar:** abra `/`, aperte J e Espaço; veja a faixa "Ao vivo"; M liga e desliga o som.
+
 ### 10/11/2026, 23:50 · Plano "Garimpo absurdo": A1, A2 e A3
 
 - **Plano aprovado pelo usuário:** foco no 11.11, no ao vivo e em UX e UI no limite. Blocos: A (caminho da oferta ao vivo), B (interface: Motion e shadcn/ui autorizados, tela ao vivo, faixa de acontecimentos, card novo, painel do foco, alerta, ⌘K, desfazer, celular), C (reconferir na hora, nota do 11.11, filtros, compras e fatura, cupons, tela Alvos, analista), D (rotinas programadas e Black Friday, por último).

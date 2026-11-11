@@ -119,6 +119,7 @@ async function createOffer(rawId: number, input0: RawInput): Promise<number> {
     .returning({ id: offers.id });
   if (alvo && band) await refreshRef(alvo.id, band.key, band.label);
   await scoreOffer(row.id);
+  if (alvo) await logEvent("nova", row.id, input.title, { to: parsed.priceCardCents ?? undefined, store: store?.slug ?? null, band: band?.label });
   return row.id;
 }
 
@@ -189,8 +190,29 @@ export async function scoreOffer(offerId: number, opts: { silent?: boolean } = {
     shippingCents: o.shippingCents,
     sources15: n,
   });
-  await db.update(offers).set({ nota: r.nota, notaParts: r.parts }).where(eq(offers.id, offerId));
-  if (!opts.silent) await notify({ type: "offer", id: offerId, alvoAtingido: r.alvoAtingido });
+  // Alvo atingido de verdade: preço conferido na loja, dentro de uma faixa com referência, e ainda à venda.
+  const hit = r.alvoAtingido && !!o.alvoId && o.verifyStatus === "verificado" && o.available !== false;
+  const firstHit = hit && !o.hitAt;
+  await db
+    .update(offers)
+    .set({ nota: r.nota, notaParts: r.parts, ...(firstHit ? { hitAt: new Date() } : {}) })
+    .where(eq(offers.id, offerId));
+  // Na reclassificação silenciosa (subida do worker) marca sem avisar, para o alerta não tocar por oferta antiga.
+  if (firstHit && !opts.silent) {
+    await logEvent("alvo", offerId, o.title, { to: o.priceCardCents ?? undefined, target: ref?.targetCents ?? undefined, band: ref?.label, store: o.store });
+  }
+  if (!opts.silent) await notify({ type: "offer", id: offerId, alvoAtingido: hit });
+}
+
+type EventDetail = NonNullable<typeof schema.events.$inferInsert.detail>;
+
+/** Registra um acontecimento na faixa "Ao vivo" e avisa as telas. */
+export async function logEvent(type: "nova" | "preco" | "esgotou" | "alvo" | "canal", offerId: number | null, title: string, detail: EventDetail = {}) {
+  const [row] = await db
+    .insert(schema.events)
+    .values({ type, offerId, title: title.slice(0, 200), detail })
+    .returning({ id: schema.events.id });
+  await notify({ type: "event", id: row.id, kind: type, offerId });
 }
 
 /**

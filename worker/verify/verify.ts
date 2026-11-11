@@ -5,7 +5,7 @@ import type { OfferExtra } from "@/lib/db/schema";
 import { ldProduct, meta, stripTags } from "../http/html";
 import { PausedError, RobotsError, politeFetch, unshorten } from "../http/polite";
 import { parseOfferText } from "../parse/parser";
-import { afterPriceChange, notify, pendingOffers } from "../pipeline";
+import { afterPriceChange, logEvent, notify, pendingOffers } from "../pipeline";
 import { adapterFor } from "./adapters";
 
 const { offers, products, pricePoints, rawMessages } = schema;
@@ -192,6 +192,11 @@ async function verifyInner(o: Offer) {
         verifiedAt: new Date(),
       })
       .where(eq(offers.id, o.id));
+    // Faixa "Ao vivo": preço que mudou de verdade (1% ou mais) depois de uma conferência anterior, e produto que acabou.
+    if (o.alvoId && o.verifiedAt && o.priceCardCents && v.priceCard && Math.abs(v.priceCard - o.priceCardCents) >= o.priceCardCents * 0.01) {
+      await logEvent("preco", o.id, o.title, { from: o.priceCardCents, to: v.priceCard, store: store.slug });
+    }
+    if (o.alvoId && v.available === false && o.available !== false) await logEvent("esgotou", o.id, o.title, { store: store.slug });
     await afterPriceChange(o.id);
   } catch (err) {
     if (err instanceof PausedError) return markNotVerified(o, err.message);

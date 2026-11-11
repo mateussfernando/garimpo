@@ -146,6 +146,8 @@ export const offers = pgTable(
     /** false = a loja diz que acabou; null = não sabemos. */
     available: boolean("available"),
     extra: jsonb("extra").$type<OfferExtra>(),
+    /** Primeira vez em que a oferta atingiu o preço-alvo da faixa. Serve para o alerta tocar uma vez só. */
+    hitAt: timestamp("hit_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("offers_raw_message").on(t.rawMessageId)],
@@ -250,3 +252,13 @@ export const marketObs = pgTable(
   },
   (t) => [primaryKey({ columns: [t.store, t.code] })],
 );
+
+/** Acontecimentos da faixa "Ao vivo": nova oferta, preço mudou, esgotou, Alvo atingido, canal novo. */
+export const events = pgTable("events", {
+  id: serial("id").primaryKey(),
+  type: text("type").notNull(), // nova | preco | esgotou | alvo | canal
+  offerId: integer("offer_id").references(() => offers.id),
+  title: text("title").notNull(),
+  detail: jsonb("detail").$type<{ from?: number; to?: number; store?: string | null; source?: string; band?: string; target?: number }>(),
+  at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+});

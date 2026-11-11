@@ -50,3 +50,29 @@ body {
   outline: 2px solid var(--color-ink);
   outline-offset: 2px;
 }
+
+/* Preço que muda pisca como cotação: verde se caiu, vermelho se subiu. */
+@keyframes flash-down {
+  0% { background-color: rgba(61, 220, 132, 0.35); }
+  100% { background-color: transparent; }
+}
+@keyframes flash-up {
+  0% { background-color: rgba(255, 107, 107, 0.35); }
+  100% { background-color: transparent; }
+}
+.flash-down { animation: flash-down 2.4s ease-out; border-radius: 8px; }
+.flash-up { animation: flash-up 2.4s ease-out; border-radius: 8px; }
+
+/* Oferta que acabou de chegar: brilho suave por 1 min. */
+@keyframes fresh-glow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(236, 237, 238, 0.35), 0 0 22px rgba(236, 237, 238, 0.1); }
+  50% { box-shadow: 0 0 0 1px rgba(236, 237, 238, 0.7), 0 0 30px rgba(236, 237, 238, 0.2); }
+}
+.fresh { animation: fresh-glow 2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .flash-down, .flash-up, .fresh { animation: none; }
+}
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

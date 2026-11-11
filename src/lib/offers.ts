@@ -96,8 +96,15 @@ export async function listOffers(opts: { onlyId?: number } = {}): Promise<OfferD
     alvo: alvo?.slug ? { slug: alvo.slug, name: alvo.name!, targetCents: ref?.targetCents ?? null } : null,
     band: alvo?.slug && o.bandKey && ref?.label ? { key: o.bandKey, label: ref.label, medianCents: ref.medianCents, n: ref.n ?? 0 } : null,
     alvoTetoCents: ref?.ceilingCents ?? null,
-    // Esgotado não conta como Alvo atingido: não dá para comprar.
-    alvoAtingido: !!(alvo?.slug && ref?.targetCents && o.priceCardCents && o.priceCardCents <= ref.targetCents && o.available !== false),
+    // Só vale com o preço conferido na loja e o produto à venda: preço de post e item esgotado não disparam ouro.
+    alvoAtingido: !!(
+      alvo?.slug &&
+      ref?.targetCents &&
+      o.priceCardCents &&
+      o.priceCardCents <= ref.targetCents &&
+      o.available !== false &&
+      o.verifyStatus === "verificado"
+    ),
     specs: o.specs,
     available: o.available,
     extra: o.extra,

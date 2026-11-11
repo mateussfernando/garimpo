@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { cleanUrl, storeForUrl } from "@/config/stores";
+import { cleanUrl, decodeTrackingUrl, storeForUrl } from "@/config/stores";
 import { db, schema } from "@/lib/db";
 import { ldProduct, meta, stripTags } from "../http/html";
 import { PausedError, RobotsError, politeFetch, unshorten } from "../http/polite";
@@ -18,7 +18,8 @@ async function markNotVerified(o: Offer, note: string) {
 /** Abre a página da loja uma vez e confere preço, parcelas, frete e foto. */
 export async function verifyOffer(o: Offer) {
   const [raw] = await db.select().from(rawMessages).where(eq(rawMessages.id, o.rawMessageId));
-  const start = raw?.outboundUrl ?? o.url;
+  const start0 = raw?.outboundUrl ?? o.url;
+  const start = start0 ? decodeTrackingUrl(start0) : null;
   if (!start) return markNotVerified(o, "sem link da loja");
   try {
     const finalUrl = cleanUrl(await unshorten(start));

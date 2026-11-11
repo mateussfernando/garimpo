@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { STORES, storeForUrl } from "@/config/stores";
+import { STORES, isShortener, storeForUrl } from "@/config/stores";
 import { db, schema } from "@/lib/db";
 import { anchors, ldProduct, meta, nextData, stripTags } from "../http/html";
 import { PausedError, RobotsError, politeFetch } from "../http/polite";
@@ -38,7 +38,15 @@ export function listItems(html: string, c: Community): ListItem[] {
       }
     }
   }
-  return [...byUrl.entries()].map(([url, title]) => ({ url, title })).filter((i) => i.title.length >= 6);
+  return [...byUrl.entries()]
+    .map(([url, title]) => ({ url, title: /coment[aá]rios?|^\d+$/i.test(title) ? titleFromSlug(url) : title }))
+    .filter((i) => i.title.length >= 6);
+}
+
+/** Quando o link do post só diz "10 Comentários", o título vem do endereço (gatry.com/promocoes/123/mouse-gamer-x). */
+function titleFromSlug(url: string): string {
+  const slug = new URL(url).pathname.split("/").filter(Boolean).pop() ?? "";
+  return slug.replace(/-/g, " ").trim();
 }
 
 /** Procura objetos com título e caminho/slug de oferta dentro de um JSON qualquer. */
@@ -68,7 +76,7 @@ export function readDealPage(html: string, pageUrl: string, c: Community, fallba
   // Botão para a loja: link direto para loja conhecida, ou o redirecionador da comunidade.
   let outboundUrl: string | null = null;
   const all = anchors(html, pageUrl);
-  const direct = all.find((a) => storeForUrl(a.href));
+  const direct = all.find((a) => storeForUrl(a.href)) ?? all.find((a) => isShortener(a.href));
   const ob = c.outbound;
   const viaButton = ob ? all.find((a) => ob.text.test(a.text) || ob.path.test(new URL(a.href).pathname)) : undefined;
   outboundUrl = (viaButton ?? direct)?.href ?? null;

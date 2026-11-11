@@ -8,11 +8,17 @@ import { NewMessage, type NewMessageEvent } from "telegram/events";
 import { StringSession } from "telegram/sessions";
 import { isShortener, storeForUrl } from "@/config/stores";
 import { db, schema } from "@/lib/db";
-import { ingestRaw } from "../pipeline";
+import { touchesAnyAlvo } from "../match/alvos";
+import { activeAlvos, ingestRaw } from "../pipeline";
 
 const { sources } = schema;
 
-const PROMO_NAME = /promo|oferta|achad|cupom|cupon|desconto|pechinch|barat|black|11\.?11|deal|garimp|economi|bug|preç|preco/i;
+// Grupo só liga sozinho se o nome tem cara de promoção E não é de outro assunto.
+// Os que ficam desligados você liga em sources.enabled (DBeaver).
+const PROMO_NAME = /promo|oferta|achad|cupom|cupon|desconto|pechinch|barat|black|11\.?11|garimp/i;
+const OFFTOPIC_NAME = /curso|vaga|emprego|bate.?papo|porn|putaria|hentai|18\s?\+|\bbet\b|apost|tigrinho|cripto|forex|signal|trade|anime|filme|s[ée]rie|m[úu]sica|futebol|igreja|b[íi]blia|concurso|estudo|faculdade/i;
+export const isOffTopicGroup = (name: string) => OFFTOPIC_NAME.test(name);
+export const isPromoGroup = (name: string) => PROMO_NAME.test(name) && !isOffTopicGroup(name);
 const URL_RE = /https?:\/\/[^\s<>"')\]]+/gi;
 const REFRESH_EVERY = 60 * 1000;
 
@@ -62,6 +68,9 @@ export async function startTelegram() {
   }
 
   const watched = new Map<string, Watched>();
+  // Mesmo filtro das comunidades: só entra mensagem que toca um Alvo (mouse, teclado, monitor...).
+  let alvos = await activeAlvos();
+  setInterval(() => activeAlvos().then((a) => (alvos = a)).catch(() => undefined), REFRESH_EVERY);
 
   async function syncDialogs() {
     const dialogs = await client.getDialogs({ limit: 300 });
@@ -79,9 +88,13 @@ export async function startTelegram() {
       if (!row) {
         [row] = await db
           .insert(sources)
-          .values({ slug, kind: "telegram", name, url, enabled: PROMO_NAME.test(name) })
+          .values({ slug, kind: "telegram", name, url, enabled: isPromoGroup(name) })
           .returning();
         console.log(`[telegram] fonte nova: ${name} (${row.enabled ? "ligada" : "desligada"})`);
+      } else if (row.enabled && isOffTopicGroup(name)) {
+        // Grupo de outro assunto que tinha ligado sozinho: desliga.
+        [row] = await db.update(sources).set({ name, url, enabled: false }).where(eq(sources.id, row.id)).returning();
+        console.log(`[telegram] desligado (outro assunto): ${name}`);
       } else if (row.name !== name || row.url !== url) {
         await db.update(sources).set({ name, url }).where(eq(sources.id, row.id));
       }
@@ -110,6 +123,7 @@ export async function startTelegram() {
       if (!text) return;
       const outboundUrl = extractOutbound(text);
       if (!outboundUrl) return; // papo sem link de loja não é oferta
+      if (!touchesAnyAlvo(text, alvos)) return; // assunto fora dos Alvos
       const externalId = `${String(event.chatId)}/${msg.id}`;
       const id = await ingestRaw({
         sourceId: w.sourceId,

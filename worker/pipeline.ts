@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, isNotNull, ne, sql } from "drizzle-orm";
 import { ALVOS_V0 } from "@/config/alvos";
-import { STORES, cleanUrl, storeByName, storeForUrl } from "@/config/stores";
+import { STORES, cleanUrl, decodeTrackingUrl, storeByName, storeForUrl } from "@/config/stores";
 import { db, NOTIFY_CHANNEL, pool, schema } from "@/lib/db";
 import { COMMUNITIES } from "./collect/communities-config";
 import { matchAlvo, targetsFrom } from "./match/alvos";
@@ -62,7 +62,8 @@ export async function ingestRaw(input: RawInput): Promise<number | null> {
   return createOffer(inserted[0].id, input);
 }
 
-async function createOffer(rawId: number, input: RawInput): Promise<number> {
+async function createOffer(rawId: number, input0: RawInput): Promise<number> {
+  const input = { ...input0, outboundUrl: input0.outboundUrl ? decodeTrackingUrl(input0.outboundUrl) : null };
   const parsed = parseOfferText(input.text);
   const alvo = matchAlvo(input.title, await activeAlvos());
   const store =

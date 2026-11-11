@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ALVOS_V0 } from "@/config/alvos";
-import { cleanUrl, storeForUrl } from "@/config/stores";
+import { cleanUrl, decodeTrackingUrl, storeForUrl } from "@/config/stores";
 import { listItems, readDealPage } from "./collect/communities";
 import { COMMUNITIES } from "./collect/communities-config";
 import { ldProduct } from "./http/html";
@@ -106,5 +106,14 @@ describe("links relativos com <base href> (Hardmob/vBulletin)", () => {
     const items = listItems(html, hardmob);
     expect(items).toHaveLength(1);
     expect(items[0].url).toBe("https://www.hardmob.com.br/threads/842496-Netshoes-Pasta-de-Amendoim-R990");
+  });
+});
+
+describe("redirecionador do Pelando", () => {
+  it("lê a URL da loja dentro do token, sem rede", () => {
+    const payload = Buffer.from(JSON.stringify({ url: "https://www.kabum.com.br/produto/1/x" })).toString("base64url");
+    expect(decodeTrackingUrl(`https://dpl.pelando.com.br/r/aaa.${payload}.sig?x=1`)).toBe("https://www.kabum.com.br/produto/1/x");
+    expect(decodeTrackingUrl("https://www.kabum.com.br/produto/1")).toBe("https://www.kabum.com.br/produto/1");
+    expect(decodeTrackingUrl("https://dpl.pelando.com.br/r/lixo")).toBe("https://dpl.pelando.com.br/r/lixo");
   });
 });

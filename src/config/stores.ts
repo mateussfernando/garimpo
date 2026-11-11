@@ -90,7 +90,7 @@ export const STORES: Store[] = [
   },
 ];
 
-const SHORTENERS = ["amzn.to", "a.co", "bit.ly", "tinyurl.com", "s.click.aliexpress.com", "mercadolivre.com/sec", "compre.vc", "oferta.vc", "is.gd", "t.co"];
+const SHORTENERS = ["amzn.to", "link.amazon", "s.shopee.com.br", "a.co", "bit.ly", "tinyurl.com", "s.click.aliexpress.com", "mercadolivre.com/sec", "compre.vc", "oferta.vc", "is.gd", "t.co"];
 
 export function hostOf(url: string): string | null {
   try {
@@ -118,6 +118,23 @@ export function isShortener(url: string): boolean {
   const host = hostOf(url);
   if (!host) return false;
   return SHORTENERS.some((s) => (url.includes(s) && s.includes("/")) || host === s);
+}
+
+/**
+ * O Pelando manda o link da loja dentro de um redirecionador (dpl.pelando.com.br/r/<JWT>), que o robots.txt
+ * e a Cloudflare não deixam robô abrir. A URL real vem no corpo do token: lemos aqui, sem pedir nada à rede.
+ */
+export function decodeTrackingUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (u.hostname !== "dpl.pelando.com.br" || !u.pathname.startsWith("/r/")) return url;
+    const payload = u.pathname.slice(3).split(".")[1];
+    if (!payload) return url;
+    const real = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"))?.url;
+    return typeof real === "string" && /^https?:\/\//i.test(real) ? real : url;
+  } catch {
+    return url;
+  }
 }
 
 /** Tira parâmetros de rastreio/afiliado e o fragmento. */

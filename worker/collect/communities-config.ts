@@ -29,6 +29,14 @@ export const COMMUNITIES: Community[] = [
     outbound: { text: /pegar promo|ir para a loja|ir para loja|ver oferta|pegar cupom/i, path: /redirect|\/api\/r|\/ir\//i },
   },
   {
+    // Sem robots.txt e sem bloqueio de robô. Os links de loja já vêm na própria página.
+    slug: "gatry",
+    name: "Gatry",
+    url: "https://gatry.com/",
+    dealPath: /^\/promocoes\/\d+\/[a-z0-9-]+\/?$/i,
+    outbound: null,
+  },
+  {
     slug: "hardmob",
     name: "Fórum de Promoções do Hardmob",
     url: "https://www.hardmob.com.br/forums/407-Promocoes",

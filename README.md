@@ -4,6 +4,8 @@ App pessoal que acha ofertas do 11.11 para os seus Alvos (braço articulado, mou
 
 ## Rodar no seu PC (Windows)
 
+O passo a passo completo, com Telegram, IA e solução de problemas, está em [docs/como-rodar.md](docs/como-rodar.md).
+
 1. Tenha Node 22 ou mais novo, o pnpm (`corepack enable`) e o PostgreSQL com um banco `garimpo` (dá para criar no DBeaver).
 2. `pnpm install`
 3. Copie `.env.example` para `.env` e preencha a `DATABASE_URL`.

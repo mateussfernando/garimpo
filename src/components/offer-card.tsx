@@ -139,7 +139,8 @@ export function OfferCard({ o, index, focused, now, flash, onOpen, onWatch, onDi
         <p className="flex items-center gap-1.5 truncate text-[11.5px] text-label" title={o.verifyNote ?? undefined}>
           <span className={`h-1.5 w-1.5 flex-none rounded-full ${o.verifyStatus === "verificado" ? "bg-good-dot" : o.verifyStatus === "pendente" ? "bg-ink-3" : "bg-pause"}`} />
           <span className="truncate">
-            {status} · {o.band ? `${o.band.label} · ` : ""}via {o.source}
+            {status} · {o.band ? `${o.band.label} · ` : ""}
+            {o.sources.length > 1 ? <span className="font-semibold text-ink-2" title={o.sources.join(", ")}>em {o.sources.length} fontes</span> : `via ${o.source}`}
           </span>
         </p>
 

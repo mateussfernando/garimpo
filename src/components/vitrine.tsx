@@ -104,12 +104,14 @@ export function Vitrine() {
 
   const dismiss = useCallback(
     (o: OfferDTO) => {
-      void patch(o.id, { dismissed: true });
+      // O card reúne todas as ofertas do mesmo produto: descartar (e desfazer) vale para todas.
+      const send = (dismissed: boolean) => Promise.all(o.groupIds.map((id) => patch(id, { dismissed })));
+      void send(true);
       setOpenId((cur) => (cur === o.id ? null : cur));
       toast("Oferta descartada", {
         description: o.title.slice(0, 70),
         duration: 6000,
-        action: { label: "Desfazer", onClick: () => void patch(o.id, { dismissed: false }) },
+        action: { label: "Desfazer", onClick: () => void send(false) },
       });
     },
     [patch],

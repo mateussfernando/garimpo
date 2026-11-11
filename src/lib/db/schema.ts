@@ -262,3 +262,11 @@ export const events = pgTable("events", {
   detail: jsonb("detail").$type<{ from?: number; to?: number; store?: string | null; source?: string; band?: string; target?: number }>(),
   at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Batimento do worker: se parar de bater, a Vitrine avisa que o worker caiu em vez de dizer "Ao vivo". */
+export const workerState = pgTable("worker_state", {
+  id: text("id").primaryKey(), // sempre "worker"
+  beatAt: timestamp("beat_at", { withTimezone: true }).notNull().defaultNow(),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  roles: text("roles").notNull().default(""),
+});

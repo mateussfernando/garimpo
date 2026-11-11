@@ -97,7 +97,8 @@ export async function collectCommunity(c: Community): Promise<{ found: number; r
   const id = await sourceId(c.slug);
   if (!id) return { found: 0, relevant: 0, added: 0 };
   try {
-    const list = await politeFetch(c.url);
+    // Ronda contínua: a página de recentes é relida cerca de 1 vez por minuto (o cache padrão de 10 min não serve aqui).
+    const list = await politeFetch(c.url, { ttlMs: 45 * 1000 });
     if (list.status >= 400) {
       await setSourceStatus(c.slug, "erro", `a página respondeu ${list.status}`);
       return { found: 0, relevant: 0, added: 0 };
@@ -146,5 +147,6 @@ export async function collectCommunity(c: Community): Promise<{ found: number; r
 export async function collectAll() {
   // Comunidades em paralelo: cada uma tem a própria fila de domínio.
   const results = await Promise.all(COMMUNITIES.map(async (c) => [c.slug, await collectCommunity(c)] as const));
-  for (const [slug, r] of results) console.log(`[coleta] ${slug}: ${r.found} posts, ${r.relevant} nos Alvos, ${r.added} novos`);
+  // Com a ronda a cada minuto, só vale registrar quando entra coisa nova.
+  for (const [slug, r] of results) if (r.added > 0) console.log(`[coleta] ${slug}: ${r.found} posts, ${r.relevant} nos Alvos, ${r.added} novos`);
 }

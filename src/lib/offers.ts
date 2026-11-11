@@ -44,6 +44,9 @@ export type OfferDTO = {
   extra: OfferExtra | null;
   source: string;
   sourceKind: string;
+  /** Todas as fontes que postaram este produto, e as ofertas reunidas neste card. */
+  sources: string[];
+  groupIds: number[];
   createdAt: string;
 };
 
@@ -69,7 +72,10 @@ export async function listOffers(opts: { onlyId?: number } = {}): Promise<OfferD
     )
     .orderBy(sql`${offers.nota} desc nulls last`, desc(offers.createdAt))
     .limit(300);
-  return rows.map(({ o, alvo, ref, source, sourceKind, productImage }) => ({
+  const all = rows.map(({ o, alvo, ref, source, sourceKind, productImage }) => ({
+    groupKey: o.productId ? `p:${o.productId}` : null,
+    sources: [source],
+    groupIds: [o.id],
     id: o.id,
     title: cleanTitle(o.title),
     store: STORES.find((s) => s.slug === o.store)?.name ?? null,
@@ -112,6 +118,67 @@ export async function listOffers(opts: { onlyId?: number } = {}): Promise<OfferD
     sourceKind,
     createdAt: o.createdAt.toISOString(),
   }));
+  return opts.onlyId != null ? all.map(strip) : groupByProduct(all).map(strip);
+}
+
+type Row = OfferDTO & { groupKey: string | null };
+const strip = ({ groupKey: _k, ...dto }: Row): OfferDTO => {
+  void _k;
+  return dto;
+};
+
+/**
+ * Código do modelo no título (EK241Y, VG279QM5F, 24MS500): letras e números juntos, 5 ou mais caracteres.
+ * Medidas e especificações (1080p, 144hz, 900x300mm, 512gb) não contam.
+ */
+export function modelCode(title: string): string | null {
+  const tokens = title.toLowerCase().match(/[a-z0-9]+(?:-[a-z0-9]+)*/g) ?? [];
+  const codes = tokens.filter(
+    (t) => t.length >= 5 && /[a-z]/.test(t) && /\d/.test(t) && !/^\d+(?:[.,]\d+)?(hz|ms|gb|tb|mb|mm|cm|w|p|k|pol|dpi|mah|fps|v|x\d.*)$/.test(t) && !/^\d+x\d+/.test(t),
+  );
+  return codes.sort((a, b) => b.length - a.length)[0] ?? null;
+}
+
+/**
+ * Um card por produto. Ofertas do mesmo produto (mesmo ID na loja ou, sem ele, mesmo código de modelo dentro do Alvo)
+ * viram uma só: fica a de preço conferido mais baixo, com a lista de fontes que postaram e a data da mais recente.
+ */
+export function groupByProduct(list: Row[]): Row[] {
+  const groups = new Map<string, Row[]>();
+  for (const o of list) {
+    const code = o.alvo ? modelCode(o.title) : null;
+    const key = o.groupKey ?? (code ? `m:${o.alvo!.slug}:${code}` : `o:${o.id}`);
+    groups.set(key, [...(groups.get(key) ?? []), o]);
+  }
+  // Oferta sem ID de loja se junta ao grupo do produto que tem o mesmo código de modelo.
+  const byCode = new Map<string, string>();
+  for (const [key, g] of groups) {
+    if (!key.startsWith("p:")) continue;
+    for (const o of g) {
+      const code = o.alvo ? modelCode(o.title) : null;
+      if (code) byCode.set(`m:${o.alvo!.slug}:${code}`, key);
+    }
+  }
+  for (const [key, g] of [...groups]) {
+    const target = key.startsWith("m:") ? byCode.get(key) : undefined;
+    if (target) {
+      groups.get(target)!.push(...g);
+      groups.delete(key);
+    }
+  }
+  const rank = (o: Row) => (o.verifyStatus === "verificado" ? 0 : o.verifyStatus === "pendente" ? 1 : 2);
+  return [...groups.values()]
+    .map((g) => {
+      const best = [...g].sort((a, b) => rank(a) - rank(b) || (a.priceCardCents ?? Infinity) - (b.priceCardCents ?? Infinity))[0];
+      return {
+        ...best,
+        sources: [...new Set(g.map((o) => o.source))],
+        groupIds: g.map((o) => o.id),
+        watched: g.some((o) => o.watched),
+        createdAt: g.reduce((mx, o) => (o.createdAt > mx ? o.createdAt : mx), best.createdAt),
+      };
+    })
+    .sort((a, b) => (b.nota ?? -1) - (a.nota ?? -1) || b.createdAt.localeCompare(a.createdAt));
 }
 
 export type StatusDTO = {

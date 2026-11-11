@@ -12,7 +12,9 @@
 | 6 | Operação do 11.11 | nenhum | 11/11 | [ ] |
 | 7 | Depois do 11.11 | `prompts/01` a `08` | 12/11 a 26/11 | [ ] |
 
-**Agora (18:50):** as Etapas 1 a 4 foram adiantadas e o código está pronto. Falta rodar no seu PC: `pnpm install`, `pnpm db:push`, `pnpm dev` e `pnpm fontes:debug` para conferir as comunidades de verdade. Veja o `README.md`.
+**Agora (22:30):** além das Etapas 1 a 4, já estão no ar o Telegram, a IA com insights, a vitrine do KaBuM! e as telas Detalhe, Fontes, Lojas e War Room. Falta o ensaio (Etapa 5). Veja o diário.
+
+**Antes (18:50):** as Etapas 1 a 4 foram adiantadas e o código está pronto. Falta rodar no seu PC: `pnpm install`, `pnpm db:push`, `pnpm dev` e `pnpm fontes:debug` para conferir as comunidades de verdade. Veja o `README.md`.
 
 **Linha de corte, às 21:30:** se a Etapa 3 não estiver pronta, deixe as ofertas "não verificadas" e vá direto para a Vitrine. Ofertas ao vivo, Parser e Vitrine já resolvem o 11.11.
 

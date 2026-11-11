@@ -14,8 +14,8 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Estado atual
 
-- **Quando:** 10/11/2026, 21:45.
-- **Fase:** plano acelerado. O código das Etapas 1 a 4 está pronto e testado com exemplos; ainda não rodou contra os sites de verdade.
+- **Quando:** 10/11/2026, 22:30.
+- **Fase:** plano acelerado, Etapas 1 a 4 rodando ao vivo no PC, mais Telegram, IA com insights, vitrine do KaBuM! e as telas Detalhe, Fontes, Lojas e War Room. Falta o ensaio (Etapa 5).
 - **Próximo passo:** Etapa 5, ensaio com tráfego real. O app já roda (`pnpm dev` no seu PC), com Telegram, Pelando, Promobit e Gatry; o Hardmob está pausado por 403.
 - **Prazo:** o 11.11 começa à meia-noite de hoje. A linha de corte é às 21:30 e o congelamento às 23:00.
 
@@ -33,6 +33,7 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 | Coleta educada | robots.txt, 1 pedido a cada 5 a 10 s por loja, cache, pausa de 1 h em 429 ou 403, sem proxy. |
 | Plano acelerado (10/11, 18:20) | Até o fim do 11.11 não há coleta rodando sozinha, agendamento nem pg-boss. Fica a verificação ao vivo de cada oferta que chega. Telegram e WhatsApp fora hoje: ofertas só do scraping ao vivo de comunidades e vitrines das lojas. Tudo num PC; o outro abre a Vitrine pela rede. Nota rápida, sem desconto real nem Black Fraude. |
 | Telegram entra no 11.11 (10/11, 21:10) | Reverte a parte do plano acelerado que deixava o Telegram de fora. GramJS na conta do usuário, só leitura, papel `listen`. Chats de grupo e canal: os com nome de promoção ligam sozinhos, os outros ficam desligados em `sources.enabled`. WhatsApp segue fora. |
+| Entram de novo no 11.11 (10/11, 22:00) | A pedido do usuário: IA com insights, vitrines das lojas, telas Detalhe, Fontes, Lojas e War Room. Continuam fora: WhatsApp, pg-boss e coleta diária, desconto real e Black Fraude. |
 | Fontes bloqueadas (10/11, 21:40) | Bloqueio de site não se contorna: nada de proxy nem disfarce, vale o robots.txt. Alternativas legítimas viram fontes extras, e tudo cai no mesmo funil (a mesma oferta em várias fontes sobe a nota pelo calor social). |
 | Coleta diária | Adiada para depois do 11.11: às 06:00, de 12/11 até a Black Friday (27/11). |
 | IA: provedor | Interface `AiProvider` com `claude-cli` (teste pela assinatura), `anthropic-api` e `ollama`, escolhidos por `AI_PROVIDER`. |
@@ -54,6 +55,25 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 - Design (canvas clicável): https://claude.ai/artifact/KpCmQB2sKdW9GvHR9Z7MD2
 
 ## Registro (mais recente primeiro)
+
+### 10/11/2026, 22:30 · IA, telas, vitrines e canais do Telegram
+
+- **Feito:**
+  - **IA (`worker/ai`):** interface `AiProvider` com `claude-cli`, `anthropic-api` (SDK oficial, instalado com o aval do CLAUDE.md) e `ollama`; Haiku 5.5 em tudo; `budget.ts` registra o uso, calcula o custo (`src/config/pricing.ts`: US$ 0,10 e US$ 0,50 por milhão de tokens) e recusa acima de US$ 4,50 ou de `AI_MAX_CHAMADAS_DIA`. Job de insights a cada 30 min: métricas do código, IA só quando o hash muda, resultado em `insights`. Testado com a sua assinatura: 3 insights, depois `iguais: 3` sem nova chamada;
+  - **Telas:** cabeçalho único com navegação e Gasto de IA; **Detalhe** (`/oferta/[id]`: histórico de 30 dias em gráfico e tabela, nota explicada, escada de preços, calor social, análise da IA); **Fontes** (Confirmar, Ignorar, Pausar, Retomar, Procurar de novo e convites achados); **Lojas** (saúde, pausa pelo usuário e pausas pedidas pela loja); **War Room** (`/war-room`, tudo pelo teclado, soneca de 1 h, fila ordenada pela nota);
+  - **Vitrine do KaBuM!:** categorias que trazem os produtos no HTML (monitores, mousepads, webcams); só ofertas com 10% ou mais de desconto que toquem um Alvo; marketplace de terceiros fora;
+  - **Telegram:** convites vistos nas mensagens vão para a tabela `invites`; filtro de nome também liga canais oficiais de loja; lista conferida de canais em `docs/canais-telegram.md`;
+  - **Plano:** o segundo PC (8 GB) saiu do plano e dos docs;
+  - **Pesquisa:** `docs/fontes-alternativas.md` (APIs, outros sites e buscadores).
+- **Decidido:** bloqueio não se contorna. Mercado Livre exige token na API. Buscadores não são fonte de preço. Posts do Pelando perdem o prefixo "Por R$ x:" no título, e a foto da loja vale mais que o banner da comunidade.
+- **Testado:** 21 testes, `tsc` e `eslint` passam; todas as páginas e APIs respondem; ações de Fontes e Lojas exercitadas e restauradas; Vitrine, Detalhe, Fontes e War Room abertas no navegador do app. O `next build` não foi rodado de novo hoje.
+- **Pendente:**
+  - mouses, teclados, SSDs e headsets do KaBuM! vêm de uma API interna: ficam com comunidades e Telegram;
+  - ⌘K "Buscar ou criar Alvo" (compilar Alvo por IA) e a triagem em lote não foram feitos; telas Alvos, Cupons e Compras do menu do design também não;
+  - Mercado Livre API: precisa de um app seu em developers.mercadolivre.com.br;
+  - preço da loja difere do post em alguns casos (ex.: Pix versus cartão): a Vitrine mostra o da loja.
+- **Próximo passo:** Etapa 5, ensaio com tráfego real.
+- **Como testar:** `pnpm dev`; abra `/`, `/fontes`, `/lojas`, `/war-room` e uma oferta; `pnpm ia:insights`; `pnpm vitrines:debug`; `pnpm test`.
 
 ### 10/11/2026, 21:45 · App rodando, verificação corrigida, filtro do Telegram e Gatry
 

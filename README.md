@@ -18,6 +18,8 @@ App pessoal que acha ofertas do 11.11 para os seus Alvos (braço articulado, mou
 | `pnpm dev` | Site e worker juntos. A coleta roda a cada 10 min e a verificação a cada 10 s, só enquanto estiver aberto. |
 | `pnpm simular` | Põe 10 ofertas de exemplo na Vitrine, para ver tudo funcionando e ensaiar. `pnpm simular --limpar` apaga. |
 | `pnpm telegram:login` | Login único na sua conta do Telegram. Imprime a sessão para colar em `TELEGRAM_SESSION` no `.env`. Depois ponha `listen` em `WORKER_ROLES`. |
+| `pnpm ia:insights` | Uma passada do job de insights com o provedor de `AI_PROVIDER`. Precisa de `CLAUDE_CODE_OAUTH_TOKEN` (`claude setup-token`) ou de `ANTHROPIC_API_KEY`. |
+| `pnpm vitrines:debug` | Lê as páginas de categoria das lojas uma vez e mostra o que o parser achou, sem gravar. |
 | `pnpm fontes:debug` | Baixa a lista de cada comunidade uma vez, salva o HTML em `.garimpo/debug/` e mostra quantos posts achou. |
 | `pnpm test` | Testes do parser, dos Alvos, da Nota e da extração. |
 | `pnpm db:push` | Cria ou atualiza as tabelas. |

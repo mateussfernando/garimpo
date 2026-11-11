@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import type { OfferDetailDTO } from "@/lib/detail";
+import { CompararLojas, spreadText, storeCount } from "./comparar-lojas";
 import { AiAnalysis } from "./ia";
 import { AppHeader, Badge, ago, brl, useLive, useNow, useStatus } from "./shell";
 
@@ -333,8 +334,14 @@ export function Detalhe({ id }: { id: number }) {
               </Section>
             </div>
 
+            {storeCount(d.offer.lojas) > 1 && (
+              <Section id="comparar" title={`Comparar lojas (${storeCount(d.offer.lojas)})`} sub={`O mesmo produto em lojas diferentes, do menor para o maior total no cartão com frete. ${spreadText(d.offer.lojas) ?? ""}`}>
+                <CompararLojas lojas={d.offer.lojas} currentId={d.offer.id} now={now} />
+              </Section>
+            )}
+
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-              <Section id="escada" title="Escada de preços" sub="Ofertas parecidas em outras lojas nas últimas 72 h: total no cartão">
+              <Section id="escada" title={storeCount(d.offer.lojas) > 1 ? "Parecidas em outras lojas" : "Escada de preços"} sub="Ofertas parecidas em outras lojas nas últimas 72 h (podem não ser o mesmo modelo): total no cartão">
                 {d.ladder.length === 0 ? (
                   <p className="text-[13px] text-muted">Nenhuma oferta parecida em outra loja por enquanto.</p>
                 ) : (

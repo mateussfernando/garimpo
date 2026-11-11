@@ -36,8 +36,11 @@ const median = (v: number[]) => {
 export async function getOfferDetail(id: number): Promise<OfferDetailDTO | null> {
   const [row] = await db.select().from(offers).where(eq(offers.id, id));
   if (!row) return null;
-  const offer = (await listOffers({ onlyId: id }))[0];
-  if (!offer) return null;
+  const alone = (await listOffers({ onlyId: id }))[0];
+  if (!alone) return null;
+  // O card da Vitrine junta o mesmo produto de várias lojas: o detalhe mostra a oferta aberta com as lojas do grupo.
+  const group = (await listOffers()).find((g) => g.groupIds.includes(id));
+  const offer = group ? { ...alone, lojas: group.lojas, sources: group.sources, groupIds: group.groupIds } : alone;
 
   // Histórico de 30 dias: o menor preço do dia, só de pontos da própria loja.
   let history: OfferDetailDTO["history"] = [];

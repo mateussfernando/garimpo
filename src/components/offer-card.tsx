@@ -2,6 +2,7 @@
 
 import { motion } from "motion/react";
 import type { OfferDTO } from "@/lib/offers";
+import { storeCount } from "./comparar-lojas";
 import { AiLine } from "./ia";
 import { Badge, ago, brl } from "./shell";
 
@@ -56,6 +57,9 @@ export function OfferCard({ o, index, now, flash, onOpen, onWatch, onDismiss }: 
   const ends = endsIn(o.extra?.endsAt, now);
   const parcela = parcelaText(o);
   const hasPix = !!(o.cashCents && o.priceCardCents && o.cashCents < o.priceCardCents);
+  // O mesmo produto em outras lojas: quantas e o menor preço entre elas.
+  const nStores = storeCount(o.lojas);
+  const minOther = Math.min(...o.lojas.filter((l) => l.available !== false && l.priceCardCents != null).map((l) => l.priceCardCents!));
   // Oferta velha perde brilho aos poucos; esgotada fica apagada.
   const dim = soldOut ? "opacity-50 grayscale" : ageMin > 12 * 60 ? "opacity-75" : "";
 
@@ -88,7 +92,12 @@ export function OfferCard({ o, index, now, flash, onOpen, onWatch, onDismiss }: 
           <span className="font-mono text-[15px] font-semibold text-num">{o.nota ?? "—"}</span>
           <span className="text-[11px] uppercase tracking-[0.06em] text-muted">nota</span>
         </span>
-        {o.store && <span className="absolute right-3 top-3 rounded-full border border-control bg-pill px-2.5 py-1.5 text-xs text-ink-2">{o.store}</span>}
+        {o.store && (
+          <span className="absolute right-3 top-3 rounded-full border border-control bg-pill px-2.5 py-1.5 text-xs text-ink-2">
+            {o.store}
+            {nStores > 1 && <span className="font-semibold text-ink"> +{nStores - 1}</span>}
+          </span>
+        )}
         {fresh && <span className="absolute bottom-3 left-3 rounded-full bg-ink px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-bg">Agora</span>}
         {soldOut && <span className="absolute bottom-3 left-3 rounded-full border border-[rgba(255,107,107,0.4)] bg-pill px-2.5 py-1 text-[11px] font-semibold uppercase text-bad">Esgotado</span>}
       </button>
@@ -142,7 +151,15 @@ export function OfferCard({ o, index, now, flash, onOpen, onWatch, onDismiss }: 
           <span className={`h-1.5 w-1.5 flex-none rounded-full ${o.verifyStatus === "verificado" ? "bg-good-dot" : o.verifyStatus === "pendente" ? "bg-ink-3" : "bg-pause"}`} />
           <span className="truncate">
             {status} · {o.band ? `${o.band.label} · ` : ""}
-            {o.sources.length > 1 ? <span className="font-semibold text-ink-2" title={o.sources.join(", ")}>em {o.sources.length} fontes</span> : `via ${o.source}`}
+            {nStores > 1 ? (
+              <span className="font-semibold text-ink-2" title={o.lojas.map((l) => `${l.store ?? "?"}: ${brl(l.priceCardCents)}`).join(" · ")}>
+                em {nStores} lojas{minOther < (o.priceCardCents ?? Infinity) ? `, a partir de ${brl(minOther)}` : ", aqui é o menor"}
+              </span>
+            ) : o.sources.length > 1 ? (
+              <span className="font-semibold text-ink-2" title={o.sources.join(", ")}>em {o.sources.length} fontes</span>
+            ) : (
+              `via ${o.source}`
+            )}
           </span>
         </p>
 

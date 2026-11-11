@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import type { OfferDetailDTO } from "@/lib/detail";
+import { CompararLojas, spreadText, storeCount } from "./comparar-lojas";
 import { AiAnalysis } from "./ia";
 import { endsIn, parcelaText, vsBand } from "./offer-card";
 import { Badge, ago, brl } from "./shell";
@@ -140,6 +141,16 @@ export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { 
             {o.extra?.couponNote && <p className="text-xs text-muted">{o.extra.couponNote}</p>}
             {o.verifyStatus === "nao_verificado" && o.verifyNote && <p className="text-xs text-pause">Não conferido: {o.verifyNote}. O preço é o do post.</p>}
 
+            {storeCount(o.lojas) > 1 && (
+              <section aria-label="Comparar lojas" className="flex flex-col gap-2">
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className="text-[11px] uppercase tracking-[0.06em] text-label">Em {storeCount(o.lojas)} lojas</span>
+                  <span className="truncate text-[11.5px] text-muted">{spreadText(o.lojas)}</span>
+                </span>
+                <CompararLojas lojas={o.lojas} currentId={o.id} now={now} compact />
+              </section>
+            )}
+
             <AiAnalysis ia={o.ia} now={now} />
 
             {ready.insight && (
@@ -186,7 +197,7 @@ export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { 
               ))}
             </section>
 
-            {ready.ladder.length > 0 && (
+            {storeCount(o.lojas) <= 1 && ready.ladder.length > 0 && (
               <section aria-label="Em outras lojas" className="flex flex-col gap-1">
                 <span className="text-[11px] uppercase tracking-[0.06em] text-label">Parecidas em outras lojas</span>
                 {ready.ladder.slice(0, 4).map((l) => (

@@ -59,6 +59,20 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 11/11/2026, 16:30 · Mesmo produto num card só e comparação entre lojas
+
+- **Feito:**
+  - **Agrupamento entre lojas** (`src/lib/same-product.ts`, com testes): junta o mesmo produto de grupos e lojas diferentes. Regras conservadoras: mesmo título; mesmo código de modelo (27GS60F, 5700X3D) com título parecido; ou títulos 70% iguais com os mesmos números (iPhone 15 ≠ 16, 128 ≠ 256 GB, TV 50" ≠ 55"). Categoria diferente ou preço acima do dobro nunca juntam, e o grupo inteiro fica dentro do dobro (um post sem preço não liga R$ 4,99 a R$ 3.725). Antes só juntava pelo mesmo produto na loja ou pelo código dentro de um Alvo;
+  - **`lojas` em cada card** (`storeQuotes` em `src/lib/offers.ts`): a melhor oferta de cada loja (conferida primeiro), da mais barata para a mais cara, esgotada por último. A "loja não identificada" só aparece se não houver loja conhecida;
+  - **Comparar lojas** (`src/components/comparar-lojas.tsx`): no painel lateral e no Detalhe, cada loja com total, parcelas, juros, Pix, frete, cupom, se foi conferida e quem postou. A mais barata ganha "Mais barato" e as outras mostram "+ R$ X". Uma frase diz quanto se economiza. No Detalhe, a antiga Escada de preços virou "Parecidas em outras lojas" quando há comparação;
+  - **Card:** selo da loja com "+N" e, na linha de estado, "em N lojas, a partir de R$ X" (ou "aqui é o menor");
+  - **Filtros:** o filtro de loja acha o card por qualquer loja do grupo; novo botão "Em várias lojas";
+  - Vitrine lê até 2.000 ofertas (antes 800), para achar mais pares.
+- **Medido:** 2.000 ofertas viram 805 cards em uns 160 ms; 13 produtos aparecem em 2 ou 3 lojas (PS5 Slim, GTA VI, G29, Ryzen 5700X, Boombox 4, EK241Y...).
+- **Achado:** o worker dá o mesmo `product_id` a páginas que não são produto: moedas da AliExpress (102 ofertas, 57 títulos), `aliexpress.com/s/error/404` (18) e live da Shopee (7). Por isso o mesmo `product_id` agora também precisa de título parecido para juntar. O histórico de preço desses "produtos" mistura coisas sem relação: falta corrigir na verificação.
+- **Testado:** 92 testes, `tsc` e `eslint`. No navegador: botão "Em várias lojas" (13 de 806), card "KaBuM! +1 … em 2 lojas, a partir de R$ 347,00", painel e Detalhe do PS5 com as 3 lojas.
+- **Próximo passo:** não criar produto para página de erro, moedas ou live na verificação, e limpar os que já existem.
+
 ### 11/11/2026, 15:40 · Análises da IA em 3 pistas ao mesmo tempo
 
 - **Feito:**

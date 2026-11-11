@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORIES, OTHER_CATEGORY, categoryName } from "@/config/categories";
 import { STORES } from "@/config/stores";
+import { storeCount } from "./comparar-lojas";
 import type { OfferDTO } from "@/lib/offers";
 import { describe, parseQuery, titleHas, type Parsed, type Sort } from "@/lib/smart-filter";
 import { Kbd, brl } from "./shell";
@@ -20,10 +21,12 @@ export type FilterState = {
   noInterest: boolean;
   coupon: boolean;
   aiPick: boolean;
+  /** Só produtos achados em mais de uma loja. */
+  multiStore: boolean;
   sort: Sort;
 };
 
-const DEFAULT: FilterState = { q: "", category: "all", alvo: "all", store: "all", price: "all", free: false, verified: false, noInterest: false, coupon: false, aiPick: false, sort: "nota" };
+const DEFAULT: FilterState = { q: "", category: "all", alvo: "all", store: "all", price: "all", free: false, verified: false, noInterest: false, coupon: false, aiPick: false, multiStore: false, sort: "nota" };
 /** Ofertas que a IA ainda vai classificar. */
 const PENDING = "__classificando";
 const NO_ALVO = "__nenhum";
@@ -61,7 +64,9 @@ function matcher(st: FilterState, p: Parsed) {
       if (category === PENDING ? o.category != null : (o.category ?? PENDING) !== category) return false;
     }
     if (skip !== "alvo" && st.alvo !== "all" && (st.alvo === NO_ALVO ? !!o.alvo : o.alvo?.slug !== st.alvo)) return false;
-    if (skip !== "store" && store !== "all" && o.store !== store) return false;
+    // O card junta o mesmo produto de várias lojas: vale qualquer uma delas.
+    if (skip !== "store" && store !== "all" && o.store !== store && !o.lojas.some((l) => l.store === store)) return false;
+    if (st.multiStore && storeCount(o.lojas) < 2) return false;
     if (skip !== "price" && (min != null || max != null)) {
       if (o.priceCardCents == null) return false;
       if (min != null && o.priceCardCents < min) return false;
@@ -123,7 +128,7 @@ export function useSmartFilters(offers: OfferDTO[] | null) {
   }, [offers, st, parsed]);
 
   const active =
-    st.q.trim() !== "" || st.category !== "all" || st.alvo !== "all" || st.store !== "all" || st.price !== "all" || st.free || st.verified || st.noInterest || st.coupon || st.aiPick;
+    st.q.trim() !== "" || st.category !== "all" || st.alvo !== "all" || st.store !== "all" || st.price !== "all" || st.free || st.verified || st.noInterest || st.coupon || st.aiPick || st.multiStore;
   return { st, setSt, parsed, ...result, active, reset: () => setSt((s) => ({ ...DEFAULT, sort: s.sort })) };
 }
 
@@ -286,6 +291,9 @@ export function FiltersBar({ st, setSt, parsed, cats, alvos, stores, prices, tot
         <span className="mx-1 hidden h-6 w-px bg-control sm:block" aria-hidden="true" />
         <button type="button" aria-pressed={st.aiPick || parsed.aiPick} onClick={() => set({ aiPick: !st.aiPick })} className={chip(st.aiPick || parsed.aiPick)} title="Excelentes e boas compras, segundo a análise da IA">
           ✦ Recomendadas pela IA
+        </button>
+        <button type="button" aria-pressed={st.multiStore} onClick={() => set({ multiStore: !st.multiStore })} className={chip(st.multiStore)} title="O mesmo produto achado em mais de uma loja, para comparar">
+          Em várias lojas
         </button>
         <button type="button" aria-pressed={st.verified || parsed.verified} onClick={() => set({ verified: !st.verified })} className={chip(st.verified || parsed.verified)}>
           Conferidas na loja

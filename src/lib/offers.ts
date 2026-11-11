@@ -3,6 +3,7 @@ import { STORES } from "@/config/stores";
 import { db, schema } from "@/lib/db";
 import type { OfferExtra, OfferSpecs } from "@/lib/db/schema";
 import { getAiStatus, type AiStatus } from "@/lib/ai-usage";
+import { clusterSameProduct } from "@/lib/same-product";
 import { getSetting } from "@/lib/settings";
 
 const { offers, alvos, alvoRefs, sources, products, offerAnalyses } = schema;
@@ -17,6 +18,28 @@ export type OfferAiDTO = {
   pros: string[];
   cons: string[];
   at: string;
+};
+
+/** O mesmo produto numa loja: a melhor oferta daquela loja dentro do card (para comparar as lojas). */
+export type StoreQuoteDTO = {
+  id: number;
+  /** Nome da loja; null = loja não identificada (link de encurtador que não abriu). */
+  store: string | null;
+  title: string;
+  url: string | null;
+  priceCardCents: number | null;
+  installments: number | null;
+  installmentCents: number | null;
+  interest: boolean | null;
+  cashCents: number | null;
+  freeShipping: boolean | null;
+  shippingCents: number | null;
+  coupon: string | null;
+  verifyStatus: string;
+  verifiedAt: string | null;
+  available: boolean | null;
+  sources: string[];
+  createdAt: string;
 };
 
 /** Posts do Pelando começam com "Por R$ 26,69:"; o preço já aparece à parte. */
@@ -66,6 +89,8 @@ export type OfferDTO = {
   /** Todas as fontes que postaram este produto, e as ofertas reunidas neste card. */
   sources: string[];
   groupIds: number[];
+  /** Uma linha por loja que tem este produto, a mais barata primeiro (esgotada por último). Uma só = nada a comparar. */
+  lojas: StoreQuoteDTO[];
   createdAt: string;
 };
 
@@ -92,11 +117,12 @@ export async function listOffers(opts: { onlyId?: number } = {}): Promise<OfferD
         : and(eq(offers.dismissed, false), eq(offers.kind, "produto"), gte(offers.createdAt, sql`now() - interval '48 hours'`)),
     )
     .orderBy(sql`${offers.nota} desc nulls last`, desc(offers.createdAt))
-    .limit(800);
+    .limit(2000);
   const all = rows.map(({ o, alvo, ref, source, sourceKind, productImage, ia }) => ({
-    groupKey: o.productId ? `p:${o.productId}` : null,
+    productId: o.productId,
     sources: [source],
     groupIds: [o.id],
+    lojas: [] as StoreQuoteDTO[],
     id: o.id,
     title: cleanTitle(o.title),
     store: STORES.find((s) => s.slug === o.store)?.name ?? null,
@@ -152,14 +178,48 @@ export async function listOffers(opts: { onlyId?: number } = {}): Promise<OfferD
     sourceKind,
     createdAt: o.createdAt.toISOString(),
   }));
-  return opts.onlyId != null ? all.map(strip) : groupByProduct(all).map(strip);
+  return opts.onlyId != null ? all.map((o) => strip({ ...o, lojas: storeQuotes([o]) })) : groupByProduct(all).map(strip);
 }
 
-type Row = OfferDTO & { groupKey: string | null };
-const strip = ({ groupKey: _k, ...dto }: Row): OfferDTO => {
-  void _k;
+type Row = OfferDTO & { productId: number | null };
+const strip = ({ productId: _p, ...dto }: Row): OfferDTO => {
+  void _p;
   return dto;
 };
+
+const rank = (o: { verifyStatus: string }) => (o.verifyStatus === "verificado" ? 0 : o.verifyStatus === "pendente" ? 1 : 2);
+
+/** A melhor oferta de cada loja do grupo (conferida primeiro, depois a mais barata), da mais barata para a mais cara. */
+export function storeQuotes(g: OfferDTO[]): StoreQuoteDTO[] {
+  const byStore = new Map<string, OfferDTO[]>();
+  for (const o of g) byStore.set(o.store ?? "", [...(byStore.get(o.store ?? "") ?? []), o]);
+  // O mesmo post por um encurtador que não abriu vira "loja não identificada": só entra se não houver loja conhecida.
+  if (byStore.size > 1) byStore.delete("");
+  return [...byStore.values()]
+    .map((list) => {
+      const b = [...list].sort((x, y) => (x.available === false ? 1 : 0) - (y.available === false ? 1 : 0) || rank(x) - rank(y) || (x.priceCardCents ?? Infinity) - (y.priceCardCents ?? Infinity))[0];
+      return {
+        id: b.id,
+        store: b.store,
+        title: b.title,
+        url: b.url,
+        priceCardCents: b.priceCardCents,
+        installments: b.installments,
+        installmentCents: b.installmentCents,
+        interest: b.interest,
+        cashCents: b.cashCents,
+        freeShipping: b.freeShipping,
+        shippingCents: b.shippingCents,
+        coupon: b.coupon,
+        verifyStatus: b.verifyStatus,
+        verifiedAt: b.verifiedAt,
+        available: b.available,
+        sources: [...new Set(list.map((o) => o.source))],
+        createdAt: list.reduce((mx, o) => (o.createdAt > mx ? o.createdAt : mx), b.createdAt),
+      };
+    })
+    .sort((a, b) => (a.available === false ? 1 : 0) - (b.available === false ? 1 : 0) || (a.priceCardCents ?? Infinity) - (b.priceCardCents ?? Infinity));
+}
 
 /**
  * Código do modelo no título (EK241Y, VG279QM5F, 24MS500): letras e números juntos, 5 ou mais caracteres.
@@ -174,40 +234,20 @@ export function modelCode(title: string): string | null {
 }
 
 /**
- * Um card por produto. Ofertas do mesmo produto (mesmo ID na loja ou, sem ele, mesmo código de modelo dentro do Alvo)
- * viram uma só: fica a de preço conferido mais baixo, com a lista de fontes que postaram e a data da mais recente.
+ * Um card por produto. Ofertas do mesmo produto, na mesma loja ou em lojas diferentes (src/lib/same-product.ts),
+ * viram uma só: fica a de preço conferido mais baixo, com as fontes que postaram, a data da mais recente e
+ * a lista de lojas para comparar.
  */
 export function groupByProduct(list: Row[]): Row[] {
-  const groups = new Map<string, Row[]>();
-  for (const o of list) {
-    const code = o.alvo ? modelCode(o.title) : null;
-    const key = o.groupKey ?? (code ? `m:${o.alvo!.slug}:${code}` : `o:${o.id}`);
-    groups.set(key, [...(groups.get(key) ?? []), o]);
-  }
-  // Oferta sem ID de loja se junta ao grupo do produto que tem o mesmo código de modelo.
-  const byCode = new Map<string, string>();
-  for (const [key, g] of groups) {
-    if (!key.startsWith("p:")) continue;
-    for (const o of g) {
-      const code = o.alvo ? modelCode(o.title) : null;
-      if (code) byCode.set(`m:${o.alvo!.slug}:${code}`, key);
-    }
-  }
-  for (const [key, g] of [...groups]) {
-    const target = key.startsWith("m:") ? byCode.get(key) : undefined;
-    if (target) {
-      groups.get(target)!.push(...g);
-      groups.delete(key);
-    }
-  }
-  const rank = (o: Row) => (o.verifyStatus === "verificado" ? 0 : o.verifyStatus === "pendente" ? 1 : 2);
-  return [...groups.values()]
-    .map((g) => {
-      const best = [...g].sort((a, b) => rank(a) - rank(b) || (a.priceCardCents ?? Infinity) - (b.priceCardCents ?? Infinity))[0];
+  return clusterSameProduct(list)
+    .map((idx) => {
+      const g = idx.map((i) => list[i]);
+      const best = [...g].sort((a, b) => (a.available === false ? 1 : 0) - (b.available === false ? 1 : 0) || rank(a) - rank(b) || (a.priceCardCents ?? Infinity) - (b.priceCardCents ?? Infinity))[0];
       return {
         ...best,
         sources: [...new Set(g.map((o) => o.source))],
         groupIds: g.map((o) => o.id),
+        lojas: storeQuotes(g),
         watched: g.some((o) => o.watched),
         // A análise de qualquer cópia do produto vale para o card.
         ia: best.ia ?? g.find((o) => o.ia)?.ia ?? null,

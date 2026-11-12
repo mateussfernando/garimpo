@@ -32,6 +32,7 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 | Fontes e Alvos | Descobertos sozinhos. O usuário só confirma e nunca digita configuração. Vale para os grupos do Telegram; os Alvos mudaram em 11/11 e as Fontes ganharam tipos configuráveis em 12/11 (linhas abaixo). |
 | Fontes configuráveis (12/11, 14:30) | A pedido do usuário, a tela Fontes adiciona fontes de três tipos genéricos: feed RSS, página de ofertas (dados em `__NEXT_DATA__` ou JSON-LD) e busca em loja VTEX (parcelas e juros por cartão). Cada uma tem intervalo (mínimo por tipo, coleta educada), Testar, editar, ler agora e apagar. Quem abre os sites é sempre o worker: o botão Testar só pede por `pg_notify` (canal `garimpo_fontes`). As fontes do código e do Telegram continuam só com confirmar e pausar. Sugestões e canais vêm da pesquisa de `docs/fontes-novas.md`. |
 | Alvos configuráveis (11/11, 17:55) | A pedido do usuário, os Alvos se ajustam na tela Alvos: criar, editar nome, termos e exclusões, ligar e desligar, voltar ao padrão, apagar, e preço-alvo e teto por faixa (vazio = automático, 85% e 115% da mediana). Os Alvos de `config/alvos.ts` são só o ponto de partida: um Alvo editado ou apagado na tela não é mais sobrescrito pelo worker. |
+| Fotos só por endereço (12/11) | O projeto nunca guarda arquivo de imagem: só a URL da foto, de CDN externo (da loja ou da página). Vale para o deploy: nada de Storage para fotos. |
 | Coleta educada | robots.txt, 1 pedido a cada 5 a 10 s por loja, cache, sem proxy. Pausa em 429, 403 ou 503 vale para o domínio inteiro, segura a fila, sobrevive ao reinício e cresce se o site reclamar de novo (1 h, 6 h, 24 h). Atualizado em 11/11 a pedido do usuário: o IP não pode entrar em lista de bloqueio. |
 | Qualquer produto (11/11) | Telegram e comunidades trazem qualquer produto com link de loja; o usuário escolhe pelos grupos em que entra. Alvos só classificam. Categorias por regra e, no que sobrar, IA em lote. Posts de cupom vão para a tela Cupons. |
 | IA sem teto (11/11) | A trava de US$ 4,50 e `AI_MAX_CHAMADAS_DIA` saíram. O usuário pausa e continua a IA no cabeçalho, chama a IA quando quiser e vê o custo e o uso da assinatura (5 h e semana). |
@@ -60,6 +61,13 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 - Design (canvas clicável): https://claude.ai/artifact/KpCmQB2sKdW9GvHR9Z7MD2
 
 ## Registro (mais recente primeiro)
+
+### 12/11/2026, 16:20 · Fotos: só o endereço (CDN externo), nunca arquivo de imagem
+
+- **Pedido do usuário:** o projeto nunca guarda arquivo de imagem; só o endereço da foto, de CDN externo, para não ocupar espaço do banco nem do deploy (Supabase grátis: 500 MB).
+- **Feito:** retirado o download das fotos do Telegram da entrada das 15:20 (`telegram-fotos.ts`, `lib/fotos.ts` e a rota `/api/foto` saíram; o código nunca chegou a rodar, então nenhum arquivo foi baixado nem a pasta `.garimpo/fotos` existiu). Ficaram só as partes que usam endereço: a foto da página da Amazon na conferência e a foto de outra cópia do mesmo produto no card.
+- **Medido:** os endereços de foto ocupam cerca de 240 KB no banco (ofertas, produtos e histórico), de 20 MB no total.
+- **Decisão (nova linha na tabela):** `image_url` guarda só URL. Oferta do Telegram sem foto na loja fica sem imagem. Sem Storage de fotos no deploy.
 
 ### 12/11/2026, 15:20 · Radar da IA minimizável e foto para as ofertas sem imagem
 

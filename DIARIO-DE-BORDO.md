@@ -29,7 +29,8 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 | Preço | Total no cartão no maior número de parcelas sem juros, em centavos. Frete grátis em destaque. |
 | Alertas | Só na Vitrine. Nada de notificação no celular ou no WhatsApp. |
 | WhatsApp e Telegram | Somente leitura. O app nunca envia mensagem nem entra em grupo. Conversas individuais nunca são lidas. |
-| Fontes e Alvos | Descobertos sozinhos. O usuário só confirma e nunca digita configuração. Vale para as Fontes; os Alvos mudaram em 11/11 (linha abaixo). |
+| Fontes e Alvos | Descobertos sozinhos. O usuário só confirma e nunca digita configuração. Vale para os grupos do Telegram; os Alvos mudaram em 11/11 e as Fontes ganharam tipos configuráveis em 12/11 (linhas abaixo). |
+| Fontes configuráveis (12/11, 14:30) | A pedido do usuário, a tela Fontes adiciona fontes de três tipos genéricos: feed RSS, página de ofertas (dados em `__NEXT_DATA__` ou JSON-LD) e busca em loja VTEX (parcelas e juros por cartão). Cada uma tem intervalo (mínimo por tipo, coleta educada), Testar, editar, ler agora e apagar. Quem abre os sites é sempre o worker: o botão Testar só pede por `pg_notify` (canal `garimpo_fontes`). As fontes do código e do Telegram continuam só com confirmar e pausar. Sugestões e canais vêm da pesquisa de `docs/fontes-novas.md`. |
 | Alvos configuráveis (11/11, 17:55) | A pedido do usuário, os Alvos se ajustam na tela Alvos: criar, editar nome, termos e exclusões, ligar e desligar, voltar ao padrão, apagar, e preço-alvo e teto por faixa (vazio = automático, 85% e 115% da mediana). Os Alvos de `config/alvos.ts` são só o ponto de partida: um Alvo editado ou apagado na tela não é mais sobrescrito pelo worker. |
 | Coleta educada | robots.txt, 1 pedido a cada 5 a 10 s por loja, cache, sem proxy. Pausa em 429, 403 ou 503 vale para o domínio inteiro, segura a fila, sobrevive ao reinício e cresce se o site reclamar de novo (1 h, 6 h, 24 h). Atualizado em 11/11 a pedido do usuário: o IP não pode entrar em lista de bloqueio. |
 | Qualquer produto (11/11) | Telegram e comunidades trazem qualquer produto com link de loja; o usuário escolhe pelos grupos em que entra. Alvos só classificam. Categorias por regra e, no que sobrar, IA em lote. Posts de cupom vão para a tela Cupons. |
@@ -59,6 +60,28 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 - Design (canvas clicável): https://claude.ai/artifact/KpCmQB2sKdW9GvHR9Z7MD2
 
 ## Registro (mais recente primeiro)
+
+### 12/11/2026, 14:30 · Pesquisa de fontes novas e fontes configuráveis na tela Fontes
+
+- **Pedido:** "faça uma pesquisa profunda de fontes que eu posso adicionar e que sejam possiveis" e "depois crie uma tela de fontes configuraveis tambem".
+- **Pesquisa** (`docs/fontes-novas.md`; notas em `research_notes/`): comunidades, lojas, histórico de preço e Telegram, conferidos em 11 e 12/11 com HTTP simples e o robots.txt de cada site.
+  - **Dá hoje:** Pechinchou (`__NEXT_DATA__` com link direto da loja), busca VTEX pública de Waz, Fast Shop e Americanas (parcelas e juros por cartão), Hardware Barato (JSON-LD), feeds do Hardware.com.br, Tecnoblog e Olhar Digital, e a categoria de SSD do KaBuM!;
+  - **Fechado:** Mercado Livre, Amazon (Condições de Uso), Pichau, Terabyte, Magalu, Casas Bahia, Zoom/Buscapé e Reddit;
+  - **Telegram:** três canais novos conferidos no t.me (@ctofertas, @cupomonline, @Promoimporta). `t.me/promobit` não é o Promobit;
+  - **Histórico:** o JáCotei tem a série de preços na página do produto, e a regra do selo dele pede 14 dias de base. Por isso os preços das lojas já começam a ser gravados.
+- **Feito:**
+  - **Tela Fontes:** botão "Adicionar fonte" com três tipos (feed RSS, página de ofertas e busca em loja VTEX), nome, intervalo (vazio = padrão; mínimo por tipo), Testar, Salvar e Cancelar. Nas fontes da tela: Editar, Ler agora e Apagar com confirmação. Seções "Sugeridas pela pesquisa" (Adicionar e Testar com um clique) e "Canais do Telegram para entrar" (links do t.me; você entra pelo app);
+  - **Banco:** `sources.config`, `sources.origin`, `sources.interval_min` e `sources.deleted_at` (`db:push` aplicado);
+  - **Worker:** `collect/genericas-parse.ts` (leitores sem rede: `parseFeed`, `parseDataPage`, `parseVtex`) e `collect/genericas.ts` (coleta a cada minuto, cada fonte no seu intervalo; Testar pelo canal `garimpo_fontes`, resultado em `app_settings.fonte_teste`). Na VTEX, total no cartão = maior parcela sem juros (Fast Shop só tem 1x sem juros: vale o preço cheio);
+  - **Vitrines:** `ingestStoreProducts` agora serve ao KaBuM! e à VTEX, e grava o preço dos produtos dos seus Alvos em `price_points` (um ponto a cada 6 h ou quando o preço muda). A vitrine do KaBuM! ganhou a página de SSDs;
+  - **Lojas e encurtadores:** Waz e Fast Shop em `config/stores.ts`; `influenciadormagalu.com.br` no Magalu; `pechin.co`, `cupom.cc`, `mcmgz.in`, `tiny.cc`, `canalte.ch` e `tecno.click` nos encurtadores.
+- **Decisões:** fontes configuráveis (nova linha na tabela). Nenhuma sugestão foi ligada sozinha: você escolhe na tela. O site nunca abre o site de uma fonte, nem no Testar.
+- **Testado:** 108 testes (8 novos dos leitores), `tsc` e `eslint`. Com um script de uma vez só: Pechinchou trouxe 40 ofertas com link de loja, a Waz 24 produtos com parcelas e o feed do Hardware.com.br 50 posts. No navegador: criar uma fonte de feed, intervalo abaixo do mínimo bloqueado, editar o filtro, erros de endereço sem https, de loja fora do `stores.ts` e de apagar fonte do código; criar, "ler agora" e apagar pela API. Um clique errado no navegador (painel escondido) adicionou a Pechinchou sem querer: ela nunca foi lida e foi removida, junto com as fontes de teste. O Testar ponta a ponta (site → worker → site) depende do worker novo; o lado do worker foi conferido pelo script.
+- **Pendente:**
+  - O worker em execução (desde 13:39 de 12/11, sem watch) não tem o código novo: as fontes adicionadas só são lidas, e o Testar só responde, depois de reiniciar com `pnpm worker`;
+  - Americanas pela VTEX precisa do nome do vendedor próprio (não confirmado); Hardware Barato não foi testado na página de promoções;
+  - O selo "desconto real" usando o histórico (regra do JáCotei, `referencePrices` do Promobit) fica para depois.
+- **Como testar:** `pnpm worker`, abra `/fontes`, clique em Testar numa sugestão, depois em Adicionar; em até um minuto a fonte é lida e o status mostra quantas ofertas entraram.
 
 ### 11/11/2026, 17:55 · Alvos configuráveis na tela Alvos
 

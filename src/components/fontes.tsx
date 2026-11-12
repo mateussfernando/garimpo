@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { Fragment, useCallback, useState } from "react";
 import type { FonteDTO, FonteState, FontesDTO } from "@/lib/fontes";
+import { ConfigActions, FonteForm, Sugestoes } from "./fontes-config";
 import { AppHeader, Badge, PageTitle, ago, useLive, useNow, useStatus } from "./shell";
 
 const LABEL: Record<FonteState, string> = { confirmada: "Confirmada", sugerida: "Sugerida", pausada: "Pausada", ignorada: "Ignorada" };
@@ -17,6 +18,8 @@ function Btn({ children, onClick, primary }: { children: React.ReactNode; onClic
 export function Fontes() {
   const [data, setData] = useState<FontesDTO | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<number | null>(null);
   const { status, live } = useStatus();
   const now = useNow(30_000);
 
@@ -53,15 +56,33 @@ export function Fontes() {
       <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-7 px-8 pb-10 pt-7">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <PageTitle title="Fontes">
-            Grupos e canais de promoção achados sozinhos na sua conta do Telegram, e as comunidades na web. O Garimpo só lê: não envia mensagens, não entra em grupos e nunca abre conversas individuais.
+            Grupos e canais de promoção achados sozinhos na sua conta do Telegram, as comunidades na web e as fontes que você adiciona aqui (feed RSS, página de ofertas e busca em loja VTEX). O Garimpo só lê: não envia mensagens, não entra em grupos e nunca abre conversas individuais.
           </PageTitle>
           <div className="flex items-center gap-3 text-[13px] text-muted">
             <span>{scanning ? "lendo a lista de grupos e canais" : tg?.lastScan ? `última busca ${ago(tg.lastScan, now)}` : "sem busca ainda"}</span>
             <button type="button" onClick={rescan} aria-busy={scanning} disabled={scanning || !tg?.hasSession} className="h-11 rounded-[10px] border border-control px-4 text-[13px] font-medium text-ink-2 disabled:opacity-50">
               {scanning ? "Procurando…" : "Procurar de novo"}
             </button>
+            {!adding && (
+              <button type="button" onClick={() => setAdding(true)} className="h-11 rounded-[10px] border border-ink bg-ink px-4 text-[13px] font-medium text-bg">
+                Adicionar fonte
+              </button>
+            )}
           </div>
         </div>
+
+        {adding && (
+          <section aria-label="Adicionar fonte" className="rounded-2xl border border-ink-3 bg-surface p-5">
+            <h2 className="mb-3 text-lg font-semibold tracking-tight">Adicionar fonte</h2>
+            <FonteForm
+              fonte={null}
+              onDone={async (saved) => {
+                setAdding(false);
+                if (saved) await load();
+              }}
+            />
+          </section>
+        )}
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="flex flex-col gap-2 rounded-2xl border border-card-line bg-surface p-5">
@@ -104,7 +125,8 @@ export function Fontes() {
               ))}
             </div>
             {fontes.map((f) => (
-              <div key={f.id} role="row" className={`grid min-w-[900px] grid-cols-[2.4fr_1.3fr_0.8fr_1fr_1fr_1.6fr] items-center gap-3 border-b border-line px-4 py-2.5 last:border-b-0 ${f.state === "ignorada" ? "opacity-50" : ""}`}>
+              <Fragment key={f.id}>
+              <div role="row" className={`grid min-w-[900px] grid-cols-[2.4fr_1.3fr_0.8fr_1fr_1fr_1.6fr] items-center gap-3 border-b border-line px-4 py-2.5 last:border-b-0 ${f.state === "ignorada" ? "opacity-50" : ""}`}>
                 <span role="cell" className="flex min-w-0 flex-col">
                   <span className="truncate text-sm font-medium">{f.name}</span>
                   <span className="truncate text-xs text-muted">{f.why}</span>
@@ -117,6 +139,11 @@ export function Fontes() {
                     </span>
                   )}
                   {f.kind !== "telegram" && f.statusNote && <span className="truncate font-mono text-[11px] text-ink-3">{f.statusNote}</span>}
+                  {f.editable && (
+                    <span className="truncate font-mono text-[11px] text-ink-3">
+                      a cada {f.intervalMin ?? f.defaultIntervalMin} min{f.lastRunAt ? ` · lida ${ago(f.lastRunAt, now)}` : " · ainda não lida"}
+                    </span>
+                  )}
                 </span>
                 <span role="cell" className="text-[13px] text-ink-2">{f.where}</span>
                 <span role="cell" className="font-mono tnum text-[13px]">{f.perDay || "—"}</span>
@@ -140,13 +167,28 @@ export function Fontes() {
                   {f.state === "confirmada" && <Btn onClick={() => void act(f, "pausar")}>Pausar</Btn>}
                   {f.state === "pausada" && <Btn onClick={() => void act(f, "retomar")}>Retomar</Btn>}
                   {f.state === "ignorada" && <Btn onClick={() => void act(f, "desfazer")}>Desfazer</Btn>}
+                  {f.editable && <ConfigActions f={f} onEdit={() => setEditing(editing === f.id ? null : f.id)} reload={load} />}
                 </span>
               </div>
+              {editing === f.id && (
+                <div role="row" className="min-w-[900px] border-b border-line bg-bg px-4 py-4">
+                  <FonteForm
+                    fonte={f}
+                    onDone={async (saved) => {
+                      setEditing(null);
+                      if (saved) await load();
+                    }}
+                  />
+                </div>
+              )}
+              </Fragment>
             ))}
             {data && fontes.length === 0 && <p className="px-4 py-8 text-center text-[13px] text-muted">Nenhuma fonte ainda. O worker cria as fontes quando sobe.</p>}
           </div>
           <p className="text-xs text-muted">Grupos com nome de promoção ligam sozinhos; os de outros assuntos (cursos, vagas, bate-papo) ficam como sugeridos para você decidir. Além do nome, só entra mensagem com link de loja que toque um dos seus Alvos.</p>
         </section>
+
+        <Sugestoes data={data} reload={load} />
 
         <section aria-labelledby="sugestoes" className="flex flex-col gap-3">
           <div className="flex flex-wrap items-baseline justify-between gap-2">

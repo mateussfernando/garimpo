@@ -5,7 +5,8 @@
 //
 // Conferido em 10/11/2026 contra páginas de produto: na listagem do KaBuM!, os campos de preço são os de ANTES da
 // campanha, e só o texto de parcelas ("10x de R$ 111,76") reflete o preço do dia. Por isso o preço vivo vem das parcelas.
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
+import { STORES, productIdFor } from "@/config/stores";
 import { parseBRL } from "@/lib/money";
 import { db, schema } from "@/lib/db";
 import { nextData } from "../http/html";
@@ -99,6 +100,88 @@ async function sourceOf(slug: string) {
   return s?.enabled ? s : null;
 }
 
+type Alvos = Awaited<ReturnType<typeof activeAlvos>>;
+export type TouchedBands = Map<string, { alvoId: number; key: string; label: string }>;
+
+/**
+ * Guarda o preço de hoje de um produto da loja em price_points (no máximo um ponto a cada 6 h, ou quando o preço muda).
+ * É a base do histórico: o selo "desconto real" precisa de dias de preço gravado antes da Black Friday.
+ */
+async function recordStorePrice(storeSlug: string, p: VitrineProduct, price: number) {
+  const store = STORES.find((s) => s.slug === storeSlug);
+  const code = store ? productIdFor(store, p.url) : null;
+  if (!code) return;
+  const [prod] = await db
+    .insert(schema.products)
+    .values({ store: storeSlug, storeProductId: code, canonicalUrl: p.url, title: p.name.slice(0, 300), imageUrl: p.imageUrl })
+    .onConflictDoUpdate({ target: [schema.products.store, schema.products.storeProductId], set: { title: p.name.slice(0, 300), ...(p.imageUrl ? { imageUrl: p.imageUrl } : {}) } })
+    .returning({ id: schema.products.id });
+  const [last] = await db
+    .select({ p: schema.pricePoints.priceCardCents, at: schema.pricePoints.observedAt })
+    .from(schema.pricePoints)
+    .where(eq(schema.pricePoints.productId, prod.id))
+    .orderBy(desc(schema.pricePoints.observedAt))
+    .limit(1);
+  if (last && last.p === price && Date.now() - last.at.getTime() < 6 * 60 * 60 * 1000) return;
+  const n = p.installmentText?.match(/(\d{1,2})\s*x/i)?.[1];
+  await db.insert(schema.pricePoints).values({
+    productId: prod.id,
+    priceCardCents: price,
+    cashCents: p.cashCents,
+    installments: n ? Number(n) : null,
+    interest: false,
+    imageUrl: p.imageUrl,
+    origin: "loja",
+  });
+}
+
+/**
+ * Produtos de uma vitrine ou busca de loja: o que cai num Alvo vira preço de mercado (mediana da faixa) e ponto de
+ * histórico; vira oferta só o que está 10% ou mais abaixo do preço "de", as maiores quedas primeiro (até 15).
+ */
+export async function ingestStoreProducts(input: {
+  sourceId: number;
+  storeSlug: string;
+  storeName: string;
+  products: VitrineProduct[];
+  alvos: Alvos;
+  touched: TouchedBands;
+}): Promise<{ market: number; relevant: number; added: number }> {
+  const { sourceId, storeSlug, storeName, products, alvos, touched } = input;
+  let market = 0;
+  let added = 0;
+  const classified = products.map((p) => ({ p, c: classify(p.name, alvos) })).filter((x) => x.c.alvo);
+  for (const { p, c } of classified) {
+    const price = cardNow(p);
+    if (!price) continue;
+    await recordStorePrice(storeSlug, p, price);
+    if (!c.band) continue;
+    await db
+      .insert(schema.marketObs)
+      .values({ store: storeSlug, code: p.code, alvoId: c.alvo!.id, bandKey: c.band.key, title: p.name.slice(0, 200), priceCardCents: price })
+      .onConflictDoUpdate({
+        target: [schema.marketObs.store, schema.marketObs.code],
+        set: { alvoId: c.alvo!.id, bandKey: c.band.key, priceCardCents: price, seenAt: new Date() },
+      });
+    touched.set(`${c.alvo!.id}:${c.band.key}`, { alvoId: c.alvo!.id, key: c.band.key, label: c.band.label });
+    market++;
+  }
+  const picks = classified
+    .map((x) => x.p)
+    .filter((p) => isDeal(p))
+    .sort((a, b) => discountOf(b) - discountOf(a))
+    .slice(0, 15);
+  for (const p of picks) {
+    const id = await ingestRaw({ sourceId, externalId: p.url, title: p.name, text: textFor(p), url: p.url, outboundUrl: p.url, imageUrl: p.imageUrl, storeName });
+    if (id) added++;
+  }
+  return { market, relevant: picks.length, added };
+}
+
+export async function refreshTouched(touched: TouchedBands) {
+  for (const b of touched.values()) await refreshRef(b.alvoId, b.key, b.label);
+}
+
 export async function collectVitrines(): Promise<void> {
   for (const v of VITRINES) {
     const src = await sourceOf(v.slug);
@@ -110,7 +193,7 @@ export async function collectVitrines(): Promise<void> {
     try {
       const alvos = await activeAlvos();
       const storeSlug = v.slug.replace(/-vitrine$/, "");
-      const touchedBands = new Map<string, { alvoId: number; key: string; label: string }>();
+      const touched: TouchedBands = new Map();
       for (const page of v.pages) {
         const res = await politeFetch(page.url, { ttlMs: 30 * 60 * 1000 });
         if (res.status >= 400) {
@@ -119,45 +202,12 @@ export async function collectVitrines(): Promise<void> {
         }
         const products = v.parse(res.body);
         found += products.length;
-
-        // Todo produto da categoria que cai num Alvo vira um preço de mercado: é a base da mediana da faixa.
-        const classified = products.map((p) => ({ p, c: classify(p.name, alvos) })).filter((x) => x.c.alvo);
-        for (const { p, c } of classified) {
-          const price = cardNow(p);
-          if (!c.band || !price) continue;
-          await db
-            .insert(schema.marketObs)
-            .values({ store: storeSlug, code: p.code, alvoId: c.alvo!.id, bandKey: c.band.key, title: p.name.slice(0, 200), priceCardCents: price })
-            .onConflictDoUpdate({
-              target: [schema.marketObs.store, schema.marketObs.code],
-              set: { alvoId: c.alvo!.id, bandKey: c.band.key, priceCardCents: price, seenAt: new Date() },
-            });
-          touchedBands.set(`${c.alvo!.id}:${c.band.key}`, { alvoId: c.alvo!.id, key: c.band.key, label: c.band.label });
-          market++;
-        }
-
-        // Viram oferta só as de verdade (10% ou mais abaixo do "de"), as maiores quedas primeiro.
-        const picks = classified
-          .map((x) => x.p)
-          .filter((p) => isDeal(p))
-          .sort((a, b) => discountOf(b) - discountOf(a))
-          .slice(0, 15);
-        relevant += picks.length;
-        for (const p of picks) {
-          const id = await ingestRaw({
-            sourceId: src.id,
-            externalId: p.url,
-            title: p.name,
-            text: textFor(p),
-            url: p.url,
-            outboundUrl: p.url,
-            imageUrl: p.imageUrl,
-            storeName: v.storeName,
-          });
-          if (id) added++;
-        }
+        const r = await ingestStoreProducts({ sourceId: src.id, storeSlug, storeName: v.storeName, products, alvos, touched });
+        market += r.market;
+        relevant += r.relevant;
+        added += r.added;
       }
-      for (const b of touchedBands.values()) await refreshRef(b.alvoId, b.key, b.label);
+      await refreshTouched(touched);
       await setSourceStatus(v.slug, "ok", `${found} produtos nas categorias, ${market} viraram preço de mercado, ${relevant} em oferta nos seus Alvos, ${added} novos`);
       console.log(`[vitrine] ${v.slug}: ${found} produtos, ${market} preços de mercado, ${relevant} em oferta nos Alvos, ${added} novos`);
     } catch (err) {

@@ -11,6 +11,8 @@ import { runCategorias } from "./ai/categorias";
 import { runRadar } from "./ai/radar";
 import { runInsights } from "./ai/insights";
 import { collectVitrines } from "./collect/vitrines";
+import { collectConfiguradas, testFonte } from "./collect/genericas";
+import { FONTES_CMD_CHANNEL, FONTE_TESTE_KEY, type FontesCmd } from "@/lib/fontes";
 import { startTelegram } from "./ingest/telegram";
 import { ALVOS_CMD_CHANNEL, type AlvosCmd } from "@/lib/alvos";
 import { ensureSeed, notify, rematchOffers, rescoreBand } from "./pipeline";
@@ -35,6 +37,7 @@ async function main() {
   const rm = await rematchOffers();
   console.log(`[alvos] ${rm.total} ofertas reclassificadas (${rm.changed} mudaram de Alvo ou faixa), ${rm.bands} faixas com referência recalculada`);
   await listenAlvos();
+  await listenFontes();
   // Pausas pedidas pelos sites antes deste reinício continuam valendo.
   const saved = (await getSetting<Pauses>(PAUSES_KEY))?.value ?? {};
   const fromStores = await db.select().from(schema.storeState);
@@ -73,6 +76,10 @@ async function main() {
     const vitrines = () => collectVitrines().catch((e) => console.error("[vitrine] erro:", e));
     setTimeout(vitrines, 90 * 1000);
     setInterval(vitrines, 30 * 60 * 1000);
+    // Fontes da tela Fontes (feed, página de ofertas, busca VTEX): cada uma no seu intervalo, conferido a cada minuto.
+    const configuradas = () => collectConfiguradas().catch((e) => console.error("[fontes] erro:", e));
+    setTimeout(configuradas, 30 * 1000);
+    setInterval(configuradas, 60 * 1000);
   }
   if (roles.includes("listen")) {
     startTelegram().catch((e) => console.error("[telegram] erro:", e));
@@ -191,6 +198,24 @@ async function listenAlvos() {
     setTimeout(() => void drain(), 1500);
   });
   cmd.on("error", (e) => console.error("[alvos] canal de comandos caiu:", e.message));
+}
+
+/** Botão "Testar" da tela Fontes: o worker lê a fonte uma vez (coleta educada), sem gravar, e devolve o resultado. */
+async function listenFontes() {
+  const cmd = new Client({ connectionString: process.env.DATABASE_URL });
+  await cmd.connect();
+  await cmd.query(`LISTEN ${FONTES_CMD_CHANNEL}`);
+  cmd.on("notification", (n) => {
+    void (async () => {
+      const c = JSON.parse(n.payload ?? "{}") as FontesCmd;
+      if (c.acao !== "testar") return;
+      const result = await testFonte(c.kind, c.config);
+      await setSetting(FONTE_TESTE_KEY, { token: c.token, at: Date.now(), result });
+      await notify({ type: "fonte_teste", token: c.token });
+      console.log(`[fontes] teste de ${c.kind}: ${result.note}`);
+    })().catch((e) => console.error("[fontes] erro no teste:", e));
+  });
+  cmd.on("error", (e) => console.error("[fontes] canal de comandos caiu:", e.message));
 }
 
 for (const sig of ["SIGINT", "SIGTERM"] as const) {

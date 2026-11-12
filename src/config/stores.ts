@@ -55,7 +55,8 @@ export const STORES: Store[] = [
   {
     slug: "magalu",
     name: "Magalu",
-    domains: ["magazineluiza.com.br", "magalu.com"],
+    // influenciadormagalu.com.br: link de parceiro do Magalu (é por onde a Pechinchou manda as ofertas da loja).
+    domains: ["magazineluiza.com.br", "magalu.com", "influenciadormagalu.com.br"],
     trust: 0.8,
     productId: (u) => u.pathname.match(/\/p\/([a-z0-9]+)\//i)?.[1] ?? null,
   },
@@ -98,6 +99,21 @@ export const STORES: Store[] = [
     // Link antigo /produto/ID e o novo /nome-do-produto-ID/p.
     productId: (u) => u.pathname.match(/\/produto\/(\d+)/)?.[1] ?? u.pathname.match(/-(\d{5,})\/p\/?$/)?.[1] ?? null,
   },
+  {
+    // Loja VTEX: a busca pública traz parcelas e juros por cartão (docs/fontes-novas.md). Produto = /nome-do-produto/p.
+    slug: "waz",
+    name: "Waz",
+    domains: ["waz.com.br"],
+    trust: 1,
+    pathOnly: true,
+  },
+  {
+    slug: "fastshop",
+    name: "Fast Shop",
+    domains: ["fastshop.com.br"],
+    trust: 0.8,
+    pathOnly: true,
+  },
 ];
 
 const SHORTENERS = [
@@ -108,6 +124,9 @@ const SHORTENERS = [
   // se não chegar numa loja da lista, a oferta fica "não verificada", como qualquer outra.
   "meli.la", "a.aliexpress.com", "promoby.me", "ofertou.ai", "adrena.click", "linkmc.click", "curt.link", "i.promotop.net",
   "aoferta.net", "boletando.com", "nerdofertas.com",
+  // Vistos nas fontes novas da pesquisa de 11/11 (docs/fontes-novas.md). tecno.click proíbe robôs no robots.txt:
+  // a oferta fica "não verificada" com o motivo certo, em vez de perder o link.
+  "pechin.co", "cupom.cc", "mcmgz.in", "tiny.cc", "canalte.ch", "tecno.click",
 ];
 
 export function hostOf(url: string): string | null {

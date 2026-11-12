@@ -18,10 +18,12 @@ export const VITRINES: Vitrine[] = [
     name: "KaBuM! (vitrine de ofertas)",
     storeName: "KaBuM!",
     url: "https://www.kabum.com.br/",
-    // Só as categorias que o KaBuM! entrega prontas no HTML. Mouses, teclados, SSDs e headsets são montados no navegador
-    // por uma API interna que não é pública: ficam com as comunidades e o Telegram.
+    // Só as categorias que o KaBuM! entrega prontas no HTML. Mouses, teclados e headsets são montados no navegador
+    // por uma API interna que não é pública: ficam com as comunidades, o Telegram e a busca VTEX de outras lojas.
+    // SSD 2,5" passou a vir no HTML (catalogServer), conferido em 11/11/2026 (docs/fontes-novas.md).
     pages: [
       { label: "Monitores", url: "https://www.kabum.com.br/computadores/monitores" },
+      { label: "SSDs", url: "https://www.kabum.com.br/hardware/ssd-2-5" },
       { label: "Mousepads", url: "https://www.kabum.com.br/perifericos/mouse-pad" },
       { label: "Webcams", url: "https://www.kabum.com.br/perifericos/webcam" },
     ],

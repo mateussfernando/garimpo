@@ -50,7 +50,7 @@ export type OfferExtra = {
 export const sources = pgTable("sources", {
   id: serial("id").primaryKey(),
   slug: text("slug").notNull().unique(), // ex.: "promobit"
-  kind: text("kind").notNull(), // "comunidade" | "loja"
+  kind: text("kind").notNull(), // "comunidade" | "loja" | "telegram" | "feed" | "pagina" | "vtex"
   name: text("name").notNull(),
   url: text("url").notNull(),
   enabled: boolean("enabled").notNull().default(true),
@@ -62,6 +62,14 @@ export const sources = pgTable("sources", {
   lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
   lastRunAt: timestamp("last_run_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  /** Fontes da tela Fontes (feed, pagina, vtex): endereço e opções. As do código e do Telegram não têm. */
+  config: jsonb("config").$type<Record<string, unknown>>(),
+  /** "codigo" (comunidades, vitrines e Telegram) ou "usuario" (criada ou sugerida e adicionada na tela Fontes). */
+  origin: text("origin").notNull().default("codigo"),
+  /** De quanto em quanto tempo ler, em minutos. null = o padrão do tipo. */
+  intervalMin: integer("interval_min"),
+  /** Apagada na tela Fontes: some da tela; as ofertas que ela trouxe ficam. */
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const rawMessages = pgTable(

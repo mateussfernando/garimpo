@@ -251,6 +251,8 @@ export function groupByProduct(list: Row[]): Row[] {
         watched: g.some((o) => o.watched),
         // A análise de qualquer cópia do produto vale para o card.
         ia: best.ia ?? g.find((o) => o.ia)?.ia ?? null,
+        // Sem foto na melhor oferta: vale a foto de outra cópia do mesmo produto.
+        imageUrl: best.imageUrl ?? g.find((o) => o.imageUrl)?.imageUrl ?? null,
         createdAt: g.reduce((mx, o) => (o.createdAt > mx ? o.createdAt : mx), best.createdAt),
       };
     })

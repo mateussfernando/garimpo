@@ -1,6 +1,7 @@
 "use client";
 
 // O que a IA acha: selo do veredito, análise completa da oferta e o radar geral da Vitrine.
+import { useEffect, useState } from "react";
 import type { OfferAiDTO, RadarDTO, Verdict } from "@/lib/offers";
 import { Badge, ago, brl, type Tone } from "./shell";
 
@@ -111,16 +112,51 @@ export function AiAnalysis({ ia, now }: { ia: OfferAiDTO | null; now: number | n
   );
 }
 
-/** Radar da IA no topo da Vitrine: manchete, destaques clicáveis, alertas e dicas. */
+const RADAR_KEY = "garimpo:radar-minimizado";
+
+/** Radar da IA no topo da Vitrine: manchete, destaques clicáveis, alertas e dicas. Minimizável (lembrado neste navegador). */
 export function RadarPanel({ radar, now, onOpen }: { radar: RadarDTO; now: number | null; onOpen: (id: number) => void }) {
+  const [min, setMin] = useState(false);
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- lê o que ficou salvo só depois de montar (o servidor não tem localStorage)
+      setMin(localStorage.getItem(RADAR_KEY) === "1");
+    } catch {
+      /* sem localStorage: começa aberto */
+    }
+  }, []);
+  const toggle = () => {
+    const next = !min;
+    setMin(next);
+    try {
+      localStorage.setItem(RADAR_KEY, next ? "1" : "0");
+    } catch {
+      /* sem localStorage: só não é lembrado */
+    }
+  };
+  const header = (
+    <div className="flex items-center justify-between gap-3">
+      <h2 id="radar-ia" className="flex flex-none items-center gap-2 text-[15px] font-semibold text-ink">
+        <Spark /> Radar da IA
+      </h2>
+      {min && <p className="min-w-0 flex-1 truncate text-[13px] text-ink-2">{radar.manchete}</p>}
+      <span className="flex flex-none items-center gap-3">
+        <span className="text-xs text-label">atualizado {ago(radar.at, now)}</span>
+        <button type="button" onClick={toggle} aria-expanded={!min} className="h-9 rounded-[10px] border border-control px-3 text-xs font-medium text-ink-2 hover:text-ink">
+          {min ? "Mostrar" : "Minimizar"}
+        </button>
+      </span>
+    </div>
+  );
+  if (min)
+    return (
+      <section aria-labelledby="radar-ia" className="rounded-2xl border border-card-line bg-surface px-[18px] py-2.5">
+        {header}
+      </section>
+    );
   return (
     <section aria-labelledby="radar-ia" className="flex flex-col gap-3.5 rounded-2xl border border-card-line bg-surface p-[18px]">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="radar-ia" className="flex items-center gap-2 text-[15px] font-semibold text-ink">
-          <Spark /> Radar da IA
-        </h2>
-        <span className="text-xs text-label">atualizado {ago(radar.at, now)}</span>
-      </div>
+      {header}
       <p className="text-base font-medium text-ink">{radar.manchete}</p>
       {radar.destaques.length > 0 && (
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(260px,100%),1fr))] gap-2.5">

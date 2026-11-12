@@ -65,7 +65,7 @@ export function readGeneric(html: string, o: Pick<Offer, "priceCardCents" | "ins
   const avail = ld?.availability ?? "";
   return {
     title: ld?.name ?? meta(html, "og:title"),
-    image: ld?.image ?? meta(html, "og:image"),
+    image: ld?.image ?? meta(html, "og:image") ?? amazonImage(html),
     priceCard,
     installments,
     installmentCents,
@@ -79,6 +79,16 @@ export function readGeneric(html: string, o: Pick<Offer, "priceCardCents" | "ins
     coupon: null,
     extra: null,
   };
+}
+
+/** A página da Amazon não traz og:image nem imagem no JSON-LD: a foto principal fica em data-old-hires ou "hiRes". */
+export function amazonImage(html: string): string | null {
+  const m =
+    html.match(/data-old-hires=["'](https:\/\/[^"']+\.(?:jpg|jpeg|png|webp))["']/i) ??
+    html.match(/"hiRes"\s*:\s*"(https:\/\/[^"]+)"/) ??
+    html.match(/id=["']landingImage["'][^>]*\ssrc=["'](https:\/\/[^"']+)["']/i) ??
+    html.match(/"large"\s*:\s*"(https:\/\/m\.media-amazon\.com[^"]+)"/);
+  return m?.[1] ?? null;
 }
 
 export const NOT_PRODUCT = "o link não abre a página de um produto (promoção, busca, live ou erro da loja)";

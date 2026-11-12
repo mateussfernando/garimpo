@@ -61,6 +61,20 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 12/11/2026, 15:20 · Radar da IA minimizável e foto para as ofertas sem imagem
+
+- **Pedido:** minimizar o Radar da IA, e as ofertas que vêm sem imagem ganharem uma foto ("do Google ou de algum lugar").
+- **Feito:**
+  - **Radar da IA:** botão Minimizar/Mostrar. Minimizado, vira uma linha só com a manchete; a escolha fica lembrada no navegador;
+  - **Foto do Telegram:** 95% das ofertas sem foto eram do Telegram, que gravava `imageUrl: null` sempre. Agora o worker baixa a foto da própria mensagem (anexada ou da prévia do link), em tamanho médio, para `.garimpo/fotos/` (fora do git), e o site serve por `/api/foto/<nome>.jpg`. A foto da loja, quando a conferência acha, continua valendo mais;
+  - **Fotos antigas:** 2 min depois de o worker subir, ele relê as mensagens das ofertas do Telegram dos últimos 4 dias sem foto (100 por pedido, uma foto a cada 250 ms) e baixa as fotos;
+  - **Amazon:** a página não tem og:image nem foto no JSON-LD; a conferência agora lê `data-old-hires`, `"hiRes"` ou `#landingImage`;
+  - **Grupo do mesmo produto:** se a melhor oferta não tem foto, o card usa a de outra cópia.
+- **Decisões:** nada de buscar imagem no Google: o robots.txt dele proíbe robôs na busca, e uma foto achada pelo nome pode ser de outro produto. Usar a foto da mensagem é somente leitura, na conta do usuário.
+- **Testado:** 109 testes (1 novo, foto da Amazon), `tsc` e `eslint`; Radar minimizado e lembrado depois de recarregar, no navegador. O download das fotos do Telegram NÃO foi testado: abrir uma segunda conexão com a mesma sessão enquanto o worker roda pode derrubar a sessão.
+- **Pendente:** reiniciar o worker (`pnpm worker`) e conferir no log "[telegram] fotos: N ofertas antigas ganharam a foto da mensagem". Shopee e AliExpress fora do Telegram continuam sem foto quando a loja bloqueia a conferência.
+- **Como testar:** `pnpm worker`, espere 2 min, recarregue a Vitrine: os cards do Telegram passam a ter foto.
+
 ### 12/11/2026, 14:30 · Pesquisa de fontes novas e fontes configuráveis na tela Fontes
 
 - **Pedido:** "faça uma pesquisa profunda de fontes que eu posso adicionar e que sejam possiveis" e "depois crie uma tela de fontes configuraveis tambem".

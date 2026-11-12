@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { adapterFor } from "./adapters";
-import { readGeneric } from "./verify";
+import { amazonImage, readGeneric } from "./verify";
 
 const fixture = (name: string) => readFileSync(`fixtures/lojas/${name}`, "utf8");
 
@@ -87,5 +87,14 @@ describe("leitura genérica (loja sem leitor próprio)", () => {
   it("marca esgotado pelo JSON-LD", () => {
     const html = ld().replace("InStock", "OutOfStock");
     expect(readGeneric(html, blank).available).toBe(false);
+  });
+});
+
+describe("foto da página da Amazon", () => {
+  it("acha a foto principal sem og:image nem JSON-LD", () => {
+    expect(amazonImage('<img id="landingImage" data-old-hires="https://m.media-amazon.com/images/I/71abc.jpg" src="https://m.media-amazon.com/images/I/41x.jpg">')).toBe("https://m.media-amazon.com/images/I/71abc.jpg");
+    expect(amazonImage('{"colorImages":{"initial":[{"hiRes":"https://m.media-amazon.com/images/I/81hi.jpg","large":"https://m.media-amazon.com/images/I/51l.jpg"}]}}')).toBe("https://m.media-amazon.com/images/I/81hi.jpg");
+    expect(amazonImage('<img alt="x" id="landingImage" class="a" src="https://m.media-amazon.com/images/I/41x.jpg">')).toBe("https://m.media-amazon.com/images/I/41x.jpg");
+    expect(amazonImage("<html>sem foto</html>")).toBeNull();
   });
 });

@@ -10,7 +10,7 @@
 // 4. Oferta que vem daqui é conferida na loja na hora (via rápida), sem esperar a fila.
 import { eq, sql } from "drizzle-orm";
 import { Client } from "pg";
-import { TelegramClient } from "telegram";
+import { Api, TelegramClient } from "telegram";
 import { NewMessage, type NewMessageEvent } from "telegram/events";
 import { StringSession } from "telegram/sessions";
 import { hostOf } from "@/config/stores";
@@ -20,6 +20,7 @@ import type { SourceStats } from "@/lib/db/schema";
 import { activeAlvos, ingestRaw, notify } from "../pipeline";
 import { verifyNow } from "../verify/verify";
 import { offerFromMessage } from "./message";
+import { backfillPhotos, savePhoto, setOfferPhoto } from "./telegram-fotos";
 
 const { sources } = schema;
 
@@ -120,7 +121,7 @@ export async function startTelegram() {
     return chat.chain;
   };
 
-  async function handleMessage(chat: Chat, msg: { id: number; text: string; date: number }) {
+  async function handleMessage(chat: Chat, msg: { id: number; text: string; date: number; raw?: Api.Message }) {
     if (msg.id <= chat.stats.lastId) return; // já lida (o evento e a leitura de segurança podem trazer a mesma)
     if (chat.stats.day !== today()) chat.stats = freshStats(chat.stats.lastId);
     chat.stats.lastId = msg.id;
@@ -151,6 +152,15 @@ export async function startTelegram() {
     });
     if (!offerId) return;
     chat.stats.offers++;
+    // Foto da própria mensagem (anexada ou da prévia do link). A da loja, se a conferência achar, fica no lugar.
+    if (msg.raw) {
+      try {
+        const url = await savePhoto(client, msg.raw, `tg-${chat.key}-${msg.id}`);
+        if (url) await setOfferPhoto(offerId, url);
+      } catch (e) {
+        console.warn(`[telegram] foto da oferta ${offerId} falhou: ${(e as Error).message}`);
+      }
+    }
     const t0 = Date.now();
     console.log(`[telegram] oferta ${offerId} de ${chat.name}: ${verdict.title.slice(0, 70)}`);
     // Via rápida: confere na loja já. Não espera terminar para ler a próxima mensagem.
@@ -166,7 +176,7 @@ export async function startTelegram() {
     const cutoff = Date.now() / 1000 - BACKFILL_HOURS * 3600;
     const list = msgs.filter((m) => m.id > chat.stats.lastId && (!first || m.date >= cutoff)).sort((a, b) => a.id - b.id);
     const before = { ...chat.stats };
-    for (const m of list) await handleMessage(chat, { id: m.id, text: textWithLinks(m), date: m.date });
+    for (const m of list) await handleMessage(chat, { id: m.id, text: textWithLinks(m), date: m.date, raw: m });
     if (first) {
       // Marca o ponto de partida mesmo se não havia nada nas últimas 24 h, para não reler tudo na próxima vez.
       const newest = msgs.reduce((mx, m) => Math.max(mx, m.id), chat.stats.lastId);
@@ -270,6 +280,16 @@ export async function startTelegram() {
   cmd.on("error", (e) => console.error("[telegram] canal de comandos caiu:", e.message));
 
   const first = await syncDialogs();
+  // Ofertas que entraram antes de o Garimpo baixar fotos: relê as mensagens e pega a foto (uma vez, 2 min depois de subir).
+  setTimeout(() => {
+    const peers = new Map([...chats.values()].map((c) => [c.key, c.peer] as const));
+    backfillPhotos(client, peers)
+      .then(async (n) => {
+        console.log(`[telegram] fotos: ${n} ofertas antigas ganharam a foto da mensagem`);
+        if (n) await notify({ type: "offer" });
+      })
+      .catch((e) => console.error("[telegram] erro ao buscar fotos antigas:", (e as Error).message));
+  }, 2 * 60 * 1000);
   console.log(`[telegram] escutando ${first.on} grupos/canais (${first.off} desligados em sources)`);
   setInterval(() => syncDialogs().catch((e) => console.error("[telegram] erro ao listar chats:", (e as Error).message)), REFRESH_EVERY);
 
@@ -278,6 +298,6 @@ export async function startTelegram() {
     if (event.isPrivate || msg.out) return; // nunca conversas individuais nem o que eu mesmo enviei
     const chat = chats.get(String(event.chatId));
     if (!chat) return;
-    void enqueue(chat, () => handleMessage(chat, { id: msg.id, text: textWithLinks(msg), date: msg.date }));
+    void enqueue(chat, () => handleMessage(chat, { id: msg.id, text: textWithLinks(msg), date: msg.date, raw: msg }));
   }, new NewMessage({ incoming: true }));
 }

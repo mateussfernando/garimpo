@@ -62,3 +62,6 @@ next-env.d.ts
 Thumbs.db
 npm-debug.log*
 pnpm-debug.log*
+
+# fotos das mensagens do Telegram (worker/ingest/telegram-fotos.ts)
+/.garimpo/

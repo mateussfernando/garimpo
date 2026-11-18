@@ -9,7 +9,7 @@ import { db, schema } from "@/lib/db";
 import { getSetting, setSetting } from "@/lib/settings";
 import { notify } from "../pipeline";
 import { guardedCall } from "./budget";
-import { getProvider } from "./index";
+import { pickProvider } from "./index";
 import { AiBudgetError } from "./types";
 
 const { offers, offerAnalyses, coupons } = schema;
@@ -79,7 +79,7 @@ export async function runRadar(force = false): Promise<"gerado" | "igual" | "vaz
   if (!force && prev?.value.hash === hash) return "igual";
   let data: Radar;
   try {
-    ({ data } = await guardedCall(getProvider(), {
+    ({ data } = await guardedCall(await pickProvider({ force }), {
       purpose: "radar",
       system: SYSTEM,
       prompt: `Quadro de agora (preços em centavos de real):\n${JSON.stringify(input)}`,

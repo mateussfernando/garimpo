@@ -3,6 +3,9 @@ import { jsonSchemaOf, type AiProvider } from "../types";
 // Ollama local. O nome do modelo é o de OLLAMA_MODEL (o Haiku só existe na Anthropic).
 export const ollama: AiProvider = {
   name: "ollama",
+  get model() {
+    return process.env.OLLAMA_MODEL ?? "ollama";
+  },
   async generate(req) {
     const model = process.env.OLLAMA_MODEL;
     if (!model) throw new Error("Falta OLLAMA_MODEL no .env para AI_PROVIDER=ollama");

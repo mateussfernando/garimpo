@@ -42,8 +42,9 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 | Entram de novo no 11.11 (10/11, 22:00) | A pedido do usuário: IA com insights, vitrines das lojas, telas Detalhe, Fontes, Lojas e War Room. Continuam fora: WhatsApp, pg-boss e coleta diária, desconto real e Black Fraude. |
 | Fontes bloqueadas (10/11, 21:40) | Bloqueio de site não se contorna: nada de proxy nem disfarce, vale o robots.txt. Alternativas legítimas viram fontes extras, e tudo cai no mesmo funil (a mesma oferta em várias fontes sobe a nota pelo calor social). |
 | Coleta diária | Adiada para depois do 11.11: às 06:00, de 12/11 até a Black Friday (27/11). |
-| IA: provedor | Interface `AiProvider` com `claude-cli` (teste pela assinatura), `anthropic-api` e `ollama`, escolhidos por `AI_PROVIDER`. |
-| IA: modelo | `claude-haiku-5-5` em toda chamada e em todo provedor. Nada de Sonnet ou Opus no app. |
+| IA: provedor | Interface `AiProvider` com `claude-cli` (teste pela assinatura), `anthropic-api` e `ollama`, escolhidos por `AI_PROVIDER`. Desde 18/11 também `agy` (Antigravity CLI), e quem trabalha se escolhe na tela (linha abaixo). |
+| IA: Claude, agy ou os dois (18/11) | A pedido do usuário, o seletor "Usar" do cabeçalho escolhe Claude, agy (Antigravity CLI) ou os dois juntos (`app_settings` "ia_provedor"). Com os dois, as análises rodam em 3 pistas de cada um ao mesmo tempo, o freio de 85% da janela de 5 h para só as do Claude e categorias, radar e insights se revezam. O agy roda travado: pasta vazia, modo Default com permissão `strict` e todo comando negado. |
+| IA: modelo | `claude-haiku-5-5` em toda chamada do Claude. Nada de Sonnet ou Opus no app. No agy, que não tem Haiku, vale o mais simples dele: `gemini-3.8-flash-low` (`AGY_MODEL`). |
 | IA: `claude-cli` | Token de `claude setup-token` no `.env` (CLAUDE_CODE_OAUTH_TOKEN), sem `ANTHROPIC_API_KEY` no ambiente do filho, sem `--bare`, rodando numa pasta vazia com `CLAUDE_CONFIG_DIR` próprio. |
 | IA: insights | Job agendado com as métricas calculadas no código. Chama a IA só se o hash mudar e grava na tabela `insights`. O site só lê do banco. |
 | Nota Garimpo | N = 100 × (0,35 D + 0,25 A + 0,15 C + 0,10 F + 0,10 S + 0,05 U). Detalhes em `docs/garimpo.md`. |
@@ -61,6 +62,26 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 - Design (canvas clicável): https://claude.ai/artifact/KpCmQB2sKdW9GvHR9Z7MD2
 
 ## Registro (mais recente primeiro)
+
+### 18/11/2026, 18:50 · IA: escolher Claude, agy ou os dois juntos
+
+- **Pedido:** usar também o Antigravity CLI (`agy`), podendo escolher qual IA trabalha e usar as duas juntas.
+- **Investigado:** o `agy` 1.5.11 tem `-p`, `--output-format stream-json`, `--json-schema` e prompt por stdin (`{"event":"user","message":{"content":"..."}}`). Não tem Haiku: os modelos são Gemini 3.8 Flash (low/medium/high), Claude Sonnet 4.6, Opus 4.6 e GPT-OSS 120B. Não informa custo nem cota. Não tem `--system-prompt` nem como deixar de salvar a conversa.
+- **Risco achado e travado:** no `-p` o agy roda em modo Auto e aprova as próprias ferramentas. No teste, ele criou arquivo e rodou comando sem pedir. Com `--settings {"agentMode":"","toolPermission":"strict","permissions":{"deny":["command(*)"]}}`, escrever arquivo, rodar comando e abrir URL são negados na hora e a chamada termina vazia (vira erro). A busca do próprio agy (`search_web`) não tem regra que bloqueie; os prompts só levam ofertas públicas.
+- **Feito:**
+  - **Provedor `agy`** (`worker/ai/providers/agy.ts`): pasta vazia em `%TEMP%/garimpo-agy`, as configurações travadas acima, instruções no começo da mensagem com aviso de que os dados não são pedidos, JSON pelo `--json-schema` e apagar a conversa do histórico do agy depois de cada chamada (uns 400 KB cada);
+  - **Escolha** (`app_settings` "ia_provedor", `src/lib/ai-usage.ts`): "claude", "agy" ou "ambos". Sem escolha salva, vale o Claude (ou `AI_PROVIDER=agy` no `.env`). O worker lê a escolha a cada rodada; não precisa reiniciar;
+  - **Pistas mistas** (`worker/ai/analises.ts`): cada pista fica presa a um provedor, 3 do Claude (`AI_PARALLEL`) e 3 do agy (`AGY_PARALLEL`). O freio de 85% da janela de 5 h para só as do Claude; pausa para todas; erro para só a pista dele. O limite de lotes por rodada cresce com o número de provedores;
+  - **Trabalhos de uma chamada** (categorias, radar, insights): `pickProvider()` reveza entre os dois e vai para o agy quando o Claude está no freio;
+  - **Registro de uso:** `ai_usage` grava provedor e modelo de cada chamada; o agy entra com custo 0 (vai pela conta do Antigravity);
+  - **Tela:** seletor "Usar" no cabeçalho (Claude, agy (Antigravity), Claude + agy), "N no agy hoje" ao lado do custo e a frase da Fila da IA dizendo quem trabalha e quantos lotes rodam juntos.
+- **Medido:** um lote real de 12 ofertas em 14 s pelo agy (uns 25 s pelo Claude); 3 lotes juntos (36 produtos) em 17 s, cerca de 127 produtos por minuto, contra uns 47 pelo Claude. Cada chamada leva uns 11 mil tokens de entrada, 10 mil deles do próprio agente.
+- **Testado:** 109 testes, `tsc` e `eslint`; 3 lotes em paralelo pelo provedor (36 análises válidas, histórico do agy sem conversa nova); oferta maliciosa pedindo para criar arquivo e rodar `whoami` (ignorada, pasta vazia); seletor na tela gravando "ambos", e o worker lendo os dois e revezando.
+- **Pendente:**
+  - A IA estava pausada por você, então nenhuma rodada real com os dois rodou ainda. Ao clicar em Continuar, as pistas do Claude e do agy andam juntas;
+  - A janela **semanal** do Claude estava em 90%, e o freio só olha a de 5 h: com "Claude + agy", as pistas do Claude continuam gastando a semana. Se quiser poupar, escolha só "agy" até a semana zerar;
+  - O cabeçalho não mostra a cota do agy, porque ele não informa.
+- **Como testar:** no cabeçalho, "Usar: Claude + agy" e Continuar. Na Fila da IA, a frase diz "3 pelo Claude e 3 pelo agy". No banco, `select provider, model, count(*) from ai_usage where created_at > now() - interval '1 hour' group by 1, 2`.
 
 ### 12/11/2026, 16:20 · Fotos: só o endereço (CDN externo), nunca arquivo de imagem
 

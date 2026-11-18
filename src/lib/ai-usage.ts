@@ -15,11 +15,21 @@ export type AiLimitsValue = {
 export const AI_STATE_KEY = "ia";
 export const AI_LIMITS_KEY = "ia_limites";
 export const AI_RUN_KEY = "ia_rodada";
+/** Qual IA trabalha, escolhida pelo usuário na Fila da IA: só o Claude, só o agy (Antigravity) ou os dois juntos. */
+export const AI_CHOICE_KEY = "ia_provedor";
+export const AI_CHOICES = ["claude", "agy", "ambos"] as const;
+export type AiChoice = (typeof AI_CHOICES)[number];
+export type AiChoiceValue = { modo: AiChoice };
 /** Canal do pg_notify para o botão "Chamar IA agora": o site só avisa, quem chama a IA é o worker. */
 export const AI_CMD_CHANNEL = "garimpo_ia";
 
 export type AiStatus = {
+  /** Provedor do lado "Claude" (AI_PROVIDER do .env, normalmente claude-cli). */
   provider: string;
+  /** O que o usuário escolheu: Claude, agy ou os dois. */
+  choice: AiChoice;
+  /** Chamadas que deram certo hoje, por provedor (claude-cli, agy...). */
+  callsTodayBy: Record<string, number>;
   paused: boolean;
   /** Custo total e de hoje, em US$ (no claude-cli, o valor que o próprio claude -p informa). */
   spentUsd: number;
@@ -30,8 +40,17 @@ export type AiStatus = {
   run: AiRun | null;
 };
 
+/** O provedor do lado "Claude": claude-cli (padrão), anthropic-api ou ollama. AI_PROVIDER=agy no .env só muda a escolha inicial. */
 export function aiProviderName(): string {
-  return process.env.AI_PROVIDER ?? "claude-cli";
+  const p = process.env.AI_PROVIDER ?? "claude-cli";
+  return p === "agy" ? "claude-cli" : p;
+}
+
+/** A escolha do usuário. Sem escolha salva, vale AI_PROVIDER=agy do .env ou, por padrão, o Claude. */
+export async function getAiChoice(): Promise<AiChoice> {
+  const saved = (await getSetting<AiChoiceValue>(AI_CHOICE_KEY))?.value.modo;
+  if (saved && (AI_CHOICES as readonly string[]).includes(saved)) return saved;
+  return process.env.AI_PROVIDER === "agy" ? "agy" : "claude";
 }
 
 /** Gasto, chamadas de hoje, pausa e uso da assinatura. Só leitura: serve ao worker e ao cabeçalho do site. */
@@ -45,6 +64,11 @@ export async function getAiStatus(): Promise<AiStatus> {
     .select({ calls: sql<number>`count(*)::int`, today: sql<number>`coalesce(sum(${aiUsage.costUsd}), 0)::float` })
     .from(aiUsage)
     .where(and(eq(aiUsage.ok, true), gte(aiUsage.createdAt, sql`date_trunc('day', now())`)));
+  const byProvider = await db
+    .select({ provider: aiUsage.provider, n: sql<number>`count(*)::int` })
+    .from(aiUsage)
+    .where(and(eq(aiUsage.ok, true), gte(aiUsage.createdAt, sql`date_trunc('day', now())`)))
+    .groupBy(aiUsage.provider);
   const [state, limits, run] = await Promise.all([
     getSetting<AiState>(AI_STATE_KEY),
     getSetting<AiLimitsValue>(AI_LIMITS_KEY),
@@ -52,6 +76,8 @@ export async function getAiStatus(): Promise<AiStatus> {
   ]);
   return {
     provider: aiProviderName(),
+    choice: await getAiChoice(),
+    callsTodayBy: Object.fromEntries(byProvider.map((r) => [r.provider, r.n])),
     paused: state?.value.paused === true,
     spentUsd: Math.round(spent * 10000) / 10000,
     spentTodayUsd: Math.round(today * 10000) / 10000,

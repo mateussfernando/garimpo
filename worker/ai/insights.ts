@@ -8,7 +8,7 @@ import { AI_MODEL } from "@/config/pricing";
 import { db, schema } from "@/lib/db";
 import { median } from "../match/alvos";
 import { notify } from "../pipeline";
-import { getProvider } from "./index";
+import { pickProvider } from "./index";
 import { guardedCall } from "./budget";
 import { AiBudgetError, type AiProvider } from "./types";
 
@@ -164,10 +164,9 @@ export async function runInsights(limit = 5): Promise<{ gerados: number; iguais:
   running = true;
   const out = { gerados: 0, iguais: 0 };
   try {
-    const provider = getProvider();
     for (const id of await candidates(limit)) {
       try {
-        const r = await insightFor(provider, id);
+        const r = await insightFor(await pickProvider(), id);
         if (r === "gerado") out.gerados++;
         else if (r === "igual") out.iguais++;
       } catch (err) {

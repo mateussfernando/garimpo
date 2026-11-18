@@ -102,6 +102,7 @@ function limitsFrom(out: string): AiLimits | null {
 
 export const claudeCli: AiProvider = {
   name: "claude-cli",
+  model: AI_MODEL,
   async generate(req) {
     if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) {
       throw new Error("Falta CLAUDE_CODE_OAUTH_TOKEN no .env. Rode `claude setup-token` no terminal e cole o token (o claude -p usa uma pasta de configuração própria e não herda o seu login).");

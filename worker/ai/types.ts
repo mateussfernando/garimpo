@@ -24,8 +24,12 @@ export type AiResult<T> = {
   limits?: AiLimits | null;
 };
 
+export type ProviderName = "claude-cli" | "anthropic-api" | "ollama" | "agy";
+
 export interface AiProvider {
-  readonly name: "claude-cli" | "anthropic-api" | "ollama";
+  readonly name: ProviderName;
+  /** Modelo que vai no registro de uso (ai_usage.model). */
+  readonly model: string;
   generate<T>(req: AiRequest<T>): Promise<AiResult<T>>;
 }
 

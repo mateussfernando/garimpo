@@ -5,6 +5,7 @@ import { AiRefusal, jsonSchemaOf, type AiProvider } from "../types";
 // Haiku 5.5: sem temperature/top_p/top_k e sem prefill; JSON pelo output_config.format; effort baixo para extração.
 export const anthropicApi: AiProvider = {
   name: "anthropic-api",
+  model: AI_MODEL,
   async generate(req) {
     if (!process.env.ANTHROPIC_API_KEY) throw new Error("Falta ANTHROPIC_API_KEY no .env para AI_PROVIDER=anthropic-api");
     const client = new Anthropic();

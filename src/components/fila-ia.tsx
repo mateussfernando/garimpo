@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useState } from "react";
-import { AI_AUTO_STOP_PCT, AI_PARALLEL } from "@/config/pricing";
+import { AGY_PARALLEL, AI_AUTO_STOP_PCT, AI_PARALLEL } from "@/config/pricing";
 import type { FilaDTO, FilaItem } from "@/lib/fila-ia";
 import { VERDICT } from "./ia";
-import { AppHeader, Badge, PageTitle, ago, brl, useLive, useNow, useStatus } from "./shell";
+import { AI_CHOICE_LABEL, AppHeader, Badge, PageTitle, ago, brl, useLive, useNow, useStatus } from "./shell";
 
 function Thumb({ src }: { src: string | null }) {
   return (
@@ -51,7 +51,16 @@ export function FilaIa() {
   const ai = status?.ai;
   const running = ai?.run?.running === true;
   const five = ai?.limits?.fiveHour?.pct ?? null;
-  const braked = five != null && five >= AI_AUTO_STOP_PCT;
+  const choice = ai?.choice ?? "claude";
+  // O freio da janela de 5 h é só do Claude: com o agy ligado, a fila não para por ele.
+  const braked = choice !== "agy" && five != null && five >= AI_AUTO_STOP_PCT;
+  const lanes = choice === "agy" ? AGY_PARALLEL : choice === "ambos" ? AI_PARALLEL + AGY_PARALLEL : AI_PARALLEL;
+  const who =
+    choice === "ambos"
+      ? `${AI_PARALLEL} pelo Claude e ${AGY_PARALLEL} pelo agy`
+      : choice === "agy"
+        ? "pelo agy (Antigravity, Gemini 3.8 Flash Low)"
+        : "pelo Claude";
   const pct = data && data.total ? Math.round((data.analyzed / data.total) * 100) : 0;
   const call = async () => {
     setBusy(true);
@@ -66,10 +75,12 @@ export function FilaIa() {
   const state = ai?.paused
     ? "A IA está pausada. Continue para a fila andar."
     : running
-      ? `A IA está trabalhando agora: ${AI_PARALLEL} lotes de 12 produtos ao mesmo tempo, até a fila zerar.`
-      : braked
-        ? `A janela de 5 h da sua assinatura está em ${five}%: as análises automáticas esperam abaixo de ${AI_AUTO_STOP_PCT}%. “Chamar IA agora” passa por cima do freio.`
-        : `As análises automáticas rodam a cada 2 minutos, até 6 lotes de 12 (${AI_PARALLEL} ao mesmo tempo).`;
+      ? `A IA está trabalhando agora: ${lanes} lotes de 12 produtos ao mesmo tempo (${who}), até a fila zerar.`
+      : braked && choice === "ambos"
+        ? `A janela de 5 h do Claude está em ${five}%: as pistas do Claude esperam abaixo de ${AI_AUTO_STOP_PCT}% e o agy segue sozinho (${AGY_PARALLEL} lotes ao mesmo tempo).`
+        : braked
+          ? `A janela de 5 h da sua assinatura está em ${five}%: as análises automáticas esperam abaixo de ${AI_AUTO_STOP_PCT}%. “Chamar IA agora” passa por cima do freio, ou escolha agy no cabeçalho.`
+          : `${AI_CHOICE_LABEL[choice]}: as análises automáticas rodam a cada 2 minutos, ${lanes} lotes de 12 ao mesmo tempo (${who}).`;
 
   return (
     <div className="flex min-h-screen flex-col">

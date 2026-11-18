@@ -6,7 +6,7 @@ import { CATEGORIES, CATEGORY_SLUGS, OTHER_CATEGORY } from "@/config/categories"
 import { db, schema } from "@/lib/db";
 import { notify } from "../pipeline";
 import { guardedCall } from "./budget";
-import { getProvider } from "./index";
+import { pickProvider } from "./index";
 import { AiBudgetError } from "./types";
 
 const { offers } = schema;
@@ -26,7 +26,6 @@ const SYSTEM = [
 
 /** Uma passada: classifica até `batches` lotes de ofertas sem categoria. Devolve quantas ganharam categoria. */
 export async function runCategorias(batches = 2): Promise<{ classificadas: number; lotes: number }> {
-  const provider = getProvider();
   let classificadas = 0;
   let lotes = 0;
   for (let b = 0; b < batches; b++) {
@@ -48,7 +47,8 @@ export async function runCategorias(batches = 2): Promise<{ classificadas: numbe
     lotes++;
     let data: z.infer<typeof ResultSchema>;
     try {
-      ({ data } = await guardedCall(provider, {
+      // Com Claude e agy ligados, os lotes se revezam entre os dois.
+      ({ data } = await guardedCall(await pickProvider(), {
         purpose: "categoria",
         system: SYSTEM,
         prompt: rows.map((r) => `${r.id}|${r.title.replace(/\s+/g, " ").slice(0, 160)}`).join("\n"),

@@ -1,25 +1,26 @@
 // Análise da IA de cada oferta: "está muito bom ou não?". As métricas saem do código; a IA julga e explica.
 // Cobre todas as ofertas da Vitrine (48 h), não só as de nota alta:
 // - o mesmo produto postado em vários grupos (mesmo título e preço) é analisado uma vez e vale para todas as cópias;
-// - lotes de 12, até 3 indo à IA ao mesmo tempo (AI_PARALLEL), até a fila zerar; as que nunca foram analisadas vêm primeiro;
+// - lotes de 12, até 3 indo à IA ao mesmo tempo por provedor (AI_PARALLEL no Claude, AGY_PARALLEL no agy; com os dois
+//   ligados na Fila da IA, as pistas dos dois andam juntas), até a fila zerar; as que nunca foram analisadas vêm primeiro;
 // - refaz só quando os números da oferta mudam (hash);
-// - as rodadas automáticas param quando a janela de 5 h da assinatura passa de 85% (o botão "Chamar IA agora" não para).
+// - as pistas do Claude param nas rodadas automáticas quando a janela de 5 h da assinatura passa de 85% (o botão
+//   "Chamar IA agora" não para); as do agy seguem, porque ele não tem essa janela.
 // O site só lê offer_analyses.
 import { createHash } from "node:crypto";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { categoryName } from "@/config/categories";
 import { STORES } from "@/config/stores";
-import { AI_PARALLEL } from "@/config/pricing";
-import { AI_AUTO_STOP_PCT, AI_LIMITS_KEY, type AiLimitsValue } from "@/lib/ai-usage";
+import { AGY_PARALLEL, AI_PARALLEL } from "@/config/pricing";
+import { AI_AUTO_STOP_PCT } from "@/lib/ai-usage";
 import { db, schema } from "@/lib/db";
 import { normalize } from "@/lib/money";
-import { getSetting } from "@/lib/settings";
 import { median } from "../match/alvos";
 import { notify } from "../pipeline";
 import { aiPaused, guardedCall } from "./budget";
-import { getProvider } from "./index";
-import { AiBudgetError } from "./types";
+import { activeProviders, claudeBraked, claudeFiveHourPct } from "./index";
+import { AiBudgetError, type AiProvider } from "./types";
 
 const { offers, offerAnalyses, alvos, alvoRefs, pricePoints, sources } = schema;
 const BATCH = 12;
@@ -132,16 +133,12 @@ async function pendingGroups(): Promise<{ list: Candidate[][]; total: number; do
   return { list, total: all.length, done: all.filter((c) => known.get(c.m.id) === c.hash).length };
 }
 
-async function fiveHourPct(): Promise<number | null> {
-  return (await getSetting<AiLimitsValue>(AI_LIMITS_KEY))?.value.fiveHour?.pct ?? null;
-}
-
 let running = false;
 let drain = false;
 let lastSkipLog = 0;
 
 /** Manda um lote à IA e grava a análise em todas as cópias de cada produto. Devolve quantas ofertas ganharam análise. */
-async function analyzeChunk(provider: ReturnType<typeof getProvider>, chunk: Candidate[][]): Promise<number> {
+async function analyzeChunk(provider: AiProvider, chunk: Candidate[][]): Promise<number> {
   const { data } = await guardedCall(provider, {
     purpose: "analise",
     system: SYSTEM,
@@ -192,21 +189,22 @@ export async function runAnalises(opts: { maxBatches?: number; manual?: boolean 
   let faltam = 0;
   let stop = false;
   const claimed = new Set<string>();
-  const provider = getProvider();
+  const providers = await activeProviders();
+  // Com os dois ligados, cada provedor tem as suas pistas; o limite de lotes da rodada cresce junto.
+  const lanes = providers.flatMap((p) => Array.from({ length: p.name === "agy" ? AGY_PARALLEL : AI_PARALLEL }, () => p));
 
-  const lane = async () => {
+  const lane = async (provider: AiProvider) => {
     while (!stop) {
       if (await aiPaused()) return void (stop = true);
-      if (lotes >= (drain ? 150 : (opts.maxBatches ?? 6))) return;
-      if (!drain) {
-        const p = await fiveHourPct();
-        if (p != null && p >= AUTO_STOP_PCT) {
-          if (Date.now() - lastSkipLog > 15 * 60 * 1000) {
-            console.warn(`[ia] análises automáticas esperando: janela de 5 h em ${p}% (freio em ${AUTO_STOP_PCT}%). "Chamar IA agora" continua funcionando.`);
-            lastSkipLog = Date.now();
-          }
-          return void (stop = true);
+      if (lotes >= (drain ? 150 : (opts.maxBatches ?? 6)) * providers.length) return;
+      // O freio da janela de 5 h vale só para as pistas do Claude: as do agy continuam.
+      if (!drain && provider.name !== "agy" && (await claudeBraked())) {
+        if (Date.now() - lastSkipLog > 15 * 60 * 1000) {
+          const others = providers.some((p) => p.name === "agy") ? ' O agy continua.' : ' "Chamar IA agora" continua funcionando.';
+          console.warn(`[ia] análises automáticas do Claude esperando: janela de 5 h em ${await claudeFiveHourPct()}% (freio em ${AUTO_STOP_PCT}%).${others}`);
+          lastSkipLog = Date.now();
         }
+        return;
       }
       const { list } = await pendingGroups();
       const free = list.filter((g) => !claimed.has(g[0].key));
@@ -223,7 +221,7 @@ export async function runAnalises(opts: { maxBatches?: number; manual?: boolean 
         if (err instanceof AiBudgetError) {
           console.warn(`[ia] análises paradas: ${err.message}`);
           stop = true;
-        } else console.error("[ia] erro nas análises:", (err as Error).message.slice(0, 200));
+        } else console.error(`[ia] erro nas análises (${provider.name}):`, (err as Error).message.slice(0, 200));
         return;
       } finally {
         for (const g of chunk) claimed.delete(g[0].key);
@@ -232,8 +230,8 @@ export async function runAnalises(opts: { maxBatches?: number; manual?: boolean 
   };
 
   try {
-    // As pistas começam com 1,5 s de diferença para não abrirem três `claude -p` no mesmo instante.
-    await Promise.all(Array.from({ length: AI_PARALLEL }, (_, i) => new Promise((r) => setTimeout(r, i * 1500)).then(lane)));
+    // As pistas começam com 1,5 s de diferença para não abrirem vários processos de IA no mesmo instante.
+    await Promise.all(lanes.map((p, i) => new Promise((r) => setTimeout(r, i * 1500)).then(() => lane(p))));
   } finally {
     running = false;
     drain = false;

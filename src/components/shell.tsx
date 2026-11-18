@@ -137,17 +137,22 @@ function UsageBar({ label, w }: { label: string; w: { pct: number; resetsAt: num
   );
 }
 
-/** IA no cabeçalho: custo, uso da assinatura (5 h e semana), Pausar/Continuar e Chamar IA agora. */
+type AiChoice = StatusDTO["ai"]["choice"];
+/** Quem trabalha na IA. O agy é o Antigravity CLI (Gemini 3.8 Flash Low), pela conta do Antigravity. */
+export const AI_CHOICE_LABEL: Record<AiChoice, string> = { claude: "Claude", agy: "agy (Antigravity)", ambos: "Claude + agy" };
+
+/** IA no cabeçalho: qual IA, custo, uso da assinatura (5 h e semana), Pausar/Continuar e Chamar IA agora. */
 function AiControls({ ai }: { ai: StatusDTO["ai"] | null }) {
   const [busy, setBusy] = useState<string | null>(null);
-  const send = async (acao: "pausar" | "continuar" | "rodar") => {
+  const send = async (acao: "pausar" | "continuar" | "rodar" | "provedor", modo?: AiChoice) => {
     setBusy(acao);
     try {
-      await fetch("/api/ia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao }) });
+      await fetch("/api/ia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao, modo }) });
     } finally {
       setTimeout(() => setBusy(null), 1200);
     }
   };
+  const agyToday = ai?.callsTodayBy.agy ?? 0;
   const running = ai?.run?.running === true;
   const btn = "flex h-9 items-center gap-1.5 rounded-[10px] border border-control px-3 text-xs font-medium text-ink-2 hover:text-ink disabled:opacity-50";
   return (
@@ -165,10 +170,35 @@ function AiControls({ ai }: { ai: StatusDTO["ai"] | null }) {
           <UsageBar label="5 horas" w={ai?.limits?.fiveHour ?? null} />
           <UsageBar label="Semana" w={ai?.limits?.sevenDay ?? null} />
         </span>
-        <span className="flex flex-col font-mono tnum text-xs text-ink-2" title={ai ? `${ai.provider} · claude-haiku-5-5 · ${ai.callsToday} chamadas hoje` : undefined}>
+        <span
+          className="flex flex-col font-mono tnum text-xs text-ink-2"
+          title={ai ? `Claude: ${ai.provider} · claude-haiku-5-5 · ${ai.callsTodayBy[ai.provider] ?? 0} chamadas hoje
+agy: gemini-3.8-flash-low · ${agyToday} chamadas hoje, pela conta do Antigravity (sem custo nem cota informados)` : undefined}
+        >
           <span>{ai ? usd(ai.spentTodayUsd) : "—"} <span className="font-sans text-label">hoje</span></span>
           <span>{ai ? usd(ai.spentUsd) : "—"} <span className="font-sans text-label">total</span></span>
+          {ai && ai.choice !== "claude" && (
+            <span>
+              {agyToday} <span className="font-sans text-label">no agy hoje</span>
+            </span>
+          )}
         </span>
+        <label className="flex h-9 items-center gap-1.5 rounded-[10px] border border-control pl-2.5 pr-1 text-xs text-ink-2 focus-within:border-ink-3" title="Quem faz as análises, categorias, radar e insights. Com os dois, as análises rodam em pistas do Claude e do agy ao mesmo tempo; o freio de 85% da janela de 5 h para só o Claude.">
+          <span className="text-label">Usar</span>
+          <select
+            value={ai?.choice ?? "claude"}
+            disabled={!ai || busy === "provedor"}
+            onChange={(e) => void send("provedor", e.target.value as AiChoice)}
+            aria-label="Qual IA usar"
+            className="h-8 cursor-pointer rounded-md bg-transparent pr-1 font-medium text-ink outline-none disabled:opacity-50"
+          >
+            {(Object.keys(AI_CHOICE_LABEL) as AiChoice[]).map((k) => (
+              <option key={k} value={k} className="bg-surface text-ink">
+                {AI_CHOICE_LABEL[k]}
+              </option>
+            ))}
+          </select>
+        </label>
         <span className="flex gap-1.5">
           <button type="button" onClick={() => void send(ai?.paused ? "continuar" : "pausar")} disabled={!ai || busy != null} className={btn} aria-pressed={ai?.paused}>
             {ai?.paused ? "▶ Continuar" : "❚❚ Pausar"}

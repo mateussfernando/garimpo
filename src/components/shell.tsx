@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Permissao } from "@/config/permissoes";
 import { authClient } from "@/lib/auth-client";
 import type { StatusDTO } from "@/lib/offers";
 
@@ -101,16 +102,36 @@ export function useStatus() {
   return { status, live, reload: load };
 }
 
+// Cada item diz a permissão que precisa. O menu só esconde; quem barra de verdade são as rotas (exigir()).
 const NAV = [
-  { key: "vitrine", href: "/", label: "Vitrine" },
-  { key: "alvos", href: "/alvos", label: "Alvos" },
-  { key: "fontes", href: "/fontes", label: "Fontes" },
-  { key: "cupons", href: "/cupons", label: "Cupons" },
-  { key: "ia", href: "/ia", label: "Fila da IA" },
-  { key: "lojas", href: "/lojas", label: "Lojas" },
-  { key: "war-room", href: "/war-room", label: "War Room" },
-] as const;
+  { key: "vitrine", href: "/", label: "Vitrine", perm: "ofertas.ver" },
+  { key: "alvos", href: "/alvos", label: "Alvos", perm: "alvos.proprios" },
+  { key: "fontes", href: "/fontes", label: "Fontes", perm: "fontes.gerenciar" },
+  { key: "cupons", href: "/cupons", label: "Cupons", perm: "ofertas.ver" },
+  { key: "ia", href: "/ia", label: "Fila da IA", perm: "ia.gerenciar" },
+  { key: "lojas", href: "/lojas", label: "Lojas", perm: "lojas.gerenciar" },
+  { key: "war-room", href: "/war-room", label: "War Room", perm: "ofertas.ver" },
+  { key: "admin", href: "/admin", label: "Usuários", perm: "usuarios.gerenciar" },
+] as const satisfies readonly { key: string; href: string; label: string; perm: Permissao }[];
 export type NavKey = (typeof NAV)[number]["key"];
+
+export type Me = { id: string; name: string; email: string; image: string | null; cargo: { id: number; slug: string; nome: string }; permissoes: Permissao[] };
+
+let mePromise: Promise<Me | null> | null = null;
+/** Quem está logado e o que pode (de /api/me). Uma busca por carregamento de página. */
+export function useMe(): Me | null {
+  const [me, setMe] = useState<Me | null>(null);
+  useEffect(() => {
+    mePromise ??= fetch("/api/me", { cache: "no-store" }).then((r) => (r.ok ? (r.json() as Promise<Me>) : null)).catch(() => null);
+    let vivo = true;
+    void mePromise.then((m) => vivo && setMe(m));
+    return () => {
+      vivo = false;
+    };
+  }, []);
+  return me;
+}
+export const podeVer = (me: Me | null, p: Permissao) => !!me?.permissoes.includes(p);
 
 function Metric({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -240,6 +261,7 @@ function UserMenu() {
 
 export function AppHeader({ active, status, live }: { active: NavKey | null; status: StatusDTO | null; live: boolean }) {
   const ai = status?.ai;
+  const me = useMe();
   return (
     <header className="border-b border-line">
       <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-2.5">
@@ -251,7 +273,7 @@ export function AppHeader({ active, status, live }: { active: NavKey | null; sta
             Garimpo
           </Link>
           <nav aria-label="Seções do app" className="ml-3 flex flex-wrap gap-1 text-sm font-medium">
-            {NAV.map((n) => (
+            {NAV.filter((n) => podeVer(me, n.perm)).map((n) => (
               <Link
                 key={n.key}
                 href={n.href}

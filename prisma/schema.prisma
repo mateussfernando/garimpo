@@ -307,6 +307,9 @@ model User {
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   sessions      Session[]
   accounts      Account[]
+  /// Cargo do usuário. Vazio = o cargo padrão (o de quem se cadastra). Só um admin muda; o cadastro nunca escolhe.
+  cargoId       Int?      @map("cargo_id")
+  cargo         Cargo?    @relation(fields: [cargoId], references: [id])
 
   @@map("usuarios")
 }
@@ -366,4 +369,42 @@ model RateLimit {
   lastRequest BigInt @map("last_request")
 
   @@map("limites_de_acesso")
+}
+
+// ---------- Cargos e permissões. Cargo novo é uma linha; as permissões são as que o código conhece (src/config/permissoes.ts). ----------
+
+model Cargo {
+  id         Int              @id @default(autoincrement())
+  slug       String           @unique
+  nome       String
+  descricao  String?
+  /// Tem todas as permissões, sempre (o admin). Garante que ninguém tranca o app sem administrador.
+  todas      Boolean          @default(false)
+  /// Cargo de quem se cadastra (só um).
+  padrao     Boolean          @default(false)
+  /// Cargo do sistema (admin e usuário): não se apaga.
+  sistema    Boolean          @default(false)
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  permissoes CargoPermissao[]
+  usuarios   User[]
+
+  @@map("cargos")
+}
+
+model Permissao {
+  slug      String           @id
+  descricao String
+  cargos    CargoPermissao[]
+
+  @@map("permissoes")
+}
+
+model CargoPermissao {
+  cargoId       Int       @map("cargo_id")
+  permissaoSlug String    @map("permissao_slug")
+  cargo         Cargo     @relation(fields: [cargoId], references: [id], onDelete: Cascade)
+  permissao     Permissao @relation(fields: [permissaoSlug], references: [slug], onDelete: Cascade)
+
+  @@id([cargoId, permissaoSlug])
+  @@map("cargo_permissoes")
 }

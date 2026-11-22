@@ -66,6 +66,21 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 22/11/2026, 21:00 · deploy-v2, Fase 4: cargos e permissões
+
+- **Feito:**
+  - Tabelas `cargos`, `permissoes` e `cargo_permissoes`, e `usuarios.cargo_id` (migração `cargos`: só acrescenta, com a semente em `INSERT`). Cargos iniciais: **Administrador** (`todas`: tem todas as permissões, sempre) e **Usuário** (o padrão de quem se cadastra: `ofertas.ver`, `ia.analises.ver`, `alvos.proprios`). Cargo novo é uma linha: a tela cria e marca as permissões;
+  - As 10 permissões ficam em `src/config/permissoes.ts`, com teste que confere a semente da migração. Permissão nova: no arquivo e numa migração;
+  - `src/lib/sessao.ts`: `getUser()` traz cargo e permissões do banco; `exigir(permissao, request)` devolve o usuário ou a resposta 401/403 pronta e, nos pedidos que mudam algo, confere que vieram do próprio site (`Origin`, contra CSRF). Sem cargo marcado, vale o padrão; sem semente, nenhuma permissão (nunca o contrário);
+  - Quem se cadastra nunca escolhe cargo: o cadastro do better-auth não aceita esse campo e só a rota de admin muda;
+  - Tela **Usuários** (`/admin`): usuários com o cargo de cada um (dá para trocar), cargos com as permissões (criar, editar, "usar para quem se cadastra", apagar). Travas: o app nunca fica sem administrador, o admin não vira cargo de cadastro, cargo do sistema e cargo com gente dentro não se apagam;
+  - `/api/me` (quem sou, cargo, permissões) e o menu só mostra o que a pessoa pode usar (cada item diz a permissão que precisa);
+  - `pnpm admin:criar`: pede e-mail, nome e senha no terminal (a senha não aparece), cria a conta como Administrador ou promove uma conta que já existe (inclusive criada com Google).
+- **Testado (por HTTP, com uma conta comum e uma admin de teste):** comum dá 403 em `/api/admin` e não troca o próprio cargo; admin cria o cargo Moderador, põe o comum nele e as permissões mudam na hora; não apaga cargo com gente; não tira o único admin; pedido sem `Origin` dá 403; tirar `ia.analises.ver` do cargo Usuário some na hora e volta ao restaurar. 114 testes, `tsc` e `eslint`.
+- **Achado:** depois de `prisma generate` (migração nova) é preciso reiniciar o `pnpm dev`: o cliente do Prisma fica guardado entre os recarregamentos do Next.
+- **Para você:** rode `pnpm admin:criar` com o seu e-mail para ter a sua conta de Administrador.
+- **Próximo passo:** Fase 5, esconder do usuário comum tudo que é de admin (APIs, telas e tempo real).
+
 ### 22/11/2026, 20:45 · deploy-v2, Fase 3: contas e login
 
 - **Feito:**

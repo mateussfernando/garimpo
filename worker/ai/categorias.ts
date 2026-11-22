@@ -1,15 +1,13 @@
 // Categoria por IA, em lote: só para as ofertas que as regras de src/config/categories.ts não souberam classificar.
 // Uma chamada por lote de até 50 títulos, sempre pela trava de gasto (budget.ts). O site só lê a coluna `category`.
-import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { CATEGORIES, CATEGORY_SLUGS, OTHER_CATEGORY } from "@/config/categories";
-import { db, schema } from "@/lib/db";
+import { prisma } from "@/lib/db/prisma";
+import { DIA, atras } from "@/lib/tempo";
 import { notify } from "../pipeline";
 import { guardedCall } from "./budget";
 import { pickProvider } from "./index";
 import { AiBudgetError } from "./types";
-
-const { offers } = schema;
 const BATCH = 50;
 
 const ResultSchema = z.object({
@@ -29,20 +27,12 @@ export async function runCategorias(batches = 2): Promise<{ classificadas: numbe
   let classificadas = 0;
   let lotes = 0;
   for (let b = 0; b < batches; b++) {
-    const rows = await db
-      .select({ id: offers.id, title: offers.title })
-      .from(offers)
-      .where(
-        and(
-          eq(offers.kind, "produto"),
-          isNull(offers.category),
-          isNull(offers.categorySource),
-          eq(offers.dismissed, false),
-          gte(offers.createdAt, sql`now() - interval '7 days'`),
-        ),
-      )
-      .orderBy(sql`${offers.createdAt} desc`)
-      .limit(BATCH);
+    const rows = await prisma.offer.findMany({
+      where: { kind: "produto", category: null, categorySource: null, dismissed: false, createdAt: { gte: atras(7 * DIA) } },
+      select: { id: true, title: true },
+      orderBy: { createdAt: "desc" },
+      take: BATCH,
+    });
     if (!rows.length) break;
     lotes++;
     let data: z.infer<typeof ResultSchema>;
@@ -64,19 +54,13 @@ export async function runCategorias(batches = 2): Promise<{ classificadas: numbe
     for (const item of data.itens) {
       if (!ids.has(item.id) || answered.has(item.id)) continue;
       answered.add(item.id);
-      await db
-        .update(offers)
-        .set({ category: item.categoria, categorySource: "ia" })
-        .where(and(eq(offers.id, item.id), isNull(offers.categorySource)));
+      await prisma.offer.updateMany({ where: { id: item.id, categorySource: null }, data: { category: item.categoria, categorySource: "ia" } });
       if (item.categoria !== OTHER_CATEGORY.slug) classificadas++;
     }
     // O que a IA não devolveu fica em "Outros", para não ir de novo no próximo lote.
     const missing = [...ids].filter((id) => !answered.has(id));
     if (missing.length) {
-      await db
-        .update(offers)
-        .set({ category: OTHER_CATEGORY.slug, categorySource: "ia" })
-        .where(and(inArray(offers.id, missing), isNull(offers.categorySource)));
+      await prisma.offer.updateMany({ where: { id: { in: missing }, categorySource: null }, data: { category: OTHER_CATEGORY.slug, categorySource: "ia" } });
     }
   }
   if (lotes) await notify({ type: "offer" });

@@ -66,6 +66,19 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 22/11/2026, 20:30 · deploy-v2, Fase 2: tudo no Prisma, Drizzle fora
+
+- **Feito:**
+  - As cerca de 170 consultas do site (`src/lib/*`, 20 rotas de `src/app/api`) e do worker (`pipeline`, `verify`, `ai/*`, `collect/*`, `ingest/telegram`, `index`, `dev/simular`) agora usam o Prisma. Saíram `drizzle-orm`, `drizzle-kit`, `drizzle.config.ts`, `src/lib/db/schema.ts` e o `db:push`. As tabelas e os dados continuam iguais;
+  - Tipos dos campos JSON em `src/lib/db/types.ts` (`asJson`, `json`, `jsonOrNull`, `alvoFromDb`);
+  - SQL puro (`$queryRaw`, sempre com parâmetros) onde o Prisma mudaria o comportamento: `ingestRaw` (`on conflict do nothing returning id`, para a mesma mensagem nunca virar duas ofertas), `saveCoupons` (junta listas no próprio banco), contagens com `filter`, histórico por dia e o "calor social";
+  - `src/lib/tempo.ts`: "hoje" é sempre o dia de São Paulo, calculado no código (`inicioDoDia`). Antes era `date_trunc('day', now())`, que no Supabase (UTC) viraria o dia UTC;
+  - O hash das análises da IA ficou idêntico (mesmos campos, mesma ordem): as 14.512 análises seguem valendo e nada volta para a fila.
+- **Problema achado e corrigido (fuso):** o adaptador do Prisma (`@prisma/adapter-pg`) manda e lê datas sem fuso. Com a sessão do banco local em America/Sao_Paulo, tudo que o Prisma criou com a hora de agora foi gravado **3 h adiantado**, e as leituras vinham 3 h atrasadas. Correção: toda conexão local abre em UTC (`options: -c TimeZone=UTC` em `pgConfig`, com teste); o Supabase já é UTC. Reparo: dump antes (`antes-de-corrigir-fuso`) e, numa transação, menos 3 h em todo horário que tinha ido para o futuro (1.445 valores em ofertas, análises, cupons, uso da IA, fontes, convites e referências de faixa; as 2 pausas de loja foram corrigidas pela hora de gravação da linha). O que o Prisma leu e regravou ficou certo, porque os dois erros se anulam.
+- **Também:** o `pnpm dev` que estava aberto caiu durante a troca (o worker recarregou com arquivos pela metade e o `concurrently -k` derrubou o site). Ele agora roda na aba "garimpo dev" do terminal. Os 10 Alvos estão apagados desde 13/11 (apagados um a um pela tela, já no primeiro dump): não foi a migração.
+- **Testado:** uma oferta da Amazon verificada pelo código novo (produto criado, preço gravado, hora certa); as 9 APIs das telas respondem 200; o worker subiu com todos os papéis, reclassificou 9.068 ofertas sem mudança, o Telegram trouxe as mensagens desde 18/11 (cerca de 900 ofertas novas), os cupons foram juntados e o agy fez análises e categorias. 112 testes, `tsc` e `eslint`.
+- **Próximo passo:** Fase 3, contas e login (e-mail e senha com bcrypt, Google).
+
 ### 22/11/2026, 20:00 · deploy-v2, Fase 1: Prisma ao lado do Drizzle
 
 - **Feito:**

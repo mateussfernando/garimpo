@@ -1,12 +1,10 @@
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { STORES } from "@/config/stores";
-import { db, schema } from "@/lib/db";
-import type { OfferExtra, OfferSpecs } from "@/lib/db/schema";
+import { prisma } from "@/lib/db/prisma";
+import { asJson, type OfferExtra, type OfferSpecs } from "@/lib/db/types";
 import { getAiStatus, type AiStatus } from "@/lib/ai-usage";
 import { clusterSameProduct } from "@/lib/same-product";
 import { getSetting } from "@/lib/settings";
-
-const { offers, alvos, alvoRefs, sources, products, offerAnalyses } = schema;
+import { HORA, atras, inicioDoDia } from "@/lib/tempo";
 
 export type Verdict = "excelente" | "boa" | "ok" | "fraca" | "evitar";
 /** Análise da IA da oferta (worker/ai/analises.ts). */
@@ -95,29 +93,30 @@ export type OfferDTO = {
 };
 
 export async function listOffers(opts: { onlyId?: number } = {}): Promise<OfferDTO[]> {
-  const rows = await db
-    .select({
-      o: offers,
-      alvo: { slug: alvos.slug, name: alvos.name },
-      ref: { label: alvoRefs.label, medianCents: alvoRefs.medianCents, targetCents: alvoRefs.targetCents, ceilingCents: alvoRefs.ceilingCents, n: alvoRefs.n },
-      source: sources.name,
-      sourceKind: sources.kind,
-      productImage: products.imageUrl,
-      ia: offerAnalyses,
-    })
-    .from(offers)
-    .leftJoin(offerAnalyses, eq(offerAnalyses.offerId, offers.id))
-    .leftJoin(alvos, and(eq(offers.alvoId, alvos.id), eq(alvos.active, true)))
-    .leftJoin(alvoRefs, and(eq(alvoRefs.alvoId, offers.alvoId), eq(alvoRefs.bandKey, offers.bandKey)))
-    .innerJoin(sources, eq(offers.sourceId, sources.id))
-    .leftJoin(products, eq(offers.productId, products.id))
-    .where(
-      opts.onlyId != null
-        ? eq(offers.id, opts.onlyId)
-        : and(eq(offers.dismissed, false), eq(offers.kind, "produto"), gte(offers.createdAt, sql`now() - interval '48 hours'`)),
-    )
-    .orderBy(sql`${offers.nota} desc nulls last`, desc(offers.createdAt))
-    .limit(2000);
+  const found = await prisma.offer.findMany({
+    where: opts.onlyId != null ? { id: opts.onlyId } : { dismissed: false, kind: "produto", createdAt: { gte: atras(48 * HORA) } },
+    include: {
+      analysis: true,
+      alvo: { select: { slug: true, name: true, active: true } },
+      source: { select: { name: true, kind: true } },
+      product: { select: { imageUrl: true } },
+    },
+    orderBy: [{ nota: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
+    take: 2000,
+  });
+  // A referência da faixa (alvo + faixa) não é uma relação do Prisma: vem numa consulta só e é ligada aqui.
+  const alvoIds = [...new Set(found.map((o) => o.alvoId).filter((x): x is number => x != null))];
+  const refRows = alvoIds.length ? await prisma.alvoRef.findMany({ where: { alvoId: { in: alvoIds } } }) : [];
+  const refBy = new Map(refRows.map((r) => [`${r.alvoId}:${r.bandKey}`, r]));
+  const rows = found.map((o) => ({
+    o,
+    alvo: o.alvo?.active ? o.alvo : null,
+    ref: o.alvoId != null && o.bandKey ? refBy.get(`${o.alvoId}:${o.bandKey}`) : undefined,
+    source: o.source.name,
+    sourceKind: o.source.kind,
+    productImage: o.product?.imageUrl ?? null,
+    ia: o.analysis,
+  }));
   const all = rows.map(({ o, alvo, ref, source, sourceKind, productImage, ia }) => ({
     productId: o.productId,
     sources: [source],
@@ -146,8 +145,8 @@ export async function listOffers(opts: { onlyId?: number } = {}): Promise<OfferD
           score: ia.score,
           confidence: ia.confidence as OfferAiDTO["confidence"],
           summary: ia.summary,
-          pros: ia.pros,
-          cons: ia.cons,
+          pros: asJson<string[]>(ia.pros),
+          cons: asJson<string[]>(ia.cons),
           at: ia.createdAt.toISOString(),
         }
       : null,
@@ -156,10 +155,10 @@ export async function listOffers(opts: { onlyId?: number } = {}): Promise<OfferD
     verifyNote: o.verifyNote,
     verifiedAt: o.verifiedAt?.toISOString() ?? null,
     nota: o.nota,
-    notaParts: (o.notaParts as OfferDTO["notaParts"]) ?? null,
+    notaParts: asJson<OfferDTO["notaParts"]>(o.notaParts) ?? null,
     watched: o.watched,
     snoozedUntil: o.snoozedUntil?.toISOString() ?? null,
-    alvo: alvo?.slug ? { slug: alvo.slug, name: alvo.name!, targetCents: ref?.targetCents ?? null } : null,
+    alvo: alvo?.slug ? { slug: alvo.slug, name: alvo.name, targetCents: ref?.targetCents ?? null } : null,
     band: alvo?.slug && o.bandKey && ref?.label ? { key: o.bandKey, label: ref.label, medianCents: ref.medianCents, n: ref.n ?? 0 } : null,
     alvoTetoCents: ref?.ceilingCents ?? null,
     // Só vale com o preço conferido na loja e o produto à venda: preço de post e item esgotado não disparam ouro.
@@ -171,9 +170,9 @@ export async function listOffers(opts: { onlyId?: number } = {}): Promise<OfferD
       o.available !== false &&
       o.verifyStatus === "verificado"
     ),
-    specs: o.specs,
+    specs: asJson<OfferSpecs | null>(o.specs),
     available: o.available,
-    extra: o.extra,
+    extra: asJson<OfferExtra | null>(o.extra),
     source,
     sourceKind,
     createdAt: o.createdAt.toISOString(),
@@ -280,15 +279,12 @@ export type RadarDTO = {
 };
 
 export async function getStatus(): Promise<StatusDTO> {
-  const all = await db.select().from(sources).orderBy(sources.id);
+  const all = await prisma.source.findMany({ orderBy: { id: "asc" } });
   const tg = all.filter((s) => s.kind === "telegram");
   const src = all.filter((s) => s.kind !== "telegram");
-  const [{ pending }] = await db.select({ pending: sql<number>`count(*)::int` }).from(offers).where(eq(offers.verifyStatus, "pendente"));
-  const [{ today }] = await db
-    .select({ today: sql<number>`count(*)::int` })
-    .from(offers)
-    .where(gte(offers.createdAt, sql`date_trunc('day', now())`));
-  const al = await db.select().from(alvos).where(eq(alvos.active, true)).orderBy(alvos.id);
+  const pending = await prisma.offer.count({ where: { verifyStatus: "pendente" } });
+  const today = await prisma.offer.count({ where: { createdAt: { gte: inicioDoDia() } } });
+  const al = await prisma.alvo.findMany({ where: { active: true }, orderBy: { id: "asc" } });
   const radar = await getRadar();
   return {
     telegram: tg.length ? { on: tg.filter((s) => s.enabled).length, total: tg.length } : null,
@@ -309,7 +305,7 @@ async function getRadar(): Promise<RadarDTO | null> {
   const r = saved.value.radar;
   const ids = r.destaques.map((d) => d.id);
   const rows = ids.length
-    ? await db.select({ id: offers.id, title: offers.title, p: offers.priceCardCents }).from(offers).where(inArray(offers.id, ids))
+    ? (await prisma.offer.findMany({ where: { id: { in: ids } }, select: { id: true, title: true, priceCardCents: true } })).map((x) => ({ id: x.id, title: x.title, p: x.priceCardCents }))
     : [];
   const byId = new Map(rows.map((x) => [x.id, x]));
   return {

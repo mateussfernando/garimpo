@@ -1,9 +1,9 @@
 // Fontes da tela Fontes: feed RSS, página de ofertas (dados na própria página) e busca em loja VTEX.
 // Tudo com coleta educada (politeFetch: robots.txt, fila por domínio, pausa em 429/403/503). Sem navegador.
-import { and, eq, inArray, isNull } from "drizzle-orm";
 import { CONFIG_SCHEMA, DEFAULT_INTERVAL_MIN, type FeedConfig, type FonteKind, type PaginaConfig, type VtexConfig } from "@/config/fontes";
 import { storeForUrl } from "@/config/stores";
-import { db, schema } from "@/lib/db";
+import type { Source } from "@/generated/prisma/client";
+import { prisma } from "@/lib/db/prisma";
 import { PausedError, RobotsError, politeFetch } from "../http/polite";
 import { parseDataPage, parseFeed, parseVtex, type DealItem } from "./genericas-parse";
 import { activeAlvos, ingestRaw, setSourceStatus } from "../pipeline";
@@ -19,7 +19,6 @@ async function vtexTerms(cfg: VtexConfig): Promise<string[]> {
 
 // ---------- Coleta ----------
 
-type Source = typeof schema.sources.$inferSelect;
 const KINDS: FonteKind[] = ["feed", "pagina", "vtex"];
 
 function configOf(s: Source) {
@@ -105,10 +104,7 @@ const running = new Set<number>();
 
 /** Roda a cada minuto: lê cada fonte ligada cujo intervalo venceu. Fontes de domínios diferentes andam juntas. */
 export async function collectConfiguradas(): Promise<void> {
-  const list = await db
-    .select()
-    .from(schema.sources)
-    .where(and(inArray(schema.sources.kind, KINDS), eq(schema.sources.enabled, true), isNull(schema.sources.deletedAt)));
+  const list = await prisma.source.findMany({ where: { kind: { in: KINDS }, enabled: true, deletedAt: null } });
   const now = Date.now();
   const due = list.filter((s) => {
     if (running.has(s.id)) return false;

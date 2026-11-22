@@ -1,5 +1,5 @@
-import { and, eq, gte, sql } from "drizzle-orm";
-import { db, schema } from "@/lib/db";
+import { prisma } from "@/lib/db/prisma";
+import { inicioDoDia } from "@/lib/tempo";
 import { getSetting } from "@/lib/settings";
 
 /** Pausa da IA, escolhida pelo usuário no cabeçalho. */
@@ -55,20 +55,15 @@ export async function getAiChoice(): Promise<AiChoice> {
 
 /** Gasto, chamadas de hoje, pausa e uso da assinatura. Só leitura: serve ao worker e ao cabeçalho do site. */
 export async function getAiStatus(): Promise<AiStatus> {
-  const { aiUsage } = schema;
-  const [{ spent }] = await db
-    .select({ spent: sql<number>`coalesce(sum(${aiUsage.costUsd}), 0)::float` })
-    .from(aiUsage)
-    .where(eq(aiUsage.ok, true));
-  const [{ calls, today }] = await db
-    .select({ calls: sql<number>`count(*)::int`, today: sql<number>`coalesce(sum(${aiUsage.costUsd}), 0)::float` })
-    .from(aiUsage)
-    .where(and(eq(aiUsage.ok, true), gte(aiUsage.createdAt, sql`date_trunc('day', now())`)));
-  const byProvider = await db
-    .select({ provider: aiUsage.provider, n: sql<number>`count(*)::int` })
-    .from(aiUsage)
-    .where(and(eq(aiUsage.ok, true), gte(aiUsage.createdAt, sql`date_trunc('day', now())`)))
-    .groupBy(aiUsage.provider);
+  const hoje = { ok: true, createdAt: { gte: inicioDoDia() } };
+  const [all, day, byProvider] = await Promise.all([
+    prisma.aiUsage.aggregate({ where: { ok: true }, _sum: { costUsd: true } }),
+    prisma.aiUsage.aggregate({ where: hoje, _sum: { costUsd: true }, _count: { _all: true } }),
+    prisma.aiUsage.groupBy({ by: ["provider"], where: hoje, _count: { _all: true } }),
+  ]);
+  const spent = Number(all._sum.costUsd ?? 0);
+  const today = Number(day._sum.costUsd ?? 0);
+  const calls = day._count._all;
   const [state, limits, run] = await Promise.all([
     getSetting<AiState>(AI_STATE_KEY),
     getSetting<AiLimitsValue>(AI_LIMITS_KEY),
@@ -77,7 +72,7 @@ export async function getAiStatus(): Promise<AiStatus> {
   return {
     provider: aiProviderName(),
     choice: await getAiChoice(),
-    callsTodayBy: Object.fromEntries(byProvider.map((r) => [r.provider, r.n])),
+    callsTodayBy: Object.fromEntries(byProvider.map((r) => [r.provider, r._count._all])),
     paused: state?.value.paused === true,
     spentUsd: Math.round(spent * 10000) / 10000,
     spentTodayUsd: Math.round(today * 10000) / 10000,

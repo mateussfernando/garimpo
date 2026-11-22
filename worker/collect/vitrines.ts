@@ -5,10 +5,9 @@
 //
 // Conferido em 10/11/2026 contra páginas de produto: na listagem do KaBuM!, os campos de preço são os de ANTES da
 // campanha, e só o texto de parcelas ("10x de R$ 111,76") reflete o preço do dia. Por isso o preço vivo vem das parcelas.
-import { desc, eq } from "drizzle-orm";
 import { STORES, productIdFor } from "@/config/stores";
 import { parseBRL } from "@/lib/money";
-import { db, schema } from "@/lib/db";
+import { prisma } from "@/lib/db/prisma";
 import { nextData } from "../http/html";
 import { PausedError, RobotsError, politeFetch } from "../http/polite";
 import { activeAlvos, classify, ingestRaw, refreshRef, setSourceStatus } from "../pipeline";
@@ -96,7 +95,7 @@ export function textFor(p: VitrineProduct): string {
 }
 
 async function sourceOf(slug: string) {
-  const [s] = await db.select().from(schema.sources).where(eq(schema.sources.slug, slug));
+  const s = await prisma.source.findUnique({ where: { slug } });
   return s?.enabled ? s : null;
 }
 
@@ -111,20 +110,16 @@ async function recordStorePrice(storeSlug: string, p: VitrineProduct, price: num
   const store = STORES.find((s) => s.slug === storeSlug);
   const code = store ? productIdFor(store, p.url) : null;
   if (!code) return;
-  const [prod] = await db
-    .insert(schema.products)
-    .values({ store: storeSlug, storeProductId: code, canonicalUrl: p.url, title: p.name.slice(0, 300), imageUrl: p.imageUrl })
-    .onConflictDoUpdate({ target: [schema.products.store, schema.products.storeProductId], set: { title: p.name.slice(0, 300), ...(p.imageUrl ? { imageUrl: p.imageUrl } : {}) } })
-    .returning({ id: schema.products.id });
-  const [last] = await db
-    .select({ p: schema.pricePoints.priceCardCents, at: schema.pricePoints.observedAt })
-    .from(schema.pricePoints)
-    .where(eq(schema.pricePoints.productId, prod.id))
-    .orderBy(desc(schema.pricePoints.observedAt))
-    .limit(1);
-  if (last && last.p === price && Date.now() - last.at.getTime() < 6 * 60 * 60 * 1000) return;
+  const prod = await prisma.product.upsert({
+    where: { store_storeProductId: { store: storeSlug, storeProductId: code } },
+    create: { store: storeSlug, storeProductId: code, canonicalUrl: p.url, title: p.name.slice(0, 300), imageUrl: p.imageUrl },
+    update: { title: p.name.slice(0, 300), ...(p.imageUrl ? { imageUrl: p.imageUrl } : {}) },
+    select: { id: true },
+  });
+  const last = await prisma.pricePoint.findFirst({ where: { productId: prod.id }, orderBy: { observedAt: "desc" }, select: { priceCardCents: true, observedAt: true } });
+  if (last && last.priceCardCents === price && Date.now() - last.observedAt.getTime() < 6 * 60 * 60 * 1000) return;
   const n = p.installmentText?.match(/(\d{1,2})\s*x/i)?.[1];
-  await db.insert(schema.pricePoints).values({
+  await prisma.pricePoint.create({ data: {
     productId: prod.id,
     priceCardCents: price,
     cashCents: p.cashCents,
@@ -132,7 +127,7 @@ async function recordStorePrice(storeSlug: string, p: VitrineProduct, price: num
     interest: false,
     imageUrl: p.imageUrl,
     origin: "loja",
-  });
+  } });
 }
 
 /**
@@ -156,13 +151,11 @@ export async function ingestStoreProducts(input: {
     if (!price) continue;
     await recordStorePrice(storeSlug, p, price);
     if (!c.band) continue;
-    await db
-      .insert(schema.marketObs)
-      .values({ store: storeSlug, code: p.code, alvoId: c.alvo!.id, bandKey: c.band.key, title: p.name.slice(0, 200), priceCardCents: price })
-      .onConflictDoUpdate({
-        target: [schema.marketObs.store, schema.marketObs.code],
-        set: { alvoId: c.alvo!.id, bandKey: c.band.key, priceCardCents: price, seenAt: new Date() },
-      });
+    await prisma.marketObs.upsert({
+      where: { store_code: { store: storeSlug, code: p.code } },
+      create: { store: storeSlug, code: p.code, alvoId: c.alvo!.id, bandKey: c.band.key, title: p.name.slice(0, 200), priceCardCents: price },
+      update: { alvoId: c.alvo!.id, bandKey: c.band.key, priceCardCents: price, seenAt: new Date() },
+    });
     touched.set(`${c.alvo!.id}:${c.band.key}`, { alvoId: c.alvo!.id, key: c.band.key, label: c.band.label });
     market++;
   }

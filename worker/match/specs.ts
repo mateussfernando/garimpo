@@ -1,6 +1,6 @@
 // Especificações tiradas do título, sem IA, e a faixa do Alvo a que o produto pertence.
 // A faixa existe para comparar só o que é comparável: um monitor 27" QHD com outros 27" QHD.
-import type { OfferSpecs } from "@/lib/db/schema";
+import type { OfferSpecs } from "@/lib/db/types";
 import { plain } from "./alvos";
 
 export type Band = { key: string; label: string };

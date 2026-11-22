@@ -3,7 +3,7 @@
 // No claude-cli, cada resposta traz o uso da assinatura (janela de 5 h e semanal); ele fica salvo para o cabeçalho.
 import { costUsd } from "@/config/pricing";
 import { AI_LIMITS_KEY, AI_STATE_KEY, type AiState } from "@/lib/ai-usage";
-import { db, schema } from "@/lib/db";
+import { prisma } from "@/lib/db/prisma";
 import { getSetting, setSetting } from "@/lib/settings";
 import { notify } from "../pipeline";
 import { AiBudgetError, type AiProvider, type AiRequest, type AiResult } from "./types";
@@ -17,7 +17,7 @@ export async function guardedCall<T>(provider: AiProvider, req: AiRequest<T>): P
   try {
     const res = await provider.generate(req);
     const cost = provider.name === "ollama" ? 0 : (res.costUsd ?? costUsd(res.inputTokens, res.outputTokens));
-    await db.insert(schema.aiUsage).values({
+    await prisma.aiUsage.create({ data: {
       provider: provider.name,
       model: provider.model,
       purpose: req.purpose,
@@ -25,12 +25,12 @@ export async function guardedCall<T>(provider: AiProvider, req: AiRequest<T>): P
       outputTokens: res.outputTokens,
       costUsd: String(cost),
       ok: true,
-    });
+    } });
     if (res.limits) await setSetting(AI_LIMITS_KEY, res.limits);
     await notify({ type: "ai" });
     return res;
   } catch (err) {
-    await db.insert(schema.aiUsage).values({ provider: provider.name, model: provider.model, purpose: req.purpose, ok: false });
+    await prisma.aiUsage.create({ data: { provider: provider.name, model: provider.model, purpose: req.purpose, ok: false } });
     throw err;
   }
 }

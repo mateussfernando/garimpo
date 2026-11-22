@@ -1,4 +1,4 @@
-import type { OfferExtra } from "@/lib/db/schema";
+import type { OfferExtra } from "@/lib/db/types";
 
 /** O que a página do produto de uma loja informa, lido do jeito próprio dessa loja. Preços em centavos. */
 export type StoreData = {

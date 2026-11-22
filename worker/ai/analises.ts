@@ -8,21 +8,19 @@
 //   "Chamar IA agora" não para); as do agy seguem, porque ele não tem essa janela.
 // O site só lê offer_analyses.
 import { createHash } from "node:crypto";
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { categoryName } from "@/config/categories";
 import { STORES } from "@/config/stores";
 import { AGY_PARALLEL, AI_PARALLEL } from "@/config/pricing";
 import { AI_AUTO_STOP_PCT } from "@/lib/ai-usage";
-import { db, schema } from "@/lib/db";
+import { prisma } from "@/lib/db/prisma";
+import { DIA, HORA, atras } from "@/lib/tempo";
 import { normalize } from "@/lib/money";
 import { median } from "../match/alvos";
 import { notify } from "../pipeline";
 import { aiPaused, guardedCall } from "./budget";
 import { activeProviders, claudeBraked, claudeFiveHourPct } from "./index";
 import { AiBudgetError, type AiProvider } from "./types";
-
-const { offers, offerAnalyses, alvos, alvoRefs, pricePoints, sources } = schema;
 const BATCH = 12;
 /** Acima disto (% da janela de 5 h), as rodadas automáticas esperam. */
 export const AUTO_STOP_PCT = AI_AUTO_STOP_PCT;
@@ -60,23 +58,31 @@ const pct = (a: number | null, b: number | null) => (a && b ? Math.round(((a - b
 
 /** Todas as ofertas de produto das últimas 48 h, com as métricas que a IA recebe. */
 async function candidates(): Promise<Candidate[]> {
-  const rows = await db
-    .select({ o: offers, alvo: alvos.name, ref: alvoRefs, fonte: sources.name })
-    .from(offers)
-    .innerJoin(sources, eq(sources.id, offers.sourceId))
-    .leftJoin(alvos, eq(alvos.id, offers.alvoId))
-    .leftJoin(alvoRefs, and(eq(alvoRefs.alvoId, offers.alvoId), eq(alvoRefs.bandKey, offers.bandKey)))
-    .where(and(eq(offers.kind, "produto"), eq(offers.dismissed, false), gte(offers.createdAt, sql`now() - interval '48 hours'`)))
-    .orderBy(desc(offers.createdAt))
-    .limit(3000);
+  const found = await prisma.offer.findMany({
+    where: { kind: "produto", dismissed: false, createdAt: { gte: atras(48 * HORA) } },
+    include: { source: { select: { name: true } }, alvo: { select: { name: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 3000,
+  });
+  // A referência da faixa (alvo + faixa) vem numa consulta só e é ligada aqui (não é relação do Prisma).
+  const alvoIds = [...new Set(found.map((o) => o.alvoId).filter((x): x is number => x != null))];
+  const refRows = alvoIds.length ? await prisma.alvoRef.findMany({ where: { alvoId: { in: alvoIds } } }) : [];
+  const refBy = new Map(refRows.map((r) => [`${r.alvoId}:${r.bandKey}`, r]));
+  const rows = found.map((o) => ({
+    o,
+    // Mesmo valor de antes (o nome do Alvo, ligado ou não): faz parte do hash que decide se a análise está em dia.
+    alvo: o.alvo?.name ?? null,
+    ref: o.alvoId != null && o.bandKey ? refBy.get(`${o.alvoId}:${o.bandKey}`) : undefined,
+    fonte: o.source.name,
+  }));
   const productIds = [...new Set(rows.map((r) => r.o.productId).filter((x): x is number => x != null))];
   const hist = new Map<number, number[]>();
   if (productIds.length) {
-    const pts = await db
-      .select({ pid: pricePoints.productId, p: pricePoints.priceCardCents })
-      .from(pricePoints)
-      .where(and(inArray(pricePoints.productId, productIds), gte(pricePoints.observedAt, sql`now() - interval '30 days'`)));
-    for (const x of pts) if (x.p != null) hist.set(x.pid, [...(hist.get(x.pid) ?? []), x.p]);
+    const pts = await prisma.pricePoint.findMany({
+      where: { productId: { in: productIds }, observedAt: { gte: atras(30 * DIA) } },
+      select: { productId: true, priceCardCents: true },
+    });
+    for (const x of pts) if (x.priceCardCents != null) hist.set(x.productId, [...(hist.get(x.productId) ?? []), x.priceCardCents]);
   }
   return rows.map(({ o, alvo, ref, fonte }) => {
     const h = o.productId ? (hist.get(o.productId) ?? []) : [];
@@ -120,8 +126,8 @@ async function pendingGroups(): Promise<{ list: Candidate[][]; total: number; do
   const known = new Map<number, string>();
   for (let i = 0; i < all.length; i += 1000) {
     const ids = all.slice(i, i + 1000).map((c) => c.m.id);
-    const rows = await db.select({ id: offerAnalyses.offerId, hash: offerAnalyses.hash }).from(offerAnalyses).where(inArray(offerAnalyses.offerId, ids));
-    for (const r of rows) known.set(r.id, r.hash);
+    const rows = await prisma.offerAnalysis.findMany({ where: { offerId: { in: ids } }, select: { offerId: true, hash: true } });
+    for (const r of rows) known.set(r.offerId, r.hash);
   }
   const groups = new Map<string, Candidate[]>();
   for (const c of all) if (known.get(c.m.id) !== c.hash) groups.set(c.key, [...(groups.get(c.key) ?? []), c]);
@@ -162,7 +168,7 @@ async function analyzeChunk(provider: AiProvider, chunk: Candidate[][]): Promise
     // Vale para todas as cópias do mesmo produto, cada uma com o seu hash.
     for (const c of group) {
       const values = { ...base, hash: c.hash };
-      await db.insert(offerAnalyses).values({ offerId: c.m.id, ...values }).onConflictDoUpdate({ target: offerAnalyses.offerId, set: values });
+      await prisma.offerAnalysis.upsert({ where: { offerId: c.m.id }, create: { offerId: c.m.id, ...values }, update: values });
       n++;
     }
   }

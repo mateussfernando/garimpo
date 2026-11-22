@@ -1,15 +1,16 @@
-import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
+import type { Prisma } from "@/generated/prisma/client";
 import { CANAIS_SUGERIDOS, CONFIG_SCHEMA, DEFAULT_INTERVAL_MIN, KIND_LABEL, MIN_INTERVAL_MIN, SUGESTOES, type FonteKind } from "@/config/fontes";
 import { storeForUrl } from "@/config/stores";
 import { groupReason } from "@/config/telegram-filter";
-import { db, schema } from "@/lib/db";
+import { prisma } from "@/lib/db/prisma";
+import { asJson, type SourceStats } from "@/lib/db/types";
+import { DIA, atras } from "@/lib/tempo";
 
 /** A tela Fontes pede ao worker para testar uma fonte; o resultado volta em app_settings. */
 export const FONTES_CMD_CHANNEL = "garimpo_fontes";
 export const FONTE_TESTE_KEY = "fonte_teste";
 export type FontesCmd = { acao: "testar"; token: string; kind: FonteKind; config: unknown };
 
-const { sources, offers, invites } = schema;
 
 export type FonteState = "confirmada" | "sugerida" | "pausada" | "ignorada";
 
@@ -48,6 +49,11 @@ export type FontesDTO = {
 
 const WHERE: Record<FonteKind, string> = { feed: "Feed RSS", pagina: "Página de ofertas", vtex: "Busca na loja (VTEX)" };
 
+function statsOf(raw: Prisma.JsonValue | null) {
+  const s = asJson<SourceStats | null>(raw);
+  return s ? { read: s.read, withLink: s.withLink, touched: s.touched, offers: s.offers } : null;
+}
+
 export function stateOf(s: { enabled: boolean; decision: string | null }): FonteState {
   if (s.enabled) return "confirmada";
   if (s.decision === "pausada") return "pausada";
@@ -56,16 +62,13 @@ export function stateOf(s: { enabled: boolean; decision: string | null }): Fonte
 }
 
 export async function getFontes(): Promise<FontesDTO> {
-  const all = await db.select().from(sources).where(isNull(sources.deletedAt)).orderBy(sources.id);
-  const stats = await db
-    .select({
-      sourceId: offers.sourceId,
-      perDay: sql<number>`count(*) filter (where ${offers.createdAt} >= now() - interval '24 hours')::int`,
-      ok: sql<number>`count(*) filter (where ${offers.verifyStatus} = 'verificado')::int`,
-      tried: sql<number>`count(*) filter (where ${offers.verifyStatus} in ('verificado','nao_verificado'))::int`,
-    })
-    .from(offers)
-    .groupBy(offers.sourceId);
+  const all = await prisma.source.findMany({ where: { deletedAt: null }, orderBy: { id: "asc" } });
+  const stats = await prisma.$queryRaw<{ sourceId: number; perDay: number; ok: number; tried: number }[]>`
+    select source_id as "sourceId",
+      count(*) filter (where created_at >= ${atras(DIA)})::int as "perDay",
+      count(*) filter (where verify_status = 'verificado')::int as ok,
+      count(*) filter (where verify_status in ('verificado','nao_verificado'))::int as tried
+    from offers group by source_id`;
   const byId = new Map(stats.map((s) => [s.sourceId, s]));
 
   const fontes: FonteDTO[] = all
@@ -80,7 +83,7 @@ export async function getFontes(): Promise<FontesDTO> {
           name: s.name,
           kind,
           editable: true,
-          config: s.config ?? null,
+          config: asJson<Record<string, unknown> | null>(s.config),
           intervalMin: s.intervalMin,
           defaultIntervalMin: DEFAULT_INTERVAL_MIN[kind],
           lastRunAt: s.lastRunAt?.toISOString() ?? null,
@@ -111,7 +114,7 @@ export async function getFontes(): Promise<FontesDTO> {
         why: s.kind === "telegram" ? groupReason(s.name) : s.kind === "loja" ? "Categorias dos seus Alvos, só produtos com 10% ou mais de desconto" : "Página pública de ofertas, lida com coleta educada",
         status: s.status,
         statusNote: s.statusNote,
-        stats: s.stats ? { read: s.stats.read, withLink: s.stats.withLink, touched: s.stats.touched, offers: s.stats.offers } : null,
+        stats: statsOf(s.stats),
         lastMessageAt: s.lastMessageAt?.toISOString() ?? null,
       };
     });
@@ -120,12 +123,11 @@ export async function getFontes(): Promise<FontesDTO> {
   const lastScan = tg.map((s) => s.lastRunAt?.getTime() ?? 0).reduce((a, b) => Math.max(a, b), 0);
   const web = all.filter((s) => (s.kind === "comunidade" || s.kind === "feed" || s.kind === "pagina") && s.enabled);
 
-  const inv = await db
-    .select()
-    .from(invites)
-    .where(and(eq(invites.dismissed, false), gte(invites.lastSeenAt, sql`now() - interval '14 days'`)))
-    .orderBy(desc(invites.mentions), desc(invites.lastSeenAt))
-    .limit(8);
+  const inv = await prisma.invite.findMany({
+    where: { dismissed: false, lastSeenAt: { gte: atras(14 * DIA) } },
+    orderBy: [{ mentions: "desc" }, { lastSeenAt: "desc" }],
+    take: 8,
+  });
 
   return {
     fontes,
@@ -145,14 +147,14 @@ export async function getFontes(): Promise<FontesDTO> {
 
 /** Sugestões da pesquisa que ainda não viraram fonte (uma apagada não volta a ser sugerida). */
 async function sugestoesPendentes(): Promise<FontesDTO["sugestoes"]> {
-  const slugs = new Set((await db.select({ slug: sources.slug }).from(sources)).map((r) => r.slug));
+  const slugs = new Set((await prisma.source.findMany({ select: { slug: true } })).map((r) => r.slug));
   return SUGESTOES.filter((x) => !slugs.has(x.slug)).map((x) => ({ slug: x.slug, name: x.name, kind: x.kind, kindLabel: KIND_LABEL[x.kind], config: x.config, why: x.why, rotulo: x.rotulo }));
 }
 
 /** Slug de uma fonte nova: "u-" + nome; único. */
 export async function newSourceSlug(name: string): Promise<string> {
   const base = `u-${name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "fonte"}`;
-  const taken = new Set((await db.select({ slug: sources.slug }).from(sources)).map((r) => r.slug));
+  const taken = new Set((await prisma.source.findMany({ select: { slug: true } })).map((r) => r.slug));
   let slug = base;
   for (let i = 2; taken.has(slug); i++) slug = `${base}-${i}`;
   return slug;

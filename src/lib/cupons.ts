@@ -1,8 +1,7 @@
-import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { STORES } from "@/config/stores";
-import { db, schema } from "@/lib/db";
-
-const { coupons } = schema;
+import { prisma } from "@/lib/db/prisma";
+import { asJson } from "@/lib/db/types";
+import { DIA, atras } from "@/lib/tempo";
 
 export type CupomDTO = {
   id: number;
@@ -28,12 +27,11 @@ export type CupomDTO = {
 
 /** Cupons vistos nos últimos 3 dias, os mais recentes primeiro. */
 export async function getCupons(): Promise<CupomDTO[]> {
-  const rows = await db
-    .select()
-    .from(coupons)
-    .where(and(eq(coupons.hidden, false), gte(coupons.lastSeenAt, sql`now() - interval '3 days'`)))
-    .orderBy(desc(coupons.lastSeenAt))
-    .limit(400);
+  const rows = await prisma.coupon.findMany({
+    where: { hidden: false, lastSeenAt: { gte: atras(3 * DIA) } },
+    orderBy: { lastSeenAt: "desc" },
+    take: 400,
+  });
   return rows.map((c) => ({
     id: c.id,
     store: STORES.find((s) => s.slug === c.store)?.name ?? null,
@@ -44,11 +42,11 @@ export async function getCupons(): Promise<CupomDTO[]> {
     discountValue: c.discountValue,
     capCents: c.capCents,
     minCents: c.minCents,
-    conditions: c.conditions,
+    conditions: asJson<string[]>(c.conditions),
     url: c.url,
     postUrl: c.postUrl,
-    mentions: c.offerIds.length,
-    sources: c.sourceNames,
+    mentions: asJson<number[]>(c.offerIds).length,
+    sources: asJson<string[]>(c.sourceNames),
     forProduct: c.forProduct,
     firstSeenAt: c.firstSeenAt.toISOString(),
     lastSeenAt: c.lastSeenAt.toISOString(),

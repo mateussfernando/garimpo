@@ -1,6 +1,5 @@
-import { eq } from "drizzle-orm";
 import { STORES, isShortener, storeForUrl } from "@/config/stores";
-import { db, schema } from "@/lib/db";
+import { prisma } from "@/lib/db/prisma";
 import { anchors, ldProduct, meta, nextData, stripTags } from "../http/html";
 import { PausedError, RobotsError, politeFetch } from "../http/polite";
 import { ingestRaw, setSourceStatus } from "../pipeline";
@@ -88,7 +87,7 @@ export function readDealPage(html: string, pageUrl: string, c: Community, fallba
 }
 
 async function sourceId(slug: string): Promise<number | null> {
-  const [s] = await db.select({ id: schema.sources.id, enabled: schema.sources.enabled }).from(schema.sources).where(eq(schema.sources.slug, slug));
+  const s = await prisma.source.findUnique({ where: { slug }, select: { id: true, enabled: true } });
   return s?.enabled ? s.id : null;
 }
 
@@ -107,12 +106,8 @@ export async function collectCommunity(c: Community): Promise<{ found: number; r
     const relevant = items;
     let added = 0;
     for (const item of relevant.slice(0, 15)) {
-      const seen = await db
-        .select({ id: schema.rawMessages.id })
-        .from(schema.rawMessages)
-        .where(eq(schema.rawMessages.externalId, item.url))
-        .limit(1);
-      if (seen.length) continue;
+      const seen = await prisma.rawMessage.findFirst({ where: { externalId: item.url }, select: { id: true } });
+      if (seen) continue;
       try {
         const page = await politeFetch(item.url);
         const deal = readDealPage(page.body, item.url, c, item.title);

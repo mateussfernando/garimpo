@@ -1,11 +1,11 @@
-import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { ALVOS_V0 } from "@/config/alvos";
-import { NOTIFY_CHANNEL, db, pool, schema } from "@/lib/db";
+import { NOTIFY_CHANNEL, pool } from "@/lib/db";
+import { prisma } from "@/lib/db/prisma";
+import { alvoFromDb } from "@/lib/db/types";
+import { DIA, atras } from "@/lib/tempo";
 import { cleanTitle } from "@/lib/offers";
 import { matchAlvo, plain, type AlvoLite } from "../../worker/match/alvos";
-
-const { alvos, alvoRefs, offers } = schema;
 
 /** A tela Alvos avisa o worker por aqui: "rematch" refaz a classificação das ofertas; "faixa" refaz as notas de uma faixa. */
 export const ALVOS_CMD_CHANNEL = "garimpo_alvos";
@@ -78,17 +78,12 @@ export async function tellWorker(cmd: AlvosCmd) {
 const auto = (median: number | null, n: number, f: number) => (median != null && n >= 5 ? Math.round(median * f) : null);
 
 export async function getAlvos(): Promise<AlvosDTO> {
-  const rows = await db.select().from(alvos).where(isNull(alvos.deletedAt)).orderBy(alvos.id);
-  const refs = await db.select().from(alvoRefs);
-  const counts = await db
-    .select({
-      alvoId: offers.alvoId,
-      n: sql<number>`count(*)::int`,
-      hits: sql<number>`count(*) filter (where ${offers.hitAt} is not null)::int`,
-    })
-    .from(offers)
-    .where(and(gte(offers.createdAt, sql`now() - interval '7 days'`), eq(offers.kind, "produto")))
-    .groupBy(offers.alvoId);
+  const rows = (await prisma.alvo.findMany({ where: { deletedAt: null }, orderBy: { id: "asc" } })).map(alvoFromDb);
+  const refs = await prisma.alvoRef.findMany();
+  const counts = await prisma.$queryRaw<{ alvoId: number | null; n: number; hits: number }[]>`
+    select alvo_id as "alvoId", count(*)::int as n, count(*) filter (where hit_at is not null)::int as hits
+    from offers where created_at >= ${atras(7 * DIA)} and kind = 'produto'
+    group by alvo_id`;
   const byAlvo = new Map(counts.map((c) => [c.alvoId, c]));
   const seed = new Map(ALVOS_V0.map((a) => [a.slug, a]));
   return {
@@ -130,7 +125,7 @@ export async function getAlvos(): Promise<AlvosDTO> {
 /** Slug de um Alvo novo: "u-" na frente, para nunca pegar as faixas especiais dos Alvos do código (monitor, ssd...). */
 export async function newSlug(name: string): Promise<string> {
   const base = `u-${plain(name).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "alvo"}`;
-  const taken = new Set((await db.select({ slug: alvos.slug }).from(alvos)).map((r) => r.slug));
+  const taken = new Set((await prisma.alvo.findMany({ select: { slug: true } })).map((r) => r.slug));
   let slug = base;
   for (let i = 2; taken.has(slug); i++) slug = `${base}-${i}`;
   return slug;
@@ -143,16 +138,16 @@ export type TesteDTO = { total: number; pega: number; exemplos: { id: number; ti
  * Determinístico, sem IA: o mesmo matchAlvo do worker.
  */
 export async function testAlvo(input: { id: number | null; terms: string[]; exclusions: string[] }): Promise<TesteDTO> {
-  const others = (await db.select().from(alvos).where(and(eq(alvos.active, true), isNull(alvos.deletedAt)))).filter((a) => a.id !== input.id);
+  const others = (await prisma.alvo.findMany({ where: { active: true, deletedAt: null } })).map(alvoFromDb).filter((a) => a.id !== input.id);
   const me: AlvoLite = { id: -1, slug: "teste", name: "teste", terms: cleanTerms(input.terms), exclusions: cleanTerms(input.exclusions) };
   if (!me.terms.length) return { total: 0, pega: 0, exemplos: [], perde: [] };
   const list: AlvoLite[] = [...others, me];
-  const rows = await db
-    .select({ id: offers.id, title: offers.title, alvoId: offers.alvoId })
-    .from(offers)
-    .where(and(gte(offers.createdAt, sql`now() - interval '7 days'`), eq(offers.kind, "produto")))
-    .orderBy(desc(offers.createdAt))
-    .limit(3000);
+  const rows = await prisma.offer.findMany({
+    where: { createdAt: { gte: atras(7 * DIA) }, kind: "produto" },
+    select: { id: true, title: true, alvoId: true },
+    orderBy: { createdAt: "desc" },
+    take: 3000,
+  });
   const names = new Map(others.map((a) => [a.id, a.name]));
   const exemplos: TesteDTO["exemplos"] = [];
   const perde: TesteDTO["perde"] = [];

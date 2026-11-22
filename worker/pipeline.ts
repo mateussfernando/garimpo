@@ -1,7 +1,10 @@
-import { and, desc, eq, gte, isNotNull, isNull, ne, notInArray, sql } from "drizzle-orm";
 import { ALVOS_V0 } from "@/config/alvos";
 import { STORES, cleanUrl, decodeTrackingUrl, isShortener, storeByName, storeForUrl } from "@/config/stores";
-import { db, NOTIFY_CHANNEL, pool, schema } from "@/lib/db";
+import { Prisma } from "@/generated/prisma/client";
+import { NOTIFY_CHANNEL, pool } from "@/lib/db";
+import { prisma } from "@/lib/db/prisma";
+import { alvoFromDb, json, jsonOrNull, type EventDetail } from "@/lib/db/types";
+import { DIA, HORA, MIN, atras } from "@/lib/tempo";
 import { COMMUNITIES } from "./collect/communities-config";
 import { VITRINES } from "./collect/vitrines-config";
 import { offerFromMessage } from "./ingest/message";
@@ -12,8 +15,6 @@ import { bandOf, extractSpecs, type Band } from "./match/specs";
 import { parseOfferText } from "./parse/parser";
 import { notaRapida } from "./score/nota";
 
-const { sources, rawMessages, offers, alvos, alvoRefs, marketObs, products, coupons } = schema;
-
 export async function notify(payload: Record<string, unknown>) {
   await pool.query("select pg_notify($1, $2)", [NOTIFY_CHANNEL, JSON.stringify(payload)]);
 }
@@ -21,35 +22,23 @@ export async function notify(payload: Record<string, unknown>) {
 /** Fontes e os Alvos iniciais entram sozinhos. Os Alvos depois se ajustam na tela Alvos. */
 export async function ensureSeed() {
   for (const c of COMMUNITIES) {
-    await db
-      .insert(sources)
-      .values({ slug: c.slug, kind: "comunidade", name: c.name, url: c.url })
-      .onConflictDoUpdate({ target: sources.slug, set: { name: c.name, url: c.url } });
+    await prisma.source.upsert({ where: { slug: c.slug }, create: { slug: c.slug, kind: "comunidade", name: c.name, url: c.url }, update: { name: c.name, url: c.url } });
   }
   for (const v of VITRINES) {
-    await db
-      .insert(sources)
-      .values({ slug: v.slug, kind: "loja", name: v.name, url: v.url })
-      .onConflictDoUpdate({ target: sources.slug, set: { name: v.name, url: v.url } });
+    await prisma.source.upsert({ where: { slug: v.slug }, create: { slug: v.slug, kind: "loja", name: v.name, url: v.url }, update: { name: v.name, url: v.url } });
   }
   // Os Alvos de config/alvos.ts entram uma vez. Depois, quem manda é a tela Alvos: um Alvo que o usuário editou
   // ou apagou não é mais sobrescrito, e ligar/desligar é sempre dele.
   for (const a of ALVOS_V0) {
-    await db.insert(alvos).values({ slug: a.slug, name: a.name, terms: a.terms, exclusions: a.exclusions }).onConflictDoNothing();
-    await db
-      .update(alvos)
-      .set({ name: a.name, terms: a.terms, exclusions: a.exclusions })
-      .where(and(eq(alvos.slug, a.slug), isNull(alvos.editedAt), isNull(alvos.deletedAt)));
+    await prisma.alvo.createMany({ data: [{ slug: a.slug, name: a.name, terms: a.terms, exclusions: a.exclusions }], skipDuplicates: true });
+    await prisma.alvo.updateMany({ where: { slug: a.slug, editedAt: null, deletedAt: null }, data: { name: a.name, terms: a.terms, exclusions: a.exclusions } });
   }
   // Alvo do código que saiu da lista (o antigo "Acessórios") fica desligado. Nada é apagado.
-  await db
-    .update(alvos)
-    .set({ active: false })
-    .where(and(eq(alvos.origin, "seed"), isNull(alvos.editedAt), notInArray(alvos.slug, ALVOS_V0.map((a) => a.slug))));
+  await prisma.alvo.updateMany({ where: { origin: "seed", editedAt: null, slug: { notIn: ALVOS_V0.map((a) => a.slug) } }, data: { active: false } });
 }
 
 export async function activeAlvos() {
-  return db.select().from(alvos).where(and(eq(alvos.active, true), isNull(alvos.deletedAt)));
+  return (await prisma.alvo.findMany({ where: { active: true, deletedAt: null } })).map(alvoFromDb);
 }
 
 /** Alvo, especificações e faixa de um título. Tudo sem IA. */
@@ -73,18 +62,13 @@ export type RawInput = {
 
 /** Grava o item cru (uma vez só) e cria a oferta. Devolve o id da oferta nova, ou null se já existia. */
 export async function ingestRaw(input: RawInput): Promise<number | null> {
-  const inserted = await db
-    .insert(rawMessages)
-    .values({
-      sourceId: input.sourceId,
-      externalId: input.externalId,
-      text: input.text,
-      url: input.url,
-      outboundUrl: input.outboundUrl,
-      imageUrl: input.imageUrl,
-    })
-    .onConflictDoNothing()
-    .returning({ id: rawMessages.id });
+  // "on conflict do nothing returning id" num comando só: a mesma mensagem chegando duas vezes ao mesmo tempo
+  // (Telegram e coleta, ou duas rodadas) nunca vira duas ofertas.
+  const inserted = await prisma.$queryRaw<{ id: number }[]>`
+    insert into raw_messages (source_id, external_id, text, url, outbound_url, image_url)
+    values (${input.sourceId}, ${input.externalId}, ${input.text}, ${input.url}, ${input.outboundUrl}, ${input.imageUrl})
+    on conflict do nothing
+    returning id`;
   if (!inserted.length) return null;
   return createOffer(inserted[0].id, input);
 }
@@ -99,13 +83,13 @@ async function createOffer(rawId: number, input0: RawInput): Promise<number> {
   const category = categorize(input.title);
   // Post que é só cupom não vai para a Vitrine nem para a verificação: vira linha na tela Cupons.
   const isCoupon = !alvo && isCouponMessage(input.title, input.text, { hasProduct: category != null });
-  const [row] = await db
-    .insert(offers)
-    .values({
+  const row = await prisma.offer.create({
+    select: { id: true },
+    data: {
       rawMessageId: rawId,
       sourceId: input.sourceId,
       alvoId: alvo?.id ?? null,
-      specs,
+      specs: jsonOrNull(specs),
       bandKey: band?.key ?? null,
       title: input.title.slice(0, 300),
       store: store?.slug ?? null,
@@ -126,8 +110,8 @@ async function createOffer(rawId: number, input0: RawInput): Promise<number> {
       kind: isCoupon ? "cupom" : "produto",
       category: isCoupon ? null : category,
       categorySource: !isCoupon && category ? "regra" : null,
-    })
-    .returning({ id: offers.id });
+    },
+  });
   await saveCoupons({
     offerId: row.id,
     isCoupon,
@@ -151,16 +135,14 @@ async function createOffer(rawId: number, input0: RawInput): Promise<number> {
  * Devolve true se o preço-alvo mudou.
  */
 export async function refreshRef(alvoId: number, bandKey: string, label?: string): Promise<boolean> {
-  const week = sql`now() - interval '7 days'`;
-  const obs = await db
-    .select()
-    .from(marketObs)
-    .where(and(eq(marketObs.alvoId, alvoId), eq(marketObs.bandKey, bandKey), gte(marketObs.seenAt, week)));
-  const rows = await db
-    .select({ id: offers.id, p: offers.priceCardCents, store: products.store, code: products.storeProductId })
-    .from(offers)
-    .leftJoin(products, eq(offers.productId, products.id))
-    .where(and(eq(offers.alvoId, alvoId), eq(offers.bandKey, bandKey), isNotNull(offers.priceCardCents), gte(offers.createdAt, week)));
+  const week = atras(7 * DIA);
+  const obs = await prisma.marketObs.findMany({ where: { alvoId, bandKey, seenAt: { gte: week } } });
+  const rows = (
+    await prisma.offer.findMany({
+      where: { alvoId, bandKey, priceCardCents: { not: null }, createdAt: { gte: week } },
+      select: { id: true, priceCardCents: true, product: { select: { store: true, storeProductId: true } } },
+    })
+  ).map((o) => ({ id: o.id, p: o.priceCardCents, store: o.product?.store ?? null, code: o.product?.storeProductId ?? null }));
 
   const byProduct = new Map<string, number>();
   for (const o of obs) byProduct.set(`${o.store}:${o.code}`, o.priceCardCents);
@@ -174,47 +156,35 @@ export async function refreshRef(alvoId: number, bandKey: string, label?: string
 
   const prices = [...byProduct.values()];
   const medianCents = prices.length >= 5 ? median(prices) : null;
-  const [prev] = await db
-    .select()
-    .from(alvoRefs)
-    .where(and(eq(alvoRefs.alvoId, alvoId), eq(alvoRefs.bandKey, bandKey)));
+  const prev = await prisma.alvoRef.findUnique({ where: { alvoId_bandKey: { alvoId, bandKey } } });
   // O preço-alvo e o teto que o usuário pôs na tela Alvos valem no lugar dos calculados.
   const t = effectiveTargets(targetsFrom(prices), prev ?? null);
   const values = { medianCents, ...t, n: prices.length, updatedAt: new Date() };
-  await db
-    .insert(alvoRefs)
-    .values({ alvoId, bandKey, label: label ?? prev?.label ?? bandKey, ...values })
-    .onConflictDoUpdate({ target: [alvoRefs.alvoId, alvoRefs.bandKey], set: { ...(label ? { label } : {}), ...values } });
+  await prisma.alvoRef.upsert({
+    where: { alvoId_bandKey: { alvoId, bandKey } },
+    create: { alvoId, bandKey, label: label ?? prev?.label ?? bandKey, ...values },
+    update: { ...(label ? { label } : {}), ...values },
+  });
   return (prev?.targetCents ?? null) !== t.targetCents;
 }
 
 /** Reescreve o preço-alvo de uma faixa (o usuário mexeu nele) e refaz as notas das ofertas da faixa. */
 export async function rescoreBand(alvoId: number, bandKey: string) {
   await refreshRef(alvoId, bandKey);
-  const peers = await db
-    .select({ id: offers.id })
-    .from(offers)
-    .where(and(eq(offers.alvoId, alvoId), eq(offers.bandKey, bandKey), gte(offers.createdAt, sql`now() - interval '7 days'`)));
+  const peers = await prisma.offer.findMany({ where: { alvoId, bandKey, createdAt: { gte: atras(7 * DIA) } }, select: { id: true } });
   for (const p of peers) await scoreOffer(p.id, { silent: true });
   await notify({ type: "offer" });
 }
 
 export async function scoreOffer(offerId: number, opts: { silent?: boolean } = {}) {
-  const [o] = await db.select().from(offers).where(eq(offers.id, offerId));
+  const o = await prisma.offer.findUnique({ where: { id: offerId } });
   if (!o) return;
-  const ref =
-    o.alvoId && o.bandKey
-      ? (await db.select().from(alvoRefs).where(and(eq(alvoRefs.alvoId, o.alvoId), eq(alvoRefs.bandKey, o.bandKey))))[0]
-      : null;
+  const ref = o.alvoId && o.bandKey ? await prisma.alvoRef.findUnique({ where: { alvoId_bandKey: { alvoId: o.alvoId, bandKey: o.bandKey } } }) : null;
   const store = o.store ? STORES.find((s) => s.slug === o.store) : null;
   // Calor social: fontes distintas com o mesmo produto (ou título igual) em 15 min.
-  const same = o.productId
-    ? eq(offers.productId, o.productId)
-    : sql`lower(${offers.title}) = lower(${o.title})`;
-  const [{ n }] = await db
-    .select({ n: sql<number>`count(distinct ${offers.sourceId})::int` })
-    .from(offers)
-    .where(and(same, gte(offers.createdAt, sql`${o.createdAt}::timestamptz - interval '15 minutes'`)));
+  const since = new Date(o.createdAt.getTime() - 15 * MIN);
+  const same = o.productId ? Prisma.sql`product_id = ${o.productId}` : Prisma.sql`lower(title) = lower(${o.title})`;
+  const [{ n }] = await prisma.$queryRaw<{ n: number }[]>`select count(distinct source_id)::int as n from offers where ${same} and created_at >= ${since}`;
   const r = notaRapida({
     priceCardCents: o.priceCardCents,
     targetCents: ref?.targetCents ?? null,
@@ -227,10 +197,7 @@ export async function scoreOffer(offerId: number, opts: { silent?: boolean } = {
   // Alvo atingido de verdade: preço conferido na loja, dentro de uma faixa com referência, e ainda à venda.
   const hit = r.alvoAtingido && !!o.alvoId && o.verifyStatus === "verificado" && o.available !== false;
   const firstHit = hit && !o.hitAt;
-  await db
-    .update(offers)
-    .set({ nota: r.nota, notaParts: r.parts, ...(firstHit ? { hitAt: new Date() } : {}) })
-    .where(eq(offers.id, offerId));
+  await prisma.offer.update({ where: { id: offerId }, data: { nota: r.nota, notaParts: json(r.parts), ...(firstHit ? { hitAt: new Date() } : {}) } });
   // Na reclassificação silenciosa (subida do worker) marca sem avisar, para o alerta não tocar por oferta antiga.
   if (firstHit && !opts.silent) {
     await logEvent("alvo", offerId, o.title, { to: o.priceCardCents ?? undefined, target: ref?.targetCents ?? undefined, band: ref?.label, store: o.store });
@@ -238,14 +205,9 @@ export async function scoreOffer(offerId: number, opts: { silent?: boolean } = {
   if (!opts.silent) await notify({ type: "offer", id: offerId, alvoAtingido: hit });
 }
 
-type EventDetail = NonNullable<typeof schema.events.$inferInsert.detail>;
-
 /** Registra um acontecimento na faixa "Ao vivo" e avisa as telas. */
 export async function logEvent(type: "nova" | "preco" | "esgotou" | "alvo" | "canal", offerId: number | null, title: string, detail: EventDetail = {}) {
-  const [row] = await db
-    .insert(schema.events)
-    .values({ type, offerId, title: title.slice(0, 200), detail })
-    .returning({ id: schema.events.id });
+  const row = await prisma.event.create({ data: { type, offerId, title: title.slice(0, 200), detail: json(detail) }, select: { id: true } });
   await notify({ type: "event", id: row.id, kind: type, offerId });
 }
 
@@ -255,27 +217,26 @@ export async function logEvent(type: "nova" | "preco" | "esgotou" | "alvo" | "ca
  */
 export async function rematchOffers(): Promise<{ total: number; changed: number; bands: number }> {
   const list = await activeAlvos();
-  const rows = await db
-    .select({
-      id: offers.id,
-      title: offers.title,
-      alvoId: offers.alvoId,
-      bandKey: offers.bandKey,
-      kind: sources.kind,
-      text: rawMessages.text,
-      store: offers.store,
-      url: offers.url,
-      postUrl: rawMessages.url,
-      coupon: offers.coupon,
-      sourceId: offers.sourceId,
-      categorySource: offers.categorySource,
-      category: offers.category,
-      createdAt: offers.createdAt,
+  const rows = (
+    await prisma.offer.findMany({
+      where: { createdAt: { gte: atras(7 * DIA) } },
+      select: {
+        id: true,
+        title: true,
+        alvoId: true,
+        bandKey: true,
+        store: true,
+        url: true,
+        coupon: true,
+        sourceId: true,
+        categorySource: true,
+        category: true,
+        createdAt: true,
+        source: { select: { kind: true } },
+        rawMessage: { select: { text: true, url: true } },
+      },
     })
-    .from(offers)
-    .innerJoin(sources, eq(offers.sourceId, sources.id))
-    .innerJoin(rawMessages, eq(offers.rawMessageId, rawMessages.id))
-    .where(gte(offers.createdAt, sql`now() - interval '7 days'`));
+  ).map(({ source, rawMessage, ...o }) => ({ ...o, kind: source.kind, text: rawMessage.text, postUrl: rawMessage.url }));
   const bands = new Map<string, { alvoId: number; band: Band }>();
   let changed = 0;
   for (const r of rows) {
@@ -284,7 +245,7 @@ export async function rematchOffers(): Promise<{ total: number; changed: number;
     if (r.kind === "telegram") {
       const v = offerFromMessage(r.text, list);
       title = v.kind === "oferta" ? v.title : "";
-      if (title && title !== r.title) await db.update(offers).set({ title: title.slice(0, 300) }).where(eq(offers.id, r.id));
+      if (title && title !== r.title) await prisma.offer.update({ where: { id: r.id }, data: { title: title.slice(0, 300) } });
     }
     const c = title ? classify(title, list) : { alvo: null, specs: null, band: null };
     const alvoId = c.alvo?.id ?? null;
@@ -300,11 +261,11 @@ export async function rematchOffers(): Promise<{ total: number; changed: number;
         : r.categorySource === "ia"
           ? { category: r.category, categorySource: "ia" }
           : { category: null, categorySource: null };
-    await db
-      .update(offers)
-      // Mensagem que, pelas regras de hoje, não é oferta (conversa, sorteio, propaganda do canal) sai da Vitrine.
-      .set({ alvoId, specs: c.specs, bandKey, kind: isCoupon ? "cupom" : title ? "produto" : "ruido", ...cat })
-      .where(eq(offers.id, r.id));
+    // Mensagem que, pelas regras de hoje, não é oferta (conversa, sorteio, propaganda do canal) sai da Vitrine.
+    await prisma.offer.update({
+      where: { id: r.id },
+      data: { alvoId, specs: jsonOrNull(c.specs), bandKey, kind: isCoupon ? "cupom" : title ? "produto" : "ruido", ...cat },
+    });
     if (title) {
       await saveCoupons({
         offerId: r.id,
@@ -322,7 +283,7 @@ export async function rematchOffers(): Promise<{ total: number; changed: number;
     if (c.alvo && c.band) bands.set(`${alvoId}:${bandKey}`, { alvoId: c.alvo.id, band: c.band });
   }
   // Faixas que só existem nos preços de mercado também precisam de referência.
-  const obsBands = await db.selectDistinct({ alvoId: marketObs.alvoId, bandKey: marketObs.bandKey }).from(marketObs);
+  const obsBands = await prisma.marketObs.findMany({ distinct: ["alvoId", "bandKey"], select: { alvoId: true, bandKey: true } });
   for (const b of bands.values()) await refreshRef(b.alvoId, b.band.key, b.band.label);
   for (const b of obsBands) if (!bands.has(`${b.alvoId}:${b.bandKey}`)) await refreshRef(b.alvoId, b.bandKey);
   for (const r of rows) await scoreOffer(r.id, { silent: true });
@@ -332,14 +293,14 @@ export async function rematchOffers(): Promise<{ total: number; changed: number;
 
 /** Depois que o preço de uma oferta muda: atualiza a referência da faixa e, se o alvo mexeu, as notas da faixa. */
 export async function afterPriceChange(offerId: number) {
-  const [o] = await db.select({ alvoId: offers.alvoId, bandKey: offers.bandKey }).from(offers).where(eq(offers.id, offerId));
+  const o = await prisma.offer.findUnique({ where: { id: offerId }, select: { alvoId: true, bandKey: true } });
   if (o?.alvoId && o.bandKey) {
     const moved = await refreshRef(o.alvoId, o.bandKey);
     if (moved) {
-      const peers = await db
-        .select({ id: offers.id })
-        .from(offers)
-        .where(and(eq(offers.alvoId, o.alvoId), eq(offers.bandKey, o.bandKey), ne(offers.id, offerId), gte(offers.createdAt, sql`now() - interval '48 hours'`)));
+      const peers = await prisma.offer.findMany({
+        where: { alvoId: o.alvoId, bandKey: o.bandKey, id: { not: offerId }, createdAt: { gte: atras(48 * HORA) } },
+        select: { id: true },
+      });
       for (const p of peers) await scoreOffer(p.id, { silent: true });
     }
   }
@@ -347,20 +308,18 @@ export async function afterPriceChange(offerId: number) {
 }
 
 export async function setSourceStatus(slug: string, status: string, note: string | null) {
-  await db.update(sources).set({ status, statusNote: note, lastRunAt: new Date() }).where(eq(sources.slug, slug));
+  await prisma.source.updateMany({ where: { slug }, data: { status, statusNote: note, lastRunAt: new Date() } });
   await notify({ type: "source", slug, status });
 }
 
 /** Fila de verificação. Fontes ao vivo (Telegram) passam na frente; depois, as mais novas. */
 export async function pendingOffers(limit: number) {
-  const rows = await db
-    .select({ o: offers })
-    .from(offers)
-    .innerJoin(sources, eq(offers.sourceId, sources.id))
-    .where(and(eq(offers.verifyStatus, "pendente"), ne(offers.dismissed, true)))
-    .orderBy(sql`(${sources.kind} = 'telegram') desc`, desc(offers.createdAt))
-    .limit(limit);
-  return rows.map((r) => r.o);
+  // Duas consultas no lugar do "order by (kind = 'telegram') desc": primeiro as do Telegram, depois as outras.
+  const base = { verifyStatus: "pendente", dismissed: false } satisfies Prisma.OfferWhereInput;
+  const live = await prisma.offer.findMany({ where: { ...base, source: { kind: "telegram" } }, orderBy: { createdAt: "desc" }, take: limit });
+  if (live.length >= limit) return live;
+  const rest = await prisma.offer.findMany({ where: { ...base, source: { kind: { not: "telegram" } } }, orderBy: { createdAt: "desc" }, take: limit - live.length });
+  return [...live, ...rest];
 }
 
 /**
@@ -385,7 +344,7 @@ export async function saveCoupons(p: {
   else if (p.code) list = [{ ...couponFromPost(p.title, p.text), code: p.code }];
   else return;
   if (!list.length) return;
-  const [src] = await db.select({ name: sources.name }).from(sources).where(eq(sources.id, p.sourceId));
+  const src = await prisma.source.findUnique({ where: { id: p.sourceId }, select: { name: true } });
   for (const c of list) {
     const store = c.storeFromText ?? p.store;
     const key = couponKey(store, c, p.title);
@@ -408,28 +367,25 @@ export async function saveCoupons(p: {
       firstSeenAt: p.seenAt ?? new Date(),
       lastSeenAt: p.seenAt ?? new Date(),
     };
-    const merge = (col: string, v: unknown[]) =>
-      sql`(select coalesce(jsonb_agg(distinct x), '[]'::jsonb) from jsonb_array_elements(${sql.raw(col)} || ${JSON.stringify(v)}::jsonb) x)`;
-    await db
-      .insert(coupons)
-      .values(values)
-      .onConflictDoUpdate({
-        target: coupons.key,
-        set: {
-          title: values.title,
-          discountKind: sql`coalesce(excluded.discount_kind, ${coupons.discountKind})`,
-          discountValue: sql`coalesce(excluded.discount_value, ${coupons.discountValue})`,
-          capCents: sql`coalesce(excluded.cap_cents, ${coupons.capCents})`,
-          minCents: sql`coalesce(excluded.min_cents, ${coupons.minCents})`,
-          conditions: merge("coupons.conditions", c.conditions),
-          url: sql`coalesce(excluded.url, ${coupons.url})`,
-          postUrl: sql`coalesce(excluded.post_url, ${coupons.postUrl})`,
-          offerIds: merge("coupons.offer_ids", [p.offerId]),
-          sourceNames: merge("coupons.source_names", values.sourceNames),
-          firstSeenAt: sql`least(${coupons.firstSeenAt}, excluded.first_seen_at)`,
-          lastSeenAt: sql`greatest(${coupons.lastSeenAt}, excluded.last_seen_at)`,
-        },
-      });
+    // Mesmo cupom visto de novo: junta listas sem repetir e guarda o primeiro e o último dia. SQL num comando só.
+    await prisma.$executeRaw`
+      insert into coupons (key, store, code, title, discount_kind, discount_value, cap_cents, min_cents, conditions, url, post_url, offer_ids, source_names, for_product, first_seen_at, last_seen_at)
+      values (${values.key}, ${values.store}, ${values.code}, ${values.title}, ${values.discountKind}, ${values.discountValue}, ${values.capCents}, ${values.minCents},
+        ${JSON.stringify(values.conditions)}::jsonb, ${values.url}, ${values.postUrl}, ${JSON.stringify(values.offerIds)}::jsonb, ${JSON.stringify(values.sourceNames)}::jsonb,
+        ${values.forProduct}, ${values.firstSeenAt}, ${values.lastSeenAt})
+      on conflict (key) do update set
+        title = excluded.title,
+        discount_kind = coalesce(excluded.discount_kind, coupons.discount_kind),
+        discount_value = coalesce(excluded.discount_value, coupons.discount_value),
+        cap_cents = coalesce(excluded.cap_cents, coupons.cap_cents),
+        min_cents = coalesce(excluded.min_cents, coupons.min_cents),
+        conditions = (select coalesce(jsonb_agg(distinct x), '[]'::jsonb) from jsonb_array_elements(coupons.conditions || excluded.conditions) x),
+        url = coalesce(excluded.url, coupons.url),
+        post_url = coalesce(excluded.post_url, coupons.post_url),
+        offer_ids = (select coalesce(jsonb_agg(distinct x), '[]'::jsonb) from jsonb_array_elements(coupons.offer_ids || excluded.offer_ids) x),
+        source_names = (select coalesce(jsonb_agg(distinct x), '[]'::jsonb) from jsonb_array_elements(coupons.source_names || excluded.source_names) x),
+        first_seen_at = least(coupons.first_seen_at, excluded.first_seen_at),
+        last_seen_at = greatest(coupons.last_seen_at, excluded.last_seen_at)`;
   }
   await notify({ type: "coupon" });
 }

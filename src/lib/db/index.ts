@@ -1,7 +1,5 @@
 import { readFileSync } from "node:fs";
-import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool, type ClientConfig } from "pg";
-import * as schema from "./schema";
 
 const LOCAL = /@(localhost|127\.0\.0\.1|\[::1\])(:\d+)?\//i;
 
@@ -16,7 +14,10 @@ export function isRemoteDb(url = process.env.DATABASE_URL ?? ""): boolean {
  * é conferido; sem ele, a conexão é criptografada mas o certificado não é conferido (sslmode=no-verify).
  */
 export function pgConfig(url = process.env.DATABASE_URL ?? ""): ClientConfig {
-  if (!isRemoteDb(url)) return { connectionString: url };
+  // Sessão em UTC já na abertura da conexão. O adaptador do Prisma manda datas sem fuso: num banco em
+  // America/Sao_Paulo (o local) elas eram lidas como hora de São Paulo e gravadas 3 h adiantadas (achado em 22/11).
+  // O Supabase já é UTC (e o pooler dele pode recusar `options`). "Hoje" em São Paulo sai de src/lib/tempo.ts.
+  if (!isRemoteDb(url)) return { connectionString: url, options: "-c TimeZone=UTC" };
   const u = new URL(url);
   u.searchParams.delete("sslmode"); // o sslmode da URL passaria por cima do ssl abaixo
   const ca = process.env.DATABASE_CA;
@@ -36,8 +37,6 @@ export const pool =
 
 if (process.env.NODE_ENV !== "production") globalForDb.garimpoPool = pool;
 
-export const db = drizzle(pool, { schema });
-export { schema };
 
 export const NOTIFY_CHANNEL = "garimpo";
 /** A Vitrine e as telas mandam comandos ao worker por aqui (ex.: procurar grupos de novo). */

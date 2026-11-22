@@ -1,18 +1,17 @@
 // Radar da IA: um comentário geral sobre o que está chegando agora (melhores compras, alertas e dicas),
 // a partir das ofertas com análise e dos cupons. Uma chamada só, refeita quando o quadro muda (hash).
 import { createHash } from "node:crypto";
-import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { categoryName } from "@/config/categories";
 import { STORES } from "@/config/stores";
-import { db, schema } from "@/lib/db";
+import { prisma } from "@/lib/db/prisma";
+import { asJson } from "@/lib/db/types";
+import { HORA, atras } from "@/lib/tempo";
 import { getSetting, setSetting } from "@/lib/settings";
 import { notify } from "../pipeline";
 import { guardedCall } from "./budget";
 import { pickProvider } from "./index";
 import { AiBudgetError } from "./types";
-
-const { offers, offerAnalyses, coupons } = schema;
 export const RADAR_KEY = "ia_radar";
 
 export const RadarSchema = z.object({
@@ -36,20 +35,18 @@ const SYSTEM = [
 
 /** Uma passada. Com `force`, refaz mesmo que nada tenha mudado. */
 export async function runRadar(force = false): Promise<"gerado" | "igual" | "vazio"> {
-  const rows = await db
-    .select({ o: offers, a: offerAnalyses })
-    .from(offers)
-    .innerJoin(offerAnalyses, eq(offerAnalyses.offerId, offers.id))
-    .where(and(eq(offers.kind, "produto"), eq(offers.dismissed, false), gte(offers.createdAt, sql`now() - interval '24 hours'`)))
-    .orderBy(desc(offerAnalyses.score))
-    .limit(30);
+  const rows = (
+    await prisma.offerAnalysis.findMany({
+      where: { offer: { kind: "produto", dismissed: false, createdAt: { gte: atras(24 * HORA) } } },
+      include: { offer: true },
+      orderBy: { score: "desc" },
+      take: 30,
+    })
+  ).map(({ offer, ...a }) => ({ o: offer, a }));
   if (!rows.length) return "vazio";
-  const cps = await db
-    .select()
-    .from(coupons)
-    .where(and(eq(coupons.hidden, false), gte(coupons.lastSeenAt, sql`now() - interval '24 hours'`)))
-    .orderBy(desc(coupons.lastSeenAt))
-    .limit(15);
+  const cps = (
+    await prisma.coupon.findMany({ where: { hidden: false, lastSeenAt: { gte: atras(24 * HORA) } }, orderBy: { lastSeenAt: "desc" }, take: 15 })
+  ).map((c) => ({ ...c, conditions: asJson<string[]>(c.conditions) }));
   const input = {
     ofertas: rows.map(({ o, a }) => ({
       id: o.id,

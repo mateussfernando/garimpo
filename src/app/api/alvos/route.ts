@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { db, schema } from "@/lib/db";
+import { prisma } from "@/lib/db/prisma";
 import { AlvoInput, getAlvos, newSlug, tellWorker } from "@/lib/alvos";
 
 export async function GET() {
@@ -12,10 +12,10 @@ export async function POST(request: Request) {
   const parsed = AlvoInput.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ erro: parsed.error.issues[0]?.message ?? "pedido inválido" }, { status: 400 });
   const { name, terms, exclusions } = parsed.data;
-  const [row] = await db
-    .insert(schema.alvos)
-    .values({ slug: await newSlug(name), name, terms, exclusions, origin: "usuario", editedAt: new Date() })
-    .returning({ id: schema.alvos.id });
+  const row = await prisma.alvo.create({
+    data: { slug: await newSlug(name), name, terms, exclusions, origin: "usuario", editedAt: new Date() },
+    select: { id: true },
+  });
   await tellWorker({ acao: "rematch" });
   return Response.json({ ok: true, id: row.id });
 }

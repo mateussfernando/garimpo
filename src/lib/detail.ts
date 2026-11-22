@@ -1,10 +1,9 @@
-import { and, desc, eq, gte, ne, sql } from "drizzle-orm";
 import { STORES } from "@/config/stores";
-import { db, schema } from "@/lib/db";
+import { prisma } from "@/lib/db/prisma";
+import { asJson } from "@/lib/db/types";
 import { normalize } from "@/lib/money";
 import { listOffers, type OfferDTO } from "@/lib/offers";
-
-const { offers, pricePoints, sources, insights } = schema;
+import { DIA, HORA, atras } from "@/lib/tempo";
 
 export type InsightDTO = { veredito: string; confianca: string; resumo: string; motivos: string[]; geradoEm: string; provedor: string };
 
@@ -34,7 +33,7 @@ const median = (v: number[]) => {
 };
 
 export async function getOfferDetail(id: number): Promise<OfferDetailDTO | null> {
-  const [row] = await db.select().from(offers).where(eq(offers.id, id));
+  const row = await prisma.offer.findUnique({ where: { id } });
   if (!row) return null;
   const alone = (await listOffers({ onlyId: id }))[0];
   if (!alone) return null;
@@ -45,16 +44,13 @@ export async function getOfferDetail(id: number): Promise<OfferDetailDTO | null>
   // Histórico de 30 dias: o menor preço do dia, só de pontos da própria loja.
   let history: OfferDetailDTO["history"] = [];
   if (row.productId) {
-    const pts = await db
-      .select({
-        day: sql<string>`to_char(date_trunc('day', ${pricePoints.observedAt} at time zone 'America/Sao_Paulo'), 'YYYY-MM-DD')`,
-        cents: sql<number>`min(${pricePoints.priceCardCents})::int`,
-      })
-      .from(pricePoints)
-      .where(and(eq(pricePoints.productId, row.productId), gte(pricePoints.observedAt, sql`now() - interval '30 days'`)))
-      .groupBy(sql`1`)
-      .orderBy(sql`1`);
-    history = pts.filter((p) => p.cents != null);
+    const pts = await prisma.$queryRaw<{ day: string; cents: number | null }[]>`
+      select to_char(date_trunc('day', observed_at at time zone 'America/Sao_Paulo'), 'YYYY-MM-DD') as day,
+        min(price_card_cents)::int as cents
+      from price_points
+      where product_id = ${row.productId} and observed_at >= ${atras(30 * DIA)}
+      group by 1 order by 1`;
+    history = pts.filter((p): p is { day: string; cents: number } => p.cents != null);
   }
   const prices = history.map((h) => h.cents);
   const prev = history.slice(0, -1);
@@ -62,13 +58,14 @@ export async function getOfferDetail(id: number): Promise<OfferDetailDTO | null>
 
   // Escada de preços: ofertas parecidas, em outras lojas, nas últimas 72 h.
   const base = tokens(row.title);
-  const recent = await db
-    .select({ o: offers, source: sources.name, kind: sources.kind })
-    .from(offers)
-    .innerJoin(sources, eq(offers.sourceId, sources.id))
-    .where(and(ne(offers.id, id), eq(offers.dismissed, false), gte(offers.createdAt, sql`now() - interval '72 hours'`)))
-    .orderBy(desc(offers.createdAt))
-    .limit(500);
+  const recent = (
+    await prisma.offer.findMany({
+      where: { id: { not: id }, dismissed: false, createdAt: { gte: atras(72 * HORA) } },
+      include: { source: { select: { name: true, kind: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    })
+  ).map((o) => ({ o, source: o.source.name, kind: o.source.kind }));
   const similar = recent.filter((r) => jaccard(base, tokens(r.o.title)) >= 0.5 || (row.productId && r.o.productId === row.productId));
   const ladder = similar
     .filter((r) => r.o.store && r.o.store !== row.store && r.o.priceCardCents != null)
@@ -88,7 +85,7 @@ export async function getOfferDetail(id: number): Promise<OfferDetailDTO | null>
     }));
 
   // Calor social: quem postou o mesmo produto (ou título muito parecido) nas últimas 24 h.
-  const [self] = await db.select({ name: sources.name, kind: sources.kind }).from(sources).where(eq(sources.id, row.sourceId));
+  const self = await prisma.source.findUnique({ where: { id: row.sourceId }, select: { name: true, kind: true } });
   const heatMap = new Map<string, { source: string; kind: string; at: string }>();
   heatMap.set(self?.name ?? "?", { source: self?.name ?? "?", kind: self?.kind ?? "comunidade", at: row.createdAt.toISOString() });
   for (const r of similar) {
@@ -100,8 +97,8 @@ export async function getOfferDetail(id: number): Promise<OfferDetailDTO | null>
 
   let insight: InsightDTO | null = null;
   if (row.productId) {
-    const [ins] = await db.select().from(insights).where(eq(insights.produtoId, row.productId)).orderBy(desc(insights.geradoEm)).limit(1);
-    if (ins) insight = { ...(ins.insight as Omit<InsightDTO, "geradoEm" | "provedor">), geradoEm: ins.geradoEm.toISOString(), provedor: ins.provedor };
+    const ins = await prisma.insight.findFirst({ where: { produtoId: row.productId }, orderBy: { geradoEm: "desc" } });
+    if (ins) insight = { ...asJson<Omit<InsightDTO, "geradoEm" | "provedor">>(ins.insight), geradoEm: ins.geradoEm.toISOString(), provedor: ins.provedor };
   }
 
   const alvo = offer.alvo;
@@ -116,7 +113,7 @@ export async function getOfferDetail(id: number): Promise<OfferDetailDTO | null>
       tetoCents: offer.alvoTetoCents,
       points: history.length,
     },
-    parts: (row.notaParts as OfferDetailDTO["parts"]) ?? null,
+    parts: asJson<OfferDetailDTO["parts"]>(row.notaParts) ?? null,
     ladder,
     heat: [...heatMap.values()].sort((a, b) => b.at.localeCompare(a.at)),
     insight,

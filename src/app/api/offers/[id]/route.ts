@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm";
 import { connection } from "next/server";
 import { z } from "zod";
-import { db, schema } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
+import { prisma } from "@/lib/db/prisma";
 import { getOfferDetail } from "@/lib/detail";
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/offers/[id]">) {
@@ -27,8 +27,8 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/offers/[id
   const offerId = Number(id);
   if (!parsed.success || !Number.isInteger(offerId)) return Response.json({ erro: "pedido inválido" }, { status: 400 });
   const { snoozeMinutes, ...rest } = parsed.data;
-  const set: Partial<typeof schema.offers.$inferInsert> = { ...rest };
+  const set: Prisma.OfferUpdateManyMutationInput = { ...rest };
   if (snoozeMinutes !== undefined) set.snoozedUntil = snoozeMinutes === 0 ? null : new Date(Date.now() + snoozeMinutes * 60_000);
-  await db.update(schema.offers).set(set).where(eq(schema.offers.id, offerId));
+  await prisma.offer.updateMany({ where: { id: offerId }, data: set });
   return Response.json({ ok: true });
 }

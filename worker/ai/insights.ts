@@ -2,17 +2,15 @@
 // quando o hash das métricas mudou, e o resultado vai para a tabela `insights`.
 // O site só lê dessa tabela; nenhuma chamada de IA acontece dentro de uma requisição.
 import { createHash } from "node:crypto";
-import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
-import { AI_MODEL } from "@/config/pricing";
-import { db, schema } from "@/lib/db";
+import { prisma } from "@/lib/db/prisma";
+import { asJson, json, type OfferExtra } from "@/lib/db/types";
+import { DIA, HORA, atras } from "@/lib/tempo";
 import { median } from "../match/alvos";
 import { notify } from "../pipeline";
 import { pickProvider } from "./index";
 import { guardedCall } from "./budget";
 import { AiBudgetError, type AiProvider } from "./types";
-
-const { offers, products, pricePoints, alvos, alvoRefs, insights } = schema;
 
 export const InsightSchema = z.object({
   veredito: z.enum(["comprar", "esperar", "evitar"]),
@@ -61,31 +59,18 @@ const SYSTEM = [
 ].join(" ");
 
 export async function metricsFor(productId: number): Promise<Metrics | null> {
-  const [prod] = await db.select().from(products).where(eq(products.id, productId));
+  const prod = await prisma.product.findUnique({ where: { id: productId } });
   if (!prod) return null;
-  const [o] = await db
-    .select()
-    .from(offers)
-    .where(eq(offers.productId, productId))
-    .orderBy(desc(offers.createdAt))
-    .limit(1);
+  const o = await prisma.offer.findFirst({ where: { productId }, orderBy: { createdAt: "desc" } });
   if (!o) return null;
-  const alvo = o.alvoId ? (await db.select().from(alvos).where(eq(alvos.id, o.alvoId)))[0] : null;
-  const ref =
-    o.alvoId && o.bandKey
-      ? (await db.select().from(alvoRefs).where(and(eq(alvoRefs.alvoId, o.alvoId), eq(alvoRefs.bandKey, o.bandKey))))[0]
-      : null;
-  const pts = await db
-    .select({ p: pricePoints.priceCardCents })
-    .from(pricePoints)
-    .where(and(eq(pricePoints.productId, productId), gte(pricePoints.observedAt, sql`now() - interval '30 days'`)));
-  const prices = pts.map((r) => r.p).filter((p): p is number => p != null);
+  const extra = asJson<OfferExtra | null>(o.extra);
+  const alvo = o.alvoId ? await prisma.alvo.findUnique({ where: { id: o.alvoId } }) : null;
+  const ref = o.alvoId && o.bandKey ? await prisma.alvoRef.findUnique({ where: { alvoId_bandKey: { alvoId: o.alvoId, bandKey: o.bandKey } } }) : null;
+  const pts = await prisma.pricePoint.findMany({ where: { productId, observedAt: { gte: atras(30 * DIA) } }, select: { priceCardCents: true } });
+  const prices = pts.map((r) => r.priceCardCents).filter((p): p is number => p != null);
   const med = median(prices);
   const current = o.priceCardCents ?? prices.at(-1) ?? null;
-  const [{ n }] = await db
-    .select({ n: sql<number>`count(distinct ${offers.sourceId})::int` })
-    .from(offers)
-    .where(and(eq(offers.productId, productId), gte(offers.createdAt, sql`now() - interval '48 hours'`)));
+  const n = (await prisma.offer.findMany({ where: { productId, createdAt: { gte: atras(48 * HORA) } }, distinct: ["sourceId"], select: { sourceId: true } })).length;
   return {
     produto: (prod.title ?? o.title).slice(0, 160),
     loja: prod.store,
@@ -106,8 +91,8 @@ export async function metricsFor(productId: number): Promise<Metrics | null> {
     precoDeLojaCents: o.listPriceCents,
     esgotado: o.available === false,
     cupom: o.coupon,
-    unidadesRestantes: o.extra?.stockLeft ?? null,
-    ofertaTerminaEm: o.extra?.endsAt ?? null,
+    unidadesRestantes: extra?.stockLeft ?? null,
+    ofertaTerminaEm: extra?.endsAt ?? null,
     freteGratis: o.freeShipping,
     comJuros: o.interest,
     parcelas: o.installments,
@@ -119,11 +104,14 @@ export const hashOf = (m: Metrics) => createHash("sha1").update(JSON.stringify(m
 
 /** Produtos com oferta verificada nas últimas 48 h, da maior nota para a menor. */
 async function candidates(limit: number): Promise<number[]> {
-  const rows = await db
-    .selectDistinctOn([offers.productId], { id: offers.productId, nota: offers.nota })
-    .from(offers)
-    .where(and(eq(offers.verifyStatus, "verificado"), eq(offers.dismissed, false), gte(offers.createdAt, sql`now() - interval '48 hours'`)))
-    .orderBy(offers.productId);
+  const rows = (
+    await prisma.offer.findMany({
+      where: { verifyStatus: "verificado", dismissed: false, createdAt: { gte: atras(48 * HORA) } },
+      distinct: ["productId"],
+      orderBy: { productId: "asc" },
+      select: { productId: true, nota: true },
+    })
+  ).map((r) => ({ id: r.productId, nota: r.nota }));
   return rows
     .filter((r): r is { id: number; nota: number | null } => r.id != null)
     .sort((a, b) => (b.nota ?? 0) - (a.nota ?? 0))
@@ -137,11 +125,9 @@ export async function insightFor(provider: AiProvider, productId: number): Promi
   if (!m) return "sem-dados";
   const hash = hashOf(m);
   const periodo = new Date().toISOString().slice(0, 10);
-  const [done] = await db
-    .select({ id: insights.id })
-    .from(insights)
-    .where(and(eq(insights.produtoId, productId), eq(insights.periodo, periodo), eq(insights.hashDados, hash)))
-    .limit(1);
+  // `periodo` é a data UTC (como sempre foi), guardada numa coluna date.
+  const periodoDate = new Date(`${periodo}T00:00:00Z`);
+  const done = await prisma.insight.findFirst({ where: { produtoId: productId, periodo: periodoDate, hashDados: hash }, select: { id: true } });
   if (done) return "igual";
   const { data } = await guardedCall(provider, {
     purpose: "insight",
@@ -149,10 +135,10 @@ export async function insightFor(provider: AiProvider, productId: number): Promi
     prompt: `Métricas do produto (preços em centavos de real):\n${JSON.stringify(m, null, 2)}`,
     schema: InsightSchema,
   });
-  await db
-    .insert(insights)
-    .values({ produtoId: productId, periodo, hashDados: hash, provedor: provider.name, modelo: AI_MODEL, insight: data })
-    .onConflictDoNothing();
+  await prisma.insight.createMany({
+    data: [{ produtoId: productId, periodo: periodoDate, hashDados: hash, provedor: provider.name, modelo: provider.model, insight: json(data) }],
+    skipDuplicates: true,
+  });
   await notify({ type: "insight", productId });
   return "gerado";
 }

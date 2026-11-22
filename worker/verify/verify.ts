@@ -1,16 +1,14 @@
-import { eq } from "drizzle-orm";
 import { STORES, cleanUrl, decodeTrackingUrl, isShortener, productIdFor, storeForUrl } from "@/config/stores";
-import { db, schema } from "@/lib/db";
-import type { OfferExtra } from "@/lib/db/schema";
+import type { Offer } from "@/generated/prisma/client";
+import { prisma } from "@/lib/db/prisma";
+import { jsonOrNull, type OfferExtra } from "@/lib/db/types";
 import { ldProduct, meta, stripTags } from "../http/html";
 import { PausedError, RobotsError, politeFetch, unshorten } from "../http/polite";
 import { parseOfferText } from "../parse/parser";
 import { afterPriceChange, logEvent, notify, pendingOffers } from "../pipeline";
 import { adapterFor } from "./adapters";
 
-const { offers, products, pricePoints, rawMessages } = schema;
 
-type Offer = typeof offers.$inferSelect;
 
 /**
  * O texto da página pode trazer a parcela de OUTRO produto (itens relacionados). O total no cartão vindo do texto só vale
@@ -94,7 +92,7 @@ export function amazonImage(html: string): string | null {
 export const NOT_PRODUCT = "o link não abre a página de um produto (promoção, busca, live ou erro da loja)";
 
 async function markNotVerified(o: Offer, note: string) {
-  await db.update(offers).set({ verifyStatus: "nao_verificado", verifyNote: note, verifiedAt: new Date() }).where(eq(offers.id, o.id));
+  await prisma.offer.update({ where: { id: o.id }, data: { verifyStatus: "nao_verificado", verifyNote: note, verifiedAt: new Date() } });
   await notify({ type: "offer", id: o.id });
 }
 
@@ -132,12 +130,12 @@ export async function verifyOffer(o: Offer): Promise<void> {
 
 /** Via rápida das fontes ao vivo: confere já, sem esperar a fila. A fila por loja do politeFetch continua valendo. */
 export async function verifyNow(offerId: number): Promise<void> {
-  const [o] = await db.select().from(offers).where(eq(offers.id, offerId));
+  const o = await prisma.offer.findUnique({ where: { id: offerId } });
   if (o && o.verifyStatus === "pendente") await verifyOffer(o);
 }
 
 async function verifyInner(o: Offer) {
-  const [raw] = await db.select().from(rawMessages).where(eq(rawMessages.id, o.rawMessageId));
+  const raw = await prisma.rawMessage.findUnique({ where: { id: o.rawMessageId } });
   const start0 = raw?.outboundUrl ?? o.url;
   const decoded = start0 ? decodeTrackingUrl(start0) : null;
   if (!decoded) return markNotVerified(o, "sem link da loja");
@@ -152,17 +150,17 @@ async function verifyInner(o: Offer) {
     const store = storeForUrl(finalUrl);
     if (!store) {
       // Fora de config/stores.ts = suspeito: não abre a página.
-      await db.update(offers).set({ url: finalUrl }).where(eq(offers.id, o.id));
+      await prisma.offer.update({ where: { id: o.id }, data: { url: finalUrl } });
       return markNotVerified(o, "loja fora da lista (suspeito)");
     }
-    const [state] = await db.select().from(schema.storeState).where(eq(schema.storeState.slug, store.slug));
+    const state = await prisma.storeState.findUnique({ where: { slug: store.slug } });
     if (state?.pausedByUser) return markNotVerified(o, "loja pausada por você");
     // Só vira "produto" um link que é de um produto. Página de erro (AliExpress /error/404), moedas, live da Shopee,
     // promoção da Amazon ou a home davam um product_id único para ofertas sem nada a ver, e o preço lido dali
     // ia para o card como "conferido". Esses links nem são abertos: o preço continua o do post.
     const pid = productIdFor(store, finalUrl);
     if (!pid) {
-      await db.update(offers).set({ url: finalUrl, store: store.slug }).where(eq(offers.id, o.id));
+      await prisma.offer.update({ where: { id: o.id }, data: { url: finalUrl, store: store.slug } });
       return markNotVerified(o, NOT_PRODUCT);
     }
     const page = await politeFetch(finalUrl);
@@ -188,16 +186,14 @@ async function verifyInner(o: Offer) {
         }
       : readGeneric(page.body, o);
 
-    const [prod] = await db
-      .insert(products)
-      .values({ store: store.slug, storeProductId: pid, canonicalUrl: finalUrl, title: v.title, imageUrl: v.image })
-      .onConflictDoUpdate({
-        target: [products.store, products.storeProductId],
-        set: { canonicalUrl: finalUrl, ...(v.title ? { title: v.title } : {}), ...(v.image ? { imageUrl: v.image } : {}) },
-      })
-      .returning({ id: products.id });
+    const prod = await prisma.product.upsert({
+      where: { store_storeProductId: { store: store.slug, storeProductId: pid } },
+      create: { store: store.slug, storeProductId: pid, canonicalUrl: finalUrl, title: v.title, imageUrl: v.image },
+      update: { canonicalUrl: finalUrl, ...(v.title ? { title: v.title } : {}), ...(v.image ? { imageUrl: v.image } : {}) },
+      select: { id: true },
+    });
 
-    await db.insert(pricePoints).values({
+    await prisma.pricePoint.create({ data: {
       productId: prod.id,
       priceCardCents: v.priceCard,
       cashCents: v.cashCents,
@@ -207,11 +203,11 @@ async function verifyInner(o: Offer) {
       freeShipping: v.freeShipping,
       imageUrl: v.image,
       origin: "loja",
-    });
+    } });
 
-    await db
-      .update(offers)
-      .set({
+    await prisma.offer.update({
+      where: { id: o.id },
+      data: {
         productId: prod.id,
         store: store.slug,
         url: finalUrl,
@@ -227,12 +223,12 @@ async function verifyInner(o: Offer) {
         shippingCents: v.shippingCents,
         available: v.available,
         coupon: v.coupon ?? o.coupon,
-        extra: v.extra ?? o.extra,
+        extra: jsonOrNull(v.extra ?? o.extra),
         verifyStatus: v.priceCard ? "verificado" : "nao_verificado",
         verifyNote: v.priceCard ? (exact ? null : "leitura genérica da página") : "a página não mostrou o preço",
         verifiedAt: new Date(),
-      })
-      .where(eq(offers.id, o.id));
+      },
+    });
     // Faixa "Ao vivo": preço que mudou de verdade (1% ou mais) depois de uma conferência anterior, e produto que acabou.
     if (o.alvoId && o.verifiedAt && o.priceCardCents && v.priceCard && Math.abs(v.priceCard - o.priceCardCents) >= o.priceCardCents * 0.01) {
       await logEvent("preco", o.id, o.title, { from: o.priceCardCents, to: v.priceCard, store: store.slug });

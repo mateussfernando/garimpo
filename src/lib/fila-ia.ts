@@ -1,10 +1,9 @@
-import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { STORES } from "@/config/stores";
-import { db, schema } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
+import { prisma } from "@/lib/db/prisma";
 import { normalize } from "@/lib/money";
 import { cleanTitle, type Verdict } from "@/lib/offers";
-
-const { offers, offerAnalyses, sources, products } = schema;
+import { HORA, atras } from "@/lib/tempo";
 
 export type FilaItem = {
   id: number;
@@ -32,24 +31,23 @@ const keyOf = (title: string, price: number | null) => `${normalize(title).repla
 
 /** Ofertas de produto das últimas 48 h: quantas já têm análise e quais esperam, agrupadas por produto. */
 export async function getFila(): Promise<FilaDTO> {
-  const where = and(eq(offers.kind, "produto"), eq(offers.dismissed, false), gte(offers.createdAt, sql`now() - interval '48 hours'`));
-  const [{ total, analyzed }] = await db
-    .select({ total: sql<number>`count(*)::int`, analyzed: sql<number>`count(${offerAnalyses.offerId})::int` })
-    .from(offers)
-    .leftJoin(offerAnalyses, eq(offerAnalyses.offerId, offers.id))
-    .where(where);
+  const where = { kind: "produto", dismissed: false, createdAt: { gte: atras(48 * HORA) } } satisfies Prisma.OfferWhereInput;
+  const [total, analyzed] = await Promise.all([
+    prisma.offer.count({ where }),
+    prisma.offer.count({ where: { ...where, analysis: { isNot: null } } }),
+  ]);
+  const extras = { source: { select: { name: true } }, product: { select: { imageUrl: true } } } as const;
 
-  const rows = await db
-    .select({ o: offers, source: sources.name, image: products.imageUrl })
-    .from(offers)
-    .innerJoin(sources, eq(sources.id, offers.sourceId))
-    .leftJoin(products, eq(products.id, offers.productId))
-    .leftJoin(offerAnalyses, eq(offerAnalyses.offerId, offers.id))
-    .where(and(where, isNull(offerAnalyses.offerId)))
-    .orderBy(sql`${offers.nota} desc nulls last`, desc(offers.createdAt))
-    .limit(3000);
+  const rows = await prisma.offer.findMany({
+    where: { ...where, analysis: { is: null } },
+    include: extras,
+    orderBy: [{ nota: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
+    take: 3000,
+  });
   const groups = new Map<string, FilaItem>();
-  for (const { o, source, image } of rows) {
+  for (const o of rows) {
+    const source = o.source.name;
+    const image = o.product?.imageUrl ?? null;
     const k = keyOf(o.title, o.priceCardCents);
     const g = groups.get(k);
     if (g) {
@@ -69,18 +67,18 @@ export async function getFila(): Promise<FilaDTO> {
     });
   }
 
-  const done = await db
-    .select({ o: offers, a: offerAnalyses, source: sources.name, image: products.imageUrl })
-    .from(offerAnalyses)
-    .innerJoin(offers, eq(offers.id, offerAnalyses.offerId))
-    .innerJoin(sources, eq(sources.id, offers.sourceId))
-    .leftJoin(products, eq(products.id, offers.productId))
-    .where(where)
-    .orderBy(desc(offerAnalyses.createdAt))
-    .limit(60);
+  const done = await prisma.offerAnalysis.findMany({
+    where: { offer: where },
+    include: { offer: { include: extras } },
+    orderBy: { createdAt: "desc" },
+    take: 60,
+  });
   const seen = new Set<string>();
   const recent: FilaDTO["recent"] = [];
-  for (const { o, a, source, image } of done) {
+  for (const a of done) {
+    const o = a.offer;
+    const source = o.source.name;
+    const image = o.product?.imageUrl ?? null;
     const k = keyOf(o.title, o.priceCardCents);
     if (seen.has(k)) continue;
     seen.add(k);

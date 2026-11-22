@@ -1,12 +1,10 @@
 // pnpm simular            -> põe ofertas de exemplo na fonte "demo" (para ver a Vitrine e ensaiar)
 // pnpm simular --limpar   -> apaga tudo o que veio da fonte "demo"
 import "dotenv/config";
-import { eq, inArray } from "drizzle-orm";
 import { storeForUrl } from "@/config/stores";
-import { db, pool, schema } from "@/lib/db";
+import { pool } from "@/lib/db";
+import { prisma } from "@/lib/db/prisma";
 import { ensureSeed, ingestRaw, scoreOffer } from "../pipeline";
-
-const { sources, rawMessages, offers } = schema;
 
 const EXEMPLOS = [
   ["Mouse Gamer Logitech G305 Lightspeed sem fio", "R$ 249,90 em 10x de R$ 24,99 sem juros | Frete grátis", "https://www.kabum.com.br/produto/111111/mouse-g305"],
@@ -24,23 +22,20 @@ const EXEMPLOS = [
 async function main() {
   await ensureSeed();
   if (process.argv.includes("--limpar")) {
-    const [demo] = await db.select().from(sources).where(eq(sources.slug, "demo"));
+    // Só os dados da fonte "demo" que este script criou.
+    const demo = await prisma.source.findUnique({ where: { slug: "demo" } });
     if (demo) {
-      const raws = await db.select({ id: rawMessages.id }).from(rawMessages).where(eq(rawMessages.sourceId, demo.id));
+      const raws = await prisma.rawMessage.findMany({ where: { sourceId: demo.id }, select: { id: true } });
       if (raws.length) {
-        await db.delete(offers).where(inArray(offers.rawMessageId, raws.map((r) => r.id)));
-        await db.delete(rawMessages).where(eq(rawMessages.sourceId, demo.id));
+        await prisma.offer.deleteMany({ where: { rawMessageId: { in: raws.map((r) => r.id) } } });
+        await prisma.rawMessage.deleteMany({ where: { sourceId: demo.id } });
       }
-      await db.delete(sources).where(eq(sources.id, demo.id));
+      await prisma.source.delete({ where: { id: demo.id } });
     }
     console.log("Demo apagada.");
     return;
   }
-  const [demo] = await db
-    .insert(sources)
-    .values({ slug: "demo", kind: "demo", name: "Demo", url: "local" })
-    .onConflictDoUpdate({ target: sources.slug, set: { name: "Demo" } })
-    .returning();
+  const demo = await prisma.source.upsert({ where: { slug: "demo" }, create: { slug: "demo", kind: "demo", name: "Demo", url: "local" }, update: { name: "Demo" } });
   const ids: number[] = [];
   for (const [title, price, url] of EXEMPLOS) {
     const id = await ingestRaw({

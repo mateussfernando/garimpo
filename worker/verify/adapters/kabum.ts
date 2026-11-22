@@ -1,7 +1,7 @@
 // KaBuM!: a página do produto traz os dados exatos em __NEXT_DATA__ (props.pageProps.product).
 // Conferido em 10/11/2026: prices.price = cartão parcelado, prices.priceWithDiscount = Pix,
 // installment = melhor forma no cartão (Nx sem juros, ou 1x com desconto nos itens baratos).
-import type { OfferExtra } from "@/lib/db/schema";
+import type { OfferExtra } from "@/lib/db/types";
 import { nextData } from "../../http/html";
 import { toCents, type Adapter } from "./types";
 

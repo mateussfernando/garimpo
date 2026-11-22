@@ -1,8 +1,6 @@
-import { and, eq, gte, sql } from "drizzle-orm";
 import { STORES, hostOf } from "@/config/stores";
-import { db, schema } from "@/lib/db";
-
-const { offers, pricePoints, products, storeState } = schema;
+import { prisma } from "@/lib/db/prisma";
+import { DIA, atras, inicioDoDia } from "@/lib/tempo";
 
 const FOCUS: Record<string, string> = {
   kabum: "periféricos e monitores",
@@ -39,13 +37,12 @@ export type LojasDTO = {
 };
 
 export async function getLojas(): Promise<LojasDTO> {
-  const states = await db.select().from(storeState);
+  const states = await prisma.storeState.findMany();
   const stateBy = new Map(states.map((s) => [s.slug, s]));
-  const last = await db
-    .select({ store: products.store, at: sql<string>`max(${pricePoints.observedAt})`, n: sql<number>`count(*)::int` })
-    .from(pricePoints)
-    .innerJoin(products, eq(pricePoints.productId, products.id))
-    .groupBy(products.store);
+  const last = await prisma.$queryRaw<{ store: string; at: Date | null; n: number }[]>`
+    select p.store, max(pp.observed_at) as at, count(*)::int as n
+    from price_points pp join products p on p.id = pp.product_id
+    group by p.store`;
   const lastBy = new Map(last.map((l) => [l.store, l]));
 
   const now = Date.now();
@@ -74,18 +71,11 @@ export async function getLojas(): Promise<LojasDTO> {
     };
   });
 
-  const [{ queue }] = await db.select({ queue: sql<number>`count(*)::int` }).from(offers).where(eq(offers.verifyStatus, "pendente"));
-  const [{ today }] = await db
-    .select({ today: sql<number>`count(*)::int` })
-    .from(pricePoints)
-    .where(gte(pricePoints.observedAt, sql`date_trunc('day', now())`));
+  const queue = await prisma.offer.count({ where: { verifyStatus: "pendente" } });
+  const today = await prisma.pricePoint.count({ where: { observedAt: { gte: inicioDoDia() } } });
 
   // Lojas que aparecem nas ofertas e ainda não estão em config/stores.ts.
-  const urls = await db
-    .select({ url: offers.url })
-    .from(offers)
-    .where(and(gte(offers.createdAt, sql`now() - interval '7 days'`), sql`${offers.url} is not null`))
-    .limit(1000);
+  const urls = await prisma.offer.findMany({ where: { createdAt: { gte: atras(7 * DIA) }, url: { not: null } }, select: { url: true }, take: 1000 });
   const known = new Set(STORES.flatMap((s) => s.domains));
   const count = new Map<string, { n: number; example: string | null }>();
   for (const { url } of urls) {

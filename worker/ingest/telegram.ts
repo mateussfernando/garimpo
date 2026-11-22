@@ -8,20 +8,19 @@
 // 3. Mensagem nova chega por evento, em segundos. A leitura de 1 em 1 minuto é a rede de segurança:
 //    se um evento se perder, a mensagem entra na próxima passada.
 // 4. Oferta que vem daqui é conferida na loja na hora (via rápida), sem esperar a fila.
-import { eq, sql } from "drizzle-orm";
 import { Client } from "pg";
 import { TelegramClient } from "telegram";
 import { NewMessage, type NewMessageEvent } from "telegram/events";
 import { StringSession } from "telegram/sessions";
 import { hostOf } from "@/config/stores";
 import { isOffTopicGroup, isPromoGroup } from "@/config/telegram-filter";
-import { CMD_CHANNEL, db, pgConfig, schema } from "@/lib/db";
-import type { SourceStats } from "@/lib/db/schema";
+import { CMD_CHANNEL, pgConfig } from "@/lib/db";
+import { prisma } from "@/lib/db/prisma";
+import { asJson, json } from "@/lib/db/types";
+import type { SourceStats } from "@/lib/db/types";
 import { activeAlvos, ingestRaw, notify } from "../pipeline";
 import { verifyNow } from "../verify/verify";
 import { offerFromMessage } from "./message";
-
-const { sources } = schema;
 
 const INVITE_RE = /(?:https?:\/\/)?(t\.me\/(?:\+|joinchat\/)[A-Za-z0-9_-]{8,}|t\.me\/[A-Za-z][A-Za-z0-9_]{4,}|chat\.whatsapp\.com\/[A-Za-z0-9]{10,}|whatsapp\.com\/channel\/[A-Za-z0-9]{10,})/gi;
 const REFRESH_EVERY = 60 * 1000;
@@ -71,10 +70,8 @@ async function saveInvites(text: string, ownUsername: string | null, from: strin
   for (const link of found) {
     if (/^t\.me\/(c|s)\//.test(link) || (ownUsername && link === `t.me/${ownUsername.toLowerCase()}`)) continue;
     const kind = link.startsWith("t.me") ? "telegram" : "whatsapp";
-    await db
-      .insert(schema.invites)
-      .values({ link, kind, fromSource: from })
-      .onConflictDoUpdate({ target: schema.invites.link, set: { mentions: sql`${schema.invites.mentions} + 1`, lastSeenAt: new Date() } })
+    await prisma.invite
+      .upsert({ where: { link }, create: { link, kind, fromSource: from }, update: { mentions: { increment: 1 }, lastSeenAt: new Date() } })
       .catch(() => undefined);
   }
 }
@@ -193,22 +190,18 @@ export async function startTelegram() {
       const username = (d.entity as { username?: string } | undefined)?.username ?? null;
       const slug = `tg-${id}`;
       const url = username ? `https://t.me/${username}` : `telegram:${id}`;
-      const [existing] = await db.select().from(sources).where(eq(sources.slug, slug));
-      let row = existing;
+      let row = await prisma.source.findUnique({ where: { slug } });
       if (!row) {
-        [row] = await db
-          .insert(sources)
-          .values({ slug, kind: "telegram", name, url, enabled: isPromoGroup(name) })
-          .returning();
+        row = await prisma.source.create({ data: { slug, kind: "telegram", name, url, enabled: isPromoGroup(name) } });
         console.log(`[telegram] fonte nova: ${name} (${row.enabled ? "ligada" : "desligada"})`);
       } else if (row.enabled && !row.decision && isOffTopicGroup(name)) {
         // Grupo de outro assunto que tinha ligado sozinho: desliga.
-        [row] = await db.update(sources).set({ name, url, enabled: false }).where(eq(sources.id, row.id)).returning();
+        row = await prisma.source.update({ where: { id: row.id }, data: { name, url, enabled: false } });
         console.log(`[telegram] desligado (outro assunto): ${name}`);
       } else if (row.name !== name || row.url !== url) {
-        await db.update(sources).set({ name, url }).where(eq(sources.id, row.id));
+        await prisma.source.update({ where: { id: row.id }, data: { name, url } });
       }
-      await db.update(sources).set({ lastRunAt: new Date() }).where(eq(sources.id, row.id));
+      await prisma.source.update({ where: { id: row.id }, data: { lastRunAt: new Date() } });
 
       if (!row.enabled) {
         chats.delete(id);
@@ -225,7 +218,7 @@ export async function startTelegram() {
           name,
           username,
           peer,
-          stats: row.stats ?? freshStats(),
+          stats: asJson<SourceStats | null>(row.stats) ?? freshStats(),
           lastMessageAt: row.lastMessageAt,
           dirty: false,
           chain: Promise.resolve(),
@@ -256,7 +249,7 @@ export async function startTelegram() {
       if (!chat.dirty) continue;
       chat.dirty = false;
       any = true;
-      await db.update(sources).set({ stats: chat.stats, lastMessageAt: chat.lastMessageAt }).where(eq(sources.id, chat.sourceId));
+      await prisma.source.update({ where: { id: chat.sourceId }, data: { stats: json(chat.stats), lastMessageAt: chat.lastMessageAt } });
     }
     if (any) await notify({ type: "source" });
   }

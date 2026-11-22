@@ -1,7 +1,8 @@
 import "dotenv/config";
 import { STORES, storeForUrl } from "@/config/stores";
 import { PAUSES_KEY, getSetting, setSetting, type Pauses } from "@/lib/settings";
-import { db, pgConfig, pool, schema } from "@/lib/db";
+import { pgConfig, pool } from "@/lib/db";
+import { prisma } from "@/lib/db/prisma";
 import { collectAll } from "./collect/communities";
 import { pausedHosts, restorePauses, setPauseListener } from "./http/polite";
 import { Client } from "pg";
@@ -40,7 +41,7 @@ async function main() {
   await listenFontes();
   // Pausas pedidas pelos sites antes deste reinício continuam valendo.
   const saved = (await getSetting<Pauses>(PAUSES_KEY))?.value ?? {};
-  const fromStores = await db.select().from(schema.storeState);
+  const fromStores = await prisma.storeState.findMany();
   restorePauses([
     ...Object.entries(saved).map(([host, until]) => ({ host, until })),
     ...fromStores.flatMap((s) => {
@@ -64,7 +65,7 @@ async function main() {
     const store = storeForUrl(`https://${host}`);
     if (store) {
       const set = { pauseUntil: new Date(until), pauseNote: "pediu para parar (429, 403 ou 503)", updatedAt: new Date() };
-      void db.insert(schema.storeState).values({ slug: store.slug, ...set }).onConflictDoUpdate({ target: schema.storeState.slug, set }).catch(() => undefined);
+      void prisma.storeState.upsert({ where: { slug: store.slug }, create: { slug: store.slug, ...set }, update: set }).catch(() => undefined);
     }
   });
 

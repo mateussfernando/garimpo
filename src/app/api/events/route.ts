@@ -1,7 +1,7 @@
-import { desc } from "drizzle-orm";
 import { connection } from "next/server";
 import { STORES } from "@/config/stores";
-import { db, schema } from "@/lib/db";
+import { prisma } from "@/lib/db/prisma";
+import { asJson, type EventDetail } from "@/lib/db/types";
 import { cleanTitle } from "@/lib/offers";
 
 export type EventDTO = {
@@ -20,7 +20,7 @@ export type EventDTO = {
 // Últimos acontecimentos da faixa "Ao vivo". O worker grava; a tela só lê.
 export async function GET() {
   await connection();
-  const rows = await db.select().from(schema.events).orderBy(desc(schema.events.id)).limit(60);
+  const rows = (await prisma.event.findMany({ orderBy: { id: "desc" }, take: 60 })).map((e) => ({ ...e, detail: asJson<EventDetail | null>(e.detail) }));
   const out: EventDTO[] = rows.map((e) => ({
     id: e.id,
     type: e.type as EventDTO["type"],

@@ -65,3 +65,6 @@ pnpm-debug.log*
 
 # Cliente do Prisma: gerado no install (postinstall) e no build
 /src/generated/
+
+# Contas de teste locais (e-mail @garimpo.test, senha aleatória): nunca vão para o Git
+.contas-de-teste.local.json

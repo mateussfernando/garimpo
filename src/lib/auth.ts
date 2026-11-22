@@ -1,36 +1,50 @@
-// Senha do site no deploy (Vercel). No seu PC, sem SITE_PASSWORD, o site abre normal.
-// O cookie guarda uma assinatura HMAC da senha, nunca a senha. Web Crypto, para valer também no proxy.
+// Login do Garimpo (better-auth): nome, e-mail e senha, e "Entrar com Google".
+// A senha nunca é guardada: fica o hash bcrypt (bcryptjs, custo 12) em `contas.password`.
+// Sessões no banco (tabela `sessoes`), em cookie httpOnly. Só roda no servidor: nada aqui vai para o navegador.
+import bcrypt from "bcryptjs";
+import { betterAuth } from "better-auth";
+import { prismaAdapter } from "better-auth/adapters/prisma";
+import { nextCookies } from "better-auth/next-js";
+import { prisma } from "@/lib/db/prisma";
 
-export const COOKIE = "garimpo_acesso";
-export const COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
+/** O botão "Entrar com Google" só existe com as duas chaves no .env. */
+export const googleEnabled = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
-const enc = new TextEncoder();
+export const auth = betterAuth({
+  appName: "Garimpo",
+  // BETTER_AUTH_URL e BETTER_AUTH_SECRET vêm do .env.
+  database: prismaAdapter(prisma, { provider: "postgresql" }),
+  emailAndPassword: {
+    enabled: true,
+    autoSignIn: true,
+    minPasswordLength: 8,
+    // O bcrypt só usa os primeiros 72 bytes da senha.
+    maxPasswordLength: 72,
+    password: {
+      hash: (password) => bcrypt.hash(password, 12),
+      verify: ({ hash, password }) => bcrypt.compare(password, hash),
+    },
+  },
+  socialProviders: googleEnabled()
+    ? { google: { clientId: process.env.GOOGLE_CLIENT_ID!, clientSecret: process.env.GOOGLE_CLIENT_SECRET!, prompt: "select_account" } }
+    : {},
+  session: {
+    expiresIn: 60 * 60 * 24 * 30, // 30 dias
+    updateAge: 60 * 60 * 24, // renova uma vez por dia de uso
+  },
+  // Limite de tentativas no banco (vale também com várias instâncias na Vercel).
+  rateLimit: {
+    enabled: true,
+    storage: "database",
+    window: 60,
+    max: 100,
+    customRules: {
+      "/sign-in/email": { window: 60, max: 5 },
+      "/sign-up/email": { window: 60 * 60, max: 5 },
+    },
+  },
+  telemetry: { enabled: false },
+  plugins: [nextCookies()],
+});
 
-async function sign(secret: string): Promise<string> {
-  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const mac = await crypto.subtle.sign("HMAC", key, enc.encode("garimpo:acesso:v1"));
-  return [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-/** Comparação que não vaza, pelo tempo, em que posição as duas diferem. */
-export function safeEqual(a: string, b: string): boolean {
-  const x = enc.encode(a);
-  const y = enc.encode(b);
-  let diff = x.length ^ y.length;
-  for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
-  return diff === 0;
-}
-
-/** O site pede senha? Só quando SITE_PASSWORD existe. */
-export const authEnabled = () => !!process.env.SITE_PASSWORD;
-
-/** Valor do cookie para a senha atual. Mudar SITE_PASSWORD invalida todos os acessos. */
-export async function accessToken(): Promise<string> {
-  return sign(process.env.SITE_PASSWORD ?? "");
-}
-
-export async function hasAccess(cookieValue: string | undefined): Promise<boolean> {
-  if (!authEnabled()) return true;
-  if (!cookieValue) return false;
-  return safeEqual(cookieValue, await accessToken());
-}
+export type Sessao = typeof auth.$Infer.Session;

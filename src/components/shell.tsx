@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { authClient } from "@/lib/auth-client";
 import type { StatusDTO } from "@/lib/offers";
 
 export const brl = (cents: number | null | undefined) =>
@@ -212,6 +214,30 @@ agy: gemini-3.8-flash-low · ${agyToday} chamadas hoje, pela conta do Antigravit
   );
 }
 
+/** Quem está logado e o botão Sair. */
+function UserMenu() {
+  const { data } = authClient.useSession();
+  const router = useRouter();
+  const [saindo, setSaindo] = useState(false);
+  if (!data) return null;
+  const sair = async () => {
+    setSaindo(true);
+    await authClient.signOut();
+    router.replace("/entrar");
+    router.refresh();
+  };
+  return (
+    <span className="flex items-center gap-2 text-[13px]">
+      <span className="max-w-40 truncate text-ink-2" title={data.user.email}>
+        {data.user.name}
+      </span>
+      <button type="button" onClick={() => void sair()} disabled={saindo} className="flex h-9 items-center rounded-[10px] border border-control px-3 text-xs font-medium text-ink-2 hover:text-ink disabled:opacity-50">
+        {saindo ? "Saindo…" : "Sair"}
+      </button>
+    </span>
+  );
+}
+
 export function AppHeader({ active, status, live }: { active: NavKey | null; status: StatusDTO | null; live: boolean }) {
   const ai = status?.ai;
   return (
@@ -237,9 +263,12 @@ export function AppHeader({ active, status, live }: { active: NavKey | null; sta
             ))}
           </nav>
         </div>
-        <span className="flex items-center gap-2 text-[13px] text-muted">
-          <span className={`h-2 w-2 rounded-full ${live ? "bg-good-dot" : "bg-pause"}`} />
-          {live ? "Ao vivo" : "Reconectando"}
+        <span className="flex items-center gap-4">
+          <span className="flex items-center gap-2 text-[13px] text-muted">
+            <span className={`h-2 w-2 rounded-full ${live ? "bg-good-dot" : "bg-pause"}`} />
+            {live ? "Ao vivo" : "Reconectando"}
+          </span>
+          <UserMenu />
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-x-10 gap-y-2 border-t border-line bg-deep px-8 py-2.5">

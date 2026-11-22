@@ -66,6 +66,20 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 22/11/2026, 20:45 · deploy-v2, Fase 3: contas e login
+
+- **Feito:**
+  - `better-auth` 1.7.27 com o adaptador do Prisma. Tabelas novas (migração `contas`, só `CREATE`): `usuarios`, `sessoes`, `contas`, `verificacoes` e `limites_de_acesso`;
+  - Senha com bcrypt (`bcryptjs`, custo 12, de 8 a 72 caracteres): no banco fica só o hash (`$2b$12$...`), em `contas.password`;
+  - `/entrar` com "Entrar", "Criar conta" (nome, e-mail e senha) e "Entrar com Google" (o botão só aparece com `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` no `.env`). Volta para a página de onde veio (`?de=`, só caminho do próprio site);
+  - Sessão de 30 dias no banco, em cookie `HttpOnly` e `SameSite` (e `Secure` no https). Limite de tentativas no banco: 5 logins por minuto e 5 cadastros por hora por IP. Telemetria do better-auth desligada;
+  - `src/proxy.ts` agora exige sessão: sem ela, página vai para `/entrar` e `/api` responde 401. A checagem de verdade fica em `src/lib/sessao.ts` (`getUser`), que as rotas vão usar na Fase 5. Saíram a senha única do site (`SITE_PASSWORD`, `src/lib/auth.ts` antigo e `/api/entrar`);
+  - Cabeçalho com o nome de quem entrou e "Sair";
+  - `.env`: `BETTER_AUTH_SECRET` (gerado, 32 bytes) e `BETTER_AUTH_URL`; `.env.example` explica como gerar.
+- **Testado (por HTTP, contra o site local):** criar conta já entra; Vitrine com sessão 200 e sem sessão 401/`/entrar`; sair encerra; o mesmo e-mail não cria duas contas; 5 senhas erradas seguidas e a 6ª dá 429; depois de um minuto, a senha certa entra. A conta de teste é `teste-comum@garimpo.test`, com a senha num arquivo local fora do Git (`.contas-de-teste.local.json`).
+- **Pendente:** "Entrar com Google" precisa do cliente OAuth do usuário no Google Cloud Console (as URLs de retorno vão no `docs/deploy.md` da Fase 8). Sem serviço de e-mail, não há confirmação de e-mail nem "esqueci a senha" (decisão do plano); por isso o Google só junta com uma conta de senha se o e-mail dela estiver confirmado, o padrão seguro do better-auth.
+- **Próximo passo:** Fase 4, cargos e permissões (e o `pnpm admin:criar`).
+
 ### 22/11/2026, 20:30 · deploy-v2, Fase 2: tudo no Prisma, Drizzle fora
 
 - **Feito:**

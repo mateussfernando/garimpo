@@ -62,3 +62,6 @@ next-env.d.ts
 Thumbs.db
 npm-debug.log*
 pnpm-debug.log*
+
+# Cliente do Prisma: gerado no install (postinstall) e no build
+/src/generated/

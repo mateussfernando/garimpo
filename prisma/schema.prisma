@@ -1,0 +1,296 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model AiUsage {
+  id           Int      @id @default(autoincrement())
+  provider     String
+  model        String
+  purpose      String
+  inputTokens  Int?     @map("input_tokens")
+  outputTokens Int?     @map("output_tokens")
+  costUsd      Decimal? @map("cost_usd") @db.Decimal(10, 6)
+  ok           Boolean
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("ai_usage")
+}
+
+model AlvoRef {
+  alvoId             Int      @map("alvo_id")
+  bandKey            String   @map("band_key")
+  label              String
+  medianCents        Int?     @map("median_cents")
+  targetCents        Int?     @map("target_cents")
+  ceilingCents       Int?     @map("ceiling_cents")
+  n                  Int      @default(0)
+  updatedAt          DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  manualTargetCents  Int?     @map("manual_target_cents")
+  manualCeilingCents Int?     @map("manual_ceiling_cents")
+  alvo               Alvo     @relation(fields: [alvoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "alvo_refs_alvo_id_alvos_id_fk")
+
+  @@id([alvoId, bandKey], map: "alvo_refs_alvo_id_band_key_pk")
+  @@map("alvo_refs")
+}
+
+model Alvo {
+  id           Int         @id @default(autoincrement())
+  slug         String      @unique(map: "alvos_slug_unique")
+  name         String
+  terms        Json
+  exclusions   Json
+  targetCents  Int?        @map("target_cents")
+  ceilingCents Int?        @map("ceiling_cents")
+  active       Boolean     @default(true)
+  origin       String      @default("seed")
+  editedAt     DateTime?   @map("edited_at") @db.Timestamptz(6)
+  deletedAt    DateTime?   @map("deleted_at") @db.Timestamptz(6)
+  alvoRefs     AlvoRef[]
+  marketObs    MarketObs[]
+  offers       Offer[]
+
+  @@map("alvos")
+}
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("app_settings")
+}
+
+model Coupon {
+  id            Int      @id @default(autoincrement())
+  key           String   @unique(map: "coupons_key_unique")
+  store         String?
+  code          String?
+  title         String
+  discountKind  String?  @map("discount_kind")
+  discountValue Int?     @map("discount_value")
+  capCents      Int?     @map("cap_cents")
+  minCents      Int?     @map("min_cents")
+  conditions    Json     @default("[]")
+  url           String?
+  postUrl       String?  @map("post_url")
+  offerIds      Json     @default("[]") @map("offer_ids")
+  sourceNames   Json     @default("[]") @map("source_names")
+  forProduct    String?  @map("for_product")
+  hidden        Boolean  @default(false)
+  firstSeenAt   DateTime @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  lastSeenAt    DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+
+  @@map("coupons")
+}
+
+model Event {
+  id      Int      @id @default(autoincrement())
+  type    String
+  offerId Int?     @map("offer_id")
+  title   String
+  detail  Json?
+  at      DateTime @default(now()) @db.Timestamptz(6)
+  offer   Offer?   @relation(fields: [offerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "events_offer_id_offers_id_fk")
+
+  @@map("events")
+}
+
+model Insight {
+  id        Int      @id @default(autoincrement())
+  produtoId Int      @map("produto_id")
+  periodo   DateTime @db.Date
+  hashDados String   @map("hash_dados")
+  provedor  String
+  modelo    String
+  insight   Json
+  geradoEm  DateTime @default(now()) @map("gerado_em") @db.Timestamptz(6)
+  product   Product  @relation(fields: [produtoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "insights_produto_id_products_id_fk")
+
+  @@unique([produtoId, periodo, hashDados], map: "insights_produto_periodo_hash")
+  @@map("insights")
+}
+
+model Invite {
+  link        String   @id
+  kind        String
+  mentions    Int      @default(1)
+  fromSource  String?  @map("from_source")
+  dismissed   Boolean  @default(false)
+  firstSeenAt DateTime @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  lastSeenAt  DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+
+  @@map("invites")
+}
+
+model MarketObs {
+  store          String
+  code           String
+  alvoId         Int      @map("alvo_id")
+  bandKey        String   @map("band_key")
+  title          String
+  priceCardCents Int      @map("price_card_cents")
+  seenAt         DateTime @default(now()) @map("seen_at") @db.Timestamptz(6)
+  alvo           Alvo     @relation(fields: [alvoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "market_obs_alvo_id_alvos_id_fk")
+
+  @@id([store, code], map: "market_obs_store_code_pk")
+  @@map("market_obs")
+}
+
+model OfferAnalysis {
+  offerId    Int      @id @map("offer_id")
+  hash       String
+  verdict    String
+  score      Int
+  confidence String
+  summary    String
+  pros       Json     @default("[]")
+  cons       Json     @default("[]")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  offer      Offer    @relation(fields: [offerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "offer_analyses_offer_id_offers_id_fk")
+
+  @@map("offer_analyses")
+}
+
+model Offer {
+  id               Int            @id @default(autoincrement())
+  rawMessageId     Int            @unique(map: "offers_raw_message") @map("raw_message_id")
+  sourceId         Int            @map("source_id")
+  productId        Int?           @map("product_id")
+  alvoId           Int?           @map("alvo_id")
+  title            String
+  store            String?
+  url              String?
+  imageUrl         String?        @map("image_url")
+  priceCardCents   Int?           @map("price_card_cents")
+  priceBasis       String?        @map("price_basis")
+  installments     Int?
+  installmentCents Int?           @map("installment_cents")
+  interest         Boolean?
+  cashCents        Int?           @map("cash_cents")
+  listPriceCents   Int?           @map("list_price_cents")
+  shippingCents    Int?           @map("shipping_cents")
+  freeShipping     Boolean?       @map("free_shipping")
+  coupon           String?
+  verifyStatus     String         @default("pendente") @map("verify_status")
+  verifyNote       String?        @map("verify_note")
+  verifiedAt       DateTime?      @map("verified_at") @db.Timestamptz(6)
+  nota             Int?
+  notaParts        Json?          @map("nota_parts")
+  watched          Boolean        @default(false)
+  dismissed        Boolean        @default(false)
+  snoozedUntil     DateTime?      @map("snoozed_until") @db.Timestamptz(6)
+  specs            Json?
+  bandKey          String?        @map("band_key")
+  available        Boolean?
+  extra            Json?
+  hitAt            DateTime?      @map("hit_at") @db.Timestamptz(6)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  kind             String         @default("produto")
+  category         String?
+  categorySource   String?        @map("category_source")
+  events           Event[]
+  analysis         OfferAnalysis?
+  alvo             Alvo?          @relation(fields: [alvoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "offers_alvo_id_alvos_id_fk")
+  product          Product?       @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "offers_product_id_products_id_fk")
+  rawMessage       RawMessage     @relation(fields: [rawMessageId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "offers_raw_message_id_raw_messages_id_fk")
+  source           Source         @relation(fields: [sourceId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "offers_source_id_sources_id_fk")
+
+  @@map("offers")
+}
+
+model PricePoint {
+  id             Int      @id @default(autoincrement())
+  productId      Int      @map("product_id")
+  priceCardCents Int?     @map("price_card_cents")
+  cashCents      Int?     @map("cash_cents")
+  installments   Int?
+  interest       Boolean?
+  shippingCents  Int?     @map("shipping_cents")
+  freeShipping   Boolean? @map("free_shipping")
+  imageUrl       String?  @map("image_url")
+  origin         String
+  observedAt     DateTime @default(now()) @map("observed_at") @db.Timestamptz(6)
+  product        Product  @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "price_points_product_id_products_id_fk")
+
+  @@map("price_points")
+}
+
+model Product {
+  id             Int          @id @default(autoincrement())
+  store          String
+  storeProductId String       @map("store_product_id")
+  canonicalUrl   String       @map("canonical_url")
+  title          String?
+  imageUrl       String?      @map("image_url")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  insights       Insight[]
+  offers         Offer[]
+  pricePoints    PricePoint[]
+
+  @@unique([store, storeProductId], map: "products_store_id")
+  @@map("products")
+}
+
+model RawMessage {
+  id          Int      @id @default(autoincrement())
+  sourceId    Int      @map("source_id")
+  externalId  String   @map("external_id")
+  text        String
+  url         String?
+  outboundUrl String?  @map("outbound_url")
+  imageUrl    String?  @map("image_url")
+  seenAt      DateTime @default(now()) @map("seen_at") @db.Timestamptz(6)
+  offer       Offer?
+  source      Source   @relation(fields: [sourceId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "raw_messages_source_id_sources_id_fk")
+
+  @@unique([sourceId, externalId], map: "raw_messages_source_external")
+  @@map("raw_messages")
+}
+
+model Source {
+  id            Int          @id @default(autoincrement())
+  slug          String       @unique(map: "sources_slug_unique")
+  kind          String
+  name          String
+  url           String
+  enabled       Boolean      @default(true)
+  status        String       @default("ok")
+  statusNote    String?      @map("status_note")
+  decision      String?
+  stats         Json?
+  lastMessageAt DateTime?    @map("last_message_at") @db.Timestamptz(6)
+  lastRunAt     DateTime?    @map("last_run_at") @db.Timestamptz(6)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  config        Json?
+  origin        String       @default("codigo")
+  intervalMin   Int?         @map("interval_min")
+  deletedAt     DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  offers        Offer[]
+  rawMessages   RawMessage[]
+
+  @@map("sources")
+}
+
+model StoreState {
+  slug         String    @id
+  pausedByUser Boolean   @default(false) @map("paused_by_user")
+  pauseUntil   DateTime? @map("pause_until") @db.Timestamptz(6)
+  pauseNote    String?   @map("pause_note")
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("store_state")
+}
+
+model WorkerState {
+  id        String   @id
+  beatAt    DateTime @default(now()) @map("beat_at") @db.Timestamptz(6)
+  startedAt DateTime @default(now()) @map("started_at") @db.Timestamptz(6)
+  roles     String   @default("")
+
+  @@map("worker_state")
+}

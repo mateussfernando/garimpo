@@ -66,6 +66,18 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 22/11/2026, 20:00 · deploy-v2, Fase 1: Prisma ao lado do Drizzle
+
+- **Feito:**
+  - Prisma 7.10.1 (`prisma`, `@prisma/client`, `@prisma/adapter-pg`). O `latest` do npm da CLI apontava para um 8.0 RC; ficou a última estável;
+  - `prisma db pull` leu as 17 tabelas do banco sem mexer em nada. Um script renomeou modelos e campos para os nomes que o código já usa (`Offer.priceCardCents`, `Insight.produtoId`...), com `@@map`/`@map` para as tabelas e colunas de sempre. `prisma migrate diff` contra o banco: **migração vazia**, ou seja, o schema descreve o banco exatamente;
+  - Migração `0_init` (o banco de hoje) marcada como **já aplicada** (`migrate resolve --applied`): o Prisma nunca vai recriar nada. A única coisa nova no banco é a tabela de controle `_prisma_migrations`;
+  - `src/lib/db/prisma.ts`: cliente único no mesmo pool do `pg` (SSL do Supabase e limite de conexões da Vercel continuam valendo). O cliente é gerado em `src/generated/prisma` (fora do Git, `postinstall: prisma generate`);
+  - `pnpm db:backup [rótulo]` (`scripts/db-backup.mjs`): dump em `~/garimpo-backups`, senha por variável de ambiente e nunca apaga nada. Mais `db:generate`, `db:migrate`, `db:deploy`, `db:studio`.
+- **Testado:** contagem de ofertas e a última oferta (com fonte e análise pela relação) iguais no Drizzle e no Prisma (18.853); `prisma migrate status` em dia; 109 testes, `tsc` e `eslint`.
+- **Dump:** `garimpoi-20261122-2257-fase1-antes-do-prisma.dump` (o nome ainda saiu em UTC; o script agora usa hora local).
+- **Próximo passo:** Fase 2, trocar as consultas do Drizzle pelo Prisma módulo a módulo e tirar o Drizzle.
+
 ### 22/11/2026, 19:55 · deploy-v2, Fase 0: dump, branch e base
 
 - **Pedido:** preparar o deploy com Prisma, login (senha e Google), cargos, separação admin x usuário comum, Alvos por usuário e revisão das travas do `claude -p`. O plano foi aprovado com a regra de não apagar nada do banco.

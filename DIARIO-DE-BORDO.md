@@ -45,6 +45,9 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 | IA: provedor | Interface `AiProvider` com `claude-cli` (teste pela assinatura), `anthropic-api` e `ollama`, escolhidos por `AI_PROVIDER`. Desde 18/11 também `agy` (Antigravity CLI), e quem trabalha se escolhe na tela (linha abaixo). |
 | IA: Claude, agy ou os dois (18/11) | A pedido do usuário, o seletor "Usar" do cabeçalho escolhe Claude, agy (Antigravity CLI) ou os dois juntos (`app_settings` "ia_provedor"). Com os dois, as análises rodam em 3 pistas de cada um ao mesmo tempo, o freio de 85% da janela de 5 h para só as do Claude e categorias, radar e insights se revezam. O agy roda travado: pasta vazia, modo Default com permissão `strict` e todo comando negado. |
 | IA: modelo | `claude-haiku-5-5` em toda chamada do Claude. Nada de Sonnet ou Opus no app. No agy, que não tem Haiku, vale o mais simples dele: `gemini-3.8-flash-low` (`AGY_MODEL`). |
+| deploy-v2 (22/11) | Branch `deploy-v2` com o plano aprovado em `C:\Users\Jogga\.claude\plans\splendid-exploring-fern.md`: Prisma no lugar do Drizzle; contas com nome, e-mail e senha (bcrypt via `bcryptjs`) e Google (`better-auth`); tabela de cargos e permissões (admin e usuário, extensível); tudo de admin escondido do usuário comum na API, nas telas e no tempo real; Alvos e marcações (vigiar, descartar, soneca) de cada usuário; cadastro aberto. Dependências aprovadas pelo usuário: `prisma`, `@prisma/client`, `@prisma/adapter-pg`, `better-auth`, `bcryptjs`. |
+| IA para usuário comum (22/11) | Por enquanto o usuário comum vê as análises da IA, pela permissão `ia.analises.ver` do cargo "usuário". O usuário vai tirar antes de abrir o app: é desmarcar a permissão. |
+| Nada do banco é apagado (22/11) | Pedido do usuário: dump completo (`pg_dump -Fc`) antes de cada fase que mexe no banco, guardado em `C:\Users\Jogga\garimpo-backups` (fora do projeto) e nunca apagado. Migrações só acrescentam; os dados são copiados para as estruturas novas e as colunas e tabelas antigas ficam sem uso até o usuário pedir para tirar. Nada de `DROP`, `TRUNCATE` ou `DELETE` em massa. |
 | IA: `claude-cli` | Token de `claude setup-token` no `.env` (CLAUDE_CODE_OAUTH_TOKEN), sem `ANTHROPIC_API_KEY` no ambiente do filho, sem `--bare`, rodando numa pasta vazia com `CLAUDE_CONFIG_DIR` próprio. |
 | IA: insights | Job agendado com as métricas calculadas no código. Chama a IA só se o hash mudar e grava na tabela `insights`. O site só lê do banco. |
 | Nota Garimpo | N = 100 × (0,35 D + 0,25 A + 0,15 C + 0,10 F + 0,10 S + 0,05 U). Detalhes em `docs/garimpo.md`. |
@@ -62,6 +65,17 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 - Design (canvas clicável): https://claude.ai/artifact/KpCmQB2sKdW9GvHR9Z7MD2
 
 ## Registro (mais recente primeiro)
+
+### 22/11/2026, 19:55 · deploy-v2, Fase 0: dump, branch e base
+
+- **Pedido:** preparar o deploy com Prisma, login (senha e Google), cargos, separação admin x usuário comum, Alvos por usuário e revisão das travas do `claude -p`. O plano foi aprovado com a regra de não apagar nada do banco.
+- **Feito:**
+  - Dump completo do banco `garimpoi` em `C:\Users\Jogga\garimpo-backups\garimpoi-20261122-1952-antes-deploy-v2.dump` (5,6 MB; o caminho do último fica em `ULTIMO.txt`). Restaurado no banco `garimpoi_copia`: as 17 tabelas com as mesmas contagens (18.853 ofertas, 14.512 análises, 3.164 preços, 2.115 registros de uso da IA). A cópia fica como segunda garantia;
+  - Branch `deploy-v2` saindo de `feat/deploy-supabase` (que tem o commit Claude + agy);
+  - O trabalho sem commit da outra sessão (de 12/11: SSL para banco remoto, senha única do site, telas, relatório de fontes) virou um commit separado (`3d3a882`), com 109 testes e `tsc` passando.
+- **Decisões:** três linhas novas na tabela (deploy-v2, IA para usuário comum, nada do banco é apagado).
+- **Próximo passo:** Fase 1, Prisma ao lado do Drizzle (`prisma db pull` no banco atual, sem mexer nos dados).
+- **Como restaurar, se precisar:** `pg_restore --no-owner -d <banco vazio> <arquivo .dump>` com o `pg_restore` de `PG_BIN`.
 
 ### 18/11/2026, 18:50 · IA: escolher Claude, agy ou os dois juntos
 

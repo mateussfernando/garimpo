@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { STORES, storeForUrl } from "@/config/stores";
 import { PAUSES_KEY, getSetting, setSetting, type Pauses } from "@/lib/settings";
-import { db, pool, schema } from "@/lib/db";
+import { db, pgConfig, pool, schema } from "@/lib/db";
 import { collectAll } from "./collect/communities";
 import { pausedHosts, restorePauses, setPauseListener } from "./http/polite";
 import { Client } from "pg";
@@ -142,7 +142,7 @@ async function main() {
       }
     };
     await setSetting(AI_RUN_KEY, { running: false, startedAt: null, finishedAt: null, note: null });
-    const aiCmd = new Client({ connectionString: process.env.DATABASE_URL });
+    const aiCmd = new Client(pgConfig());
     await aiCmd.connect();
     await aiCmd.query(`LISTEN ${AI_CMD_CHANNEL}`);
     aiCmd.on("notification", () => void rodarAgora());
@@ -184,7 +184,7 @@ async function listenAlvos() {
       await notify({ type: "alvos" });
     }
   };
-  const cmd = new Client({ connectionString: process.env.DATABASE_URL });
+  const cmd = new Client(pgConfig());
   await cmd.connect();
   await cmd.query(`LISTEN ${ALVOS_CMD_CHANNEL}`);
   cmd.on("notification", (n) => {
@@ -202,7 +202,7 @@ async function listenAlvos() {
 
 /** Botão "Testar" da tela Fontes: o worker lê a fonte uma vez (coleta educada), sem gravar, e devolve o resultado. */
 async function listenFontes() {
-  const cmd = new Client({ connectionString: process.env.DATABASE_URL });
+  const cmd = new Client(pgConfig());
   await cmd.connect();
   await cmd.query(`LISTEN ${FONTES_CMD_CHANNEL}`);
   cmd.on("notification", (n) => {

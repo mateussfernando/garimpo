@@ -1,12 +1,12 @@
 import { connection } from "next/server";
 import { Client } from "pg";
-import { NOTIFY_CHANNEL } from "@/lib/db";
+import { NOTIFY_CHANNEL, pgConfig } from "@/lib/db";
 
 // Tempo real: o worker chama pg_notify; aqui fazemos LISTEN e repassamos por SSE.
 // (Com Cache Components não se exporta `runtime`: a rota já roda em Node.)
 export async function GET(request: Request) {
   await connection();
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  const client = new Client(pgConfig());
   await client.connect();
   await client.query(`LISTEN ${NOTIFY_CHANNEL}`);
 

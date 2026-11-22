@@ -15,7 +15,7 @@ import { NewMessage, type NewMessageEvent } from "telegram/events";
 import { StringSession } from "telegram/sessions";
 import { hostOf } from "@/config/stores";
 import { isOffTopicGroup, isPromoGroup } from "@/config/telegram-filter";
-import { CMD_CHANNEL, db, schema } from "@/lib/db";
+import { CMD_CHANNEL, db, pgConfig, schema } from "@/lib/db";
 import type { SourceStats } from "@/lib/db/schema";
 import { activeAlvos, ingestRaw, notify } from "../pipeline";
 import { verifyNow } from "../verify/verify";
@@ -263,7 +263,7 @@ export async function startTelegram() {
   setInterval(() => flush().catch((e) => console.error("[telegram] erro ao gravar contadores:", (e as Error).message)), FLUSH_EVERY);
 
   // A tela Fontes avisa por pg_notify quando o usuário muda uma fonte ou pede "Procurar de novo".
-  const cmd = new Client({ connectionString: process.env.DATABASE_URL });
+  const cmd = new Client(pgConfig());
   await cmd.connect();
   await cmd.query(`LISTEN ${CMD_CHANNEL}`);
   cmd.on("notification", () => void syncDialogs().then(() => notify({ type: "source" })).catch((e) => console.error("[telegram] erro ao listar chats:", e)));

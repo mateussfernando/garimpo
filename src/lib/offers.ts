@@ -1,6 +1,6 @@
 import { STORES } from "@/config/stores";
 import { prisma } from "@/lib/db/prisma";
-import { asJson, type OfferExtra, type OfferSpecs } from "@/lib/db/types";
+import { NA_VITRINE, asJson, type OfferExtra, type OfferSpecs } from "@/lib/db/types";
 import { getAiStatus, type AiStatus } from "@/lib/ai-usage";
 import { clusterSameProduct } from "@/lib/same-product";
 import { getSetting } from "@/lib/settings";
@@ -89,6 +89,10 @@ export type OfferDTO = {
   groupIds: number[];
   /** Uma linha por loja que tem este produto, a mais barata primeiro (esgotada por último). Uma só = nada a comparar. */
   lojas: StoreQuoteDTO[];
+  /** Na Vitrine de todos (is_active). false = um admin tirou esta oferta. */
+  isActive: boolean;
+  /** O produto está na Vitrine; false = um admin tirou o produto inteiro; null = oferta sem produto da loja. */
+  productActive: boolean | null;
   createdAt: string;
 };
 
@@ -102,7 +106,7 @@ export async function listOffers(opts: { userId: string; onlyId?: number }): Pro
   const include = {
     analysis: true,
     source: { select: { name: true, kind: true } },
-    product: { select: { imageUrl: true } },
+    product: { select: { imageUrl: true, isActive: true } },
   } as const;
   let found;
   if (opts.onlyId != null) {
@@ -111,7 +115,7 @@ export async function listOffers(opts: { userId: string; onlyId?: number }): Pro
     const descartadas = (
       await prisma.ofertaUsuario.findMany({ where: { userId, dismissed: true, offer: { createdAt: { gte: since } } }, select: { offerId: true } })
     ).map((r) => r.offerId);
-    const where = { kind: "produto", createdAt: { gte: since }, ...(descartadas.length ? { id: { notIn: descartadas } } : {}) };
+    const where = { kind: "produto", createdAt: { gte: since }, ...NA_VITRINE, ...(descartadas.length ? { id: { notIn: descartadas } } : {}) };
     found = await prisma.offer.findMany({ where, include, orderBy: [{ nota: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }], take: 2000 });
     // As ofertas nos Alvos da conta entram sempre, mesmo fora das 2000 de nota geral mais alta.
     const got = new Set(found.map((o) => o.id));
@@ -125,12 +129,12 @@ export async function listOffers(opts: { userId: string; onlyId?: number }): Pro
     ? await Promise.all([
         prisma.ofertaAlvo.findMany({
           where: { userId, offerId: { in: ids }, alvoId: { not: null } },
-          include: { alvo: { select: { slug: true, name: true, active: true, deletedAt: true } } },
+          include: { alvo: { select: { slug: true, name: true, isActive: true, deletedAt: true } } },
         }),
         prisma.ofertaUsuario.findMany({ where: { userId, offerId: { in: ids } } }),
       ])
     : [[], []];
-  const meuAlvo = new Map(pessoais.filter((p) => p.alvo?.active && !p.alvo.deletedAt).map((p) => [p.offerId, p]));
+  const meuAlvo = new Map(pessoais.filter((p) => p.alvo?.isActive && !p.alvo.deletedAt).map((p) => [p.offerId, p]));
   const marcaDe = new Map(marcas.map((m) => [m.offerId, m]));
   // A referência da faixa (alvo + faixa) não é uma relação do Prisma: vem numa consulta só e é ligada aqui.
   const alvoIds = [...new Set([...meuAlvo.values()].map((p) => p.alvoId!))];
@@ -208,6 +212,8 @@ export async function listOffers(opts: { userId: string; onlyId?: number }): Pro
     extra: asJson<OfferExtra | null>(o.extra),
     source,
     sourceKind,
+    isActive: o.isActive,
+    productActive: o.product ? o.product.isActive : null,
     createdAt: o.createdAt.toISOString(),
   }));
   return opts.onlyId != null ? all.map((o) => strip({ ...o, lojas: storeQuotes([o]) })) : groupByProduct(all).map(strip);
@@ -319,10 +325,10 @@ export async function getStatus(userId: string): Promise<StatusDTO> {
   const src = all.filter((s) => s.kind !== "telegram");
   const pending = await prisma.offer.count({ where: { verifyStatus: "pendente" } });
   const today = await prisma.offer.count({ where: { createdAt: { gte: inicioDoDia() } } });
-  const al = await prisma.alvo.findMany({ where: { ownerId: userId, active: true, deletedAt: null }, orderBy: { id: "asc" } });
+  const al = await prisma.alvo.findMany({ where: { ownerId: userId, isActive: true, deletedAt: null }, orderBy: { id: "asc" } });
   const radar = await getRadar();
   return {
-    telegram: tg.length ? { on: tg.filter((s) => s.enabled).length, total: tg.length } : null,
+    telegram: tg.length ? { on: tg.filter((s) => s.isActive).length, total: tg.length } : null,
     ai: await getAiStatus(),
     sources: src.map((s) => ({ slug: s.slug, name: s.name, status: s.status, note: s.statusNote, lastRunAt: s.lastRunAt?.toISOString() ?? null })),
     pending,

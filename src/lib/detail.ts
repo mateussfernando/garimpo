@@ -1,6 +1,6 @@
 import { STORES } from "@/config/stores";
 import { prisma } from "@/lib/db/prisma";
-import { asJson } from "@/lib/db/types";
+import { NA_VITRINE, asJson } from "@/lib/db/types";
 import { normalize } from "@/lib/money";
 import { listOffers, type OfferDTO } from "@/lib/offers";
 import { DIA, HORA, atras } from "@/lib/tempo";
@@ -61,7 +61,7 @@ export async function getOfferDetail(id: number, userId: string): Promise<OfferD
   const base = tokens(row.title);
   const recent = (
     await prisma.offer.findMany({
-      where: { id: { not: id }, createdAt: { gte: atras(72 * HORA) }, ofertasUsuario: { none: { userId, dismissed: true } } },
+      where: { id: { not: id }, createdAt: { gte: atras(72 * HORA) }, ...NA_VITRINE, ofertasUsuario: { none: { userId, dismissed: true } } },
       include: { source: { select: { name: true, kind: true } } },
       orderBy: { createdAt: "desc" },
       take: 500,

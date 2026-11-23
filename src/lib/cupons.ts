@@ -28,7 +28,7 @@ export type CupomDTO = {
 /** Cupons vistos nos últimos 3 dias, os mais recentes primeiro. */
 export async function getCupons(): Promise<CupomDTO[]> {
   const rows = await prisma.coupon.findMany({
-    where: { hidden: false, lastSeenAt: { gte: atras(3 * DIA) } },
+    where: { isActive: true, lastSeenAt: { gte: atras(3 * DIA) } },
     orderBy: { lastSeenAt: "desc" },
     take: 400,
   });

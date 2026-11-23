@@ -49,7 +49,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/alvos/[id]
     // Volta aos termos do código e deixa o worker atualizar de novo quando config/alvos.ts mudar.
     await prisma.alvo.update({ where: { id: alvo.id }, data: { name: seed.name, terms: seed.terms, exclusions: seed.exclusions, editedAt: null } });
   } else {
-    await prisma.alvo.update({ where: { id: alvo.id }, data: { active: b.acao === "ligar" } });
+    await prisma.alvo.update({ where: { id: alvo.id }, data: { isActive: b.acao === "ligar" } });
   }
   await tellWorker({ acao: "rematch", userId: eu.id });
   return Response.json({ ok: true });
@@ -61,7 +61,7 @@ export async function DELETE(request: Request, ctx: RouteContext<"/api/alvos/[id
   if (eu instanceof Response) return eu;
   const alvo = await alvoDaConta((await ctx.params).id, eu.id);
   if (!alvo) return Response.json({ erro: "Alvo não encontrado" }, { status: 404 });
-  await prisma.alvo.update({ where: { id: alvo.id }, data: { active: false, deletedAt: new Date() } });
+  await prisma.alvo.update({ where: { id: alvo.id }, data: { isActive: false, deletedAt: new Date() } });
   await tellWorker({ acao: "rematch", userId: eu.id });
   return Response.json({ ok: true });
 }

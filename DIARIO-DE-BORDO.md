@@ -48,6 +48,7 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 | deploy-v2 (22/11) | Branch `deploy-v2` com o plano aprovado em `C:\Users\Jogga\.claude\plans\splendid-exploring-fern.md`: Prisma no lugar do Drizzle; contas com nome, e-mail e senha (bcrypt via `bcryptjs`) e Google (`better-auth`); tabela de cargos e permissões (admin e usuário, extensível); tudo de admin escondido do usuário comum na API, nas telas e no tempo real; Alvos e marcações (vigiar, descartar, soneca) de cada usuário; cadastro aberto. Dependências aprovadas pelo usuário: `prisma`, `@prisma/client`, `@prisma/adapter-pg`, `better-auth`, `bcryptjs`. |
 | IA para usuário comum (22/11) | Por enquanto o usuário comum vê as análises da IA, pela permissão `ia.analises.ver` do cargo "usuário". O usuário vai tirar antes de abrir o app: é desmarcar a permissão. |
 | Alvos de cada conta (22/11) | Cada conta tem os seus Alvos (cópia de `config/alvos.ts` quando nasce), com nota, preço-alvo, "Alvo atingido" e marcações (vigiar, descartar, soneca) só dela. Os Alvos de quem gerencia as fontes (admin) são os "do sistema": decidem a coleta (vitrines, buscas, título das mensagens) e o mercado da faixa, que entra na nota geral e na IA. A análise e o insight são iguais para todos: sem nome de Alvo, sem preço-alvo de ninguém e sem nome de grupo. Alvo de usuário comum nunca chega na IA nem muda a coleta. |
+| Padrão is_active (23/11) | A pedido do usuário, toda tabela em que se liga ou desliga uma linha usa `is_active` (true = ativa): usuarios, cargos, alvos, sources, coupons, store_state, offers e products. As colunas antigas com a mesma ideia (active, enabled, hidden, paused_by_user) foram renomeadas, com o valor invertido onde vinham ao contrário. Desligar nunca apaga. |
 | Nada do banco é apagado (22/11) | Pedido do usuário: dump completo (`pg_dump -Fc`) antes de cada fase que mexe no banco, guardado em `C:\Users\Jogga\garimpo-backups` (fora do projeto) e nunca apagado. Migrações só acrescentam; os dados são copiados para as estruturas novas e as colunas e tabelas antigas ficam sem uso até o usuário pedir para tirar. Nada de `DROP`, `TRUNCATE` ou `DELETE` em massa. |
 | IA: `claude-cli` | Token de `claude setup-token` no `.env` (CLAUDE_CODE_OAUTH_TOKEN), sem `ANTHROPIC_API_KEY` no ambiente do filho, sem `--bare`, rodando numa pasta vazia com `CLAUDE_CONFIG_DIR` próprio. |
 | IA: insights | Job agendado com as métricas calculadas no código. Chama a IA só se o hash mudar e grava na tabela `insights`. O site só lê do banco. |
@@ -66,6 +67,17 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 - Design (canvas clicável): https://claude.ai/artifact/KpCmQB2sKdW9GvHR9Z7MD2
 
 ## Registro (mais recente primeiro)
+
+### 23/11/2026, 01:00 · Padrão `is_active` em todas as tabelas de ligar e desligar
+
+- **Antes:** dump `garimpoi-20261123-0033-antes-de-renomear-para-is-active.dump`.
+- **Pedido do usuário:** o padrão dele nos esquemas é a coluna `is_active`. Decisão nova na tabela acima.
+- **Feito (migração `padrao_is_active`, escrita à mão para renomear sem perder dado):**
+  - Renomeadas: `alvos.active` e `sources.enabled` viraram `is_active` (mesmo valor); `coupons.hidden` e `store_state.paused_by_user` viraram `is_active` com o valor invertido (escondido ou pausado = false). Conferido antes e depois: 1.461 cupons visíveis, nenhuma loja pausada, 21 Alvos e 8 fontes desligados, iguais;
+  - Novas: `cargos.is_active` (cargo desativado some da lista para escolher e quem está nele fica com as permissões do padrão; o admin e o cargo de quem se cadastra não se desativam), `offers.is_active` e `products.is_active` (tirar uma oferta, ou o produto inteiro de todas as lojas, da Vitrine de todos: botões no Detalhe para quem tem a permissão nova `ofertas.moderar`; o que sai da Vitrine também sai da conferência, da IA, do radar e da Fila da IA). Nada é apagado;
+  - Telas e APIs seguem com os mesmos nomes (esconder cupom, pausar loja, ligar Alvo, pausar fonte); por dentro é tudo `is_active`. Regra no CLAUDE.md.
+- **Testado (por HTTP, só com o site no ar):** esconder e mostrar cupom, pausar e retomar loja, desligar e ligar Alvo, pausar e retomar fonte gravam `is_active` certo e as telas mudam; cargo desativado tira as permissões dele na hora (fica o padrão), não pode ser dado a ninguém nem virar padrão; admin e padrão não se desativam; oferta tirada some da Vitrine do comum, o detalhe dá 404 para ele e 200 para o admin; produto tirado leva todas as ofertas dele; comum não tira nada (403). Tudo voltou como estava. 140 testes, `tsc` e `eslint`.
+- **Ficou no banco:** o cargo de teste "Moderador teste" (ninguém nele; dá para apagar na tela Usuários).
 
 ### 23/11/2026, 00:45 · `usuarios.is_active`: ativar e desativar contas
 

@@ -54,8 +54,8 @@ function statsOf(raw: Prisma.JsonValue | null) {
   return s ? { read: s.read, withLink: s.withLink, touched: s.touched, offers: s.offers } : null;
 }
 
-export function stateOf(s: { enabled: boolean; decision: string | null }): FonteState {
-  if (s.enabled) return "confirmada";
+export function stateOf(s: { isActive: boolean; decision: string | null }): FonteState {
+  if (s.isActive) return "confirmada";
   if (s.decision === "pausada") return "pausada";
   if (s.decision === "ignorada") return "ignorada";
   return "sugerida";
@@ -121,7 +121,7 @@ export async function getFontes(): Promise<FontesDTO> {
 
   const tg = all.filter((s) => s.kind === "telegram");
   const lastScan = tg.map((s) => s.lastRunAt?.getTime() ?? 0).reduce((a, b) => Math.max(a, b), 0);
-  const web = all.filter((s) => (s.kind === "comunidade" || s.kind === "feed" || s.kind === "pagina") && s.enabled);
+  const web = all.filter((s) => (s.kind === "comunidade" || s.kind === "feed" || s.kind === "pagina") && s.isActive);
 
   const inv = await prisma.invite.findMany({
     where: { dismissed: false, lastSeenAt: { gte: atras(14 * DIA) } },
@@ -134,7 +134,7 @@ export async function getFontes(): Promise<FontesDTO> {
     telegram: {
       hasSession: !!process.env.TELEGRAM_SESSION,
       connected: lastScan > Date.now() - 3 * 60 * 1000,
-      on: tg.filter((s) => s.enabled).length,
+      on: tg.filter((s) => s.isActive).length,
       total: tg.length,
       lastScan: lastScan ? new Date(lastScan).toISOString() : null,
     },

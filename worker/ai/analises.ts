@@ -14,6 +14,7 @@ import { STORES } from "@/config/stores";
 import { AGY_PARALLEL, AI_PARALLEL } from "@/config/pricing";
 import { AI_AUTO_STOP_PCT } from "@/lib/ai-usage";
 import { prisma } from "@/lib/db/prisma";
+import { NA_VITRINE } from "@/lib/db/types";
 import { DIA, HORA, atras } from "@/lib/tempo";
 import { normalize } from "@/lib/money";
 import { median, mercadoDe } from "../match/alvos";
@@ -59,7 +60,7 @@ const pct = (a: number | null, b: number | null) => (a && b ? Math.round(((a - b
 /** Todas as ofertas de produto das últimas 48 h, com as métricas que a IA recebe. */
 async function candidates(): Promise<Candidate[]> {
   const found = await prisma.offer.findMany({
-    where: { kind: "produto", dismissed: false, createdAt: { gte: atras(48 * HORA) } },
+    where: { kind: "produto", dismissed: false, ...NA_VITRINE, createdAt: { gte: atras(48 * HORA) } },
     select: {
       id: true, title: true, category: true, store: true, priceCardCents: true, installments: true, interest: true, cashCents: true,
       listPriceCents: true, freeShipping: true, coupon: true, verifyStatus: true, available: true, productId: true, alvoId: true,

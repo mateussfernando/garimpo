@@ -59,11 +59,11 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/fontes/[id
     return Response.json({ ok: true });
   }
   const set = {
-    confirmar: { enabled: true, decision: "confirmada" },
-    retomar: { enabled: true, decision: "confirmada" },
-    pausar: { enabled: false, decision: "pausada" },
-    ignorar: { enabled: false, decision: "ignorada" },
-    desfazer: { enabled: false, decision: null },
+    confirmar: { isActive: true, decision: "confirmada" },
+    retomar: { isActive: true, decision: "confirmada" },
+    pausar: { isActive: false, decision: "pausada" },
+    ignorar: { isActive: false, decision: "ignorada" },
+    desfazer: { isActive: false, decision: null },
   }[b.acao];
   await prisma.source.update({ where: { id: src.id }, data: set });
   await notifyAll();
@@ -77,7 +77,7 @@ export async function DELETE(request: Request, ctx: RouteContext<"/api/fontes/[i
   const src = await find((await ctx.params).id);
   if (!src) return Response.json({ erro: "fonte não encontrada" }, { status: 404 });
   if (!GENERIC.includes(src.kind)) return Response.json({ erro: "fontes do código e do Telegram só se pausam" }, { status: 400 });
-  await prisma.source.update({ where: { id: src.id }, data: { enabled: false, deletedAt: new Date() } });
+  await prisma.source.update({ where: { id: src.id }, data: { isActive: false, deletedAt: new Date() } });
   await notifyAll();
   return Response.json({ ok: true });
 }

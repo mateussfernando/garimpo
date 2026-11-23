@@ -5,7 +5,7 @@ import { z } from "zod";
 import { categoryName } from "@/config/categories";
 import { STORES } from "@/config/stores";
 import { prisma } from "@/lib/db/prisma";
-import { asJson } from "@/lib/db/types";
+import { NA_VITRINE, asJson } from "@/lib/db/types";
 import { HORA, atras } from "@/lib/tempo";
 import { getSetting, setSetting } from "@/lib/settings";
 import { notify } from "../pipeline";
@@ -37,7 +37,7 @@ const SYSTEM = [
 export async function runRadar(force = false): Promise<"gerado" | "igual" | "vazio"> {
   const rows = (
     await prisma.offerAnalysis.findMany({
-      where: { offer: { kind: "produto", dismissed: false, createdAt: { gte: atras(24 * HORA) } } },
+      where: { offer: { kind: "produto", dismissed: false, ...NA_VITRINE, createdAt: { gte: atras(24 * HORA) } } },
       include: { offer: true },
       orderBy: { score: "desc" },
       take: 30,
@@ -45,7 +45,7 @@ export async function runRadar(force = false): Promise<"gerado" | "igual" | "vaz
   ).map(({ offer, ...a }) => ({ o: offer, a }));
   if (!rows.length) return "vazio";
   const cps = (
-    await prisma.coupon.findMany({ where: { hidden: false, lastSeenAt: { gte: atras(24 * HORA) } }, orderBy: { lastSeenAt: "desc" }, take: 15 })
+    await prisma.coupon.findMany({ where: { isActive: true, lastSeenAt: { gte: atras(24 * HORA) } }, orderBy: { lastSeenAt: "desc" }, take: 15 })
   ).map((c) => ({ ...c, conditions: asJson<string[]>(c.conditions) }));
   const input = {
     ofertas: rows.map(({ o, a }) => ({

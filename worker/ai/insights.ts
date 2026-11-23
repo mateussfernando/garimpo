@@ -4,7 +4,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
-import { asJson, json, type OfferExtra } from "@/lib/db/types";
+import { NA_VITRINE, asJson, json, type OfferExtra } from "@/lib/db/types";
 import { DIA, HORA, atras } from "@/lib/tempo";
 import { median, mercadoDe } from "../match/alvos";
 import { notify } from "../pipeline";
@@ -108,7 +108,7 @@ export const hashOf = (m: Metrics) => createHash("sha1").update(JSON.stringify(m
 async function candidates(limit: number): Promise<number[]> {
   const rows = (
     await prisma.offer.findMany({
-      where: { verifyStatus: "verificado", dismissed: false, createdAt: { gte: atras(48 * HORA) } },
+      where: { verifyStatus: "verificado", dismissed: false, ...NA_VITRINE, createdAt: { gte: atras(48 * HORA) } },
       distinct: ["productId"],
       orderBy: { productId: "asc" },
       select: { productId: true, nota: true },

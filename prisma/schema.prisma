@@ -46,7 +46,8 @@ model Alvo {
   exclusions   Json
   targetCents  Int?         @map("target_cents")
   ceilingCents Int?         @map("ceiling_cents")
-  active       Boolean      @default(true)
+  /// Ligado (pega ofertas) ou desligado na tela Alvos. Era "active".
+  isActive     Boolean      @default(true) @map("is_active")
   origin       String       @default("seed")
   editedAt     DateTime?    @map("edited_at") @db.Timestamptz(6)
   deletedAt    DateTime?    @map("deleted_at") @db.Timestamptz(6)
@@ -87,7 +88,8 @@ model Coupon {
   offerIds      Json     @default("[]") @map("offer_ids")
   sourceNames   Json     @default("[]") @map("source_names")
   forProduct    String?  @map("for_product")
-  hidden        Boolean  @default(false)
+  /// Aparece na tela Cupons. false = escondido para todos (era "hidden", com o valor ao contrário).
+  isActive      Boolean  @default(true) @map("is_active")
   firstSeenAt   DateTime @default(now()) @map("first_seen_at") @db.Timestamptz(6)
   lastSeenAt    DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(6)
 
@@ -203,6 +205,8 @@ model Offer {
   kind             String          @default("produto")
   category         String?
   categorySource   String?         @map("category_source")
+  /// Na Vitrine de todos. false = tirada por um admin (spam, preço errado); a oferta e o histórico ficam.
+  isActive         Boolean         @default(true) @map("is_active")
   // watched, dismissed, snoozed_until e hit_at acima são de antes das contas: ficam como estavam.
   // Hoje cada usuário tem os seus em oferta_usuario e oferta_alvo.
   events           Event[]
@@ -241,6 +245,8 @@ model Product {
   canonicalUrl   String       @map("canonical_url")
   title          String?
   imageUrl       String?      @map("image_url")
+  /// Produto na Vitrine. false = um admin tirou o produto (todas as ofertas dele, de todas as lojas); o histórico fica.
+  isActive       Boolean      @default(true) @map("is_active")
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   insights       Insight[]
   offers         Offer[]
@@ -272,7 +278,8 @@ model Source {
   kind          String
   name          String
   url           String
-  enabled       Boolean      @default(true)
+  /// Fonte ligada (é lida) ou desligada na tela Fontes. Era "enabled".
+  isActive      Boolean      @default(true) @map("is_active")
   status        String       @default("ok")
   statusNote    String?      @map("status_note")
   decision      String?
@@ -291,11 +298,12 @@ model Source {
 }
 
 model StoreState {
-  slug         String    @id
-  pausedByUser Boolean   @default(false) @map("paused_by_user")
-  pauseUntil   DateTime? @map("pause_until") @db.Timestamptz(6)
-  pauseNote    String?   @map("pause_note")
-  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  slug       String    @id
+  /// A loja é conferida. false = pausada por você na tela Lojas (era "paused_by_user", com o valor ao contrário).
+  isActive   Boolean   @default(true) @map("is_active")
+  pauseUntil DateTime? @map("pause_until") @db.Timestamptz(6)
+  pauseNote  String?   @map("pause_note")
+  updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
 
   @@map("store_state")
 }
@@ -404,6 +412,8 @@ model Cargo {
   padrao     Boolean          @default(false)
   /// Cargo do sistema (admin e usuário): não se apaga.
   sistema    Boolean          @default(false)
+  /// Cargo ativo. Desativado: não aparece para escolher e quem está nele fica com as permissões do cargo padrão.
+  isActive   Boolean          @default(true) @map("is_active")
   createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   permissoes CargoPermissao[]
   usuarios   User[]

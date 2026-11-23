@@ -87,8 +87,8 @@ export function readDealPage(html: string, pageUrl: string, c: Community, fallba
 }
 
 async function sourceId(slug: string): Promise<number | null> {
-  const s = await prisma.source.findUnique({ where: { slug }, select: { id: true, enabled: true } });
-  return s?.enabled ? s.id : null;
+  const s = await prisma.source.findUnique({ where: { slug }, select: { id: true, isActive: true } });
+  return s?.isActive ? s.id : null;
 }
 
 export async function collectCommunity(c: Community): Promise<{ found: number; relevant: number; added: number }> {

@@ -168,11 +168,14 @@ export function Admin() {
                     aria-label={`Cargo de ${u.name}`}
                     className="h-9 w-full rounded-[10px] border border-control bg-bg px-2 text-[13px] text-ink outline-none"
                   >
-                    {(data?.cargos ?? []).map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nome}
-                      </option>
-                    ))}
+                    {(data?.cargos ?? [])
+                      .filter((c) => c.isActive || c.id === (u.cargoId ?? data?.padraoId))
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nome}
+                          {c.isActive ? "" : " (desativado)"}
+                        </option>
+                      ))}
                   </select>
                 </span>
               </div>
@@ -215,7 +218,7 @@ export function Admin() {
                 }}
               />
             ) : (
-              <article key={c.id} className="flex flex-col gap-2 rounded-2xl border border-card-line bg-surface p-5">
+              <article key={c.id} className={`flex flex-col gap-2 rounded-2xl border border-card-line bg-surface p-5 ${c.isActive ? "" : "opacity-60"}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex flex-col gap-1">
                     <h3 className="text-base font-semibold">{c.nome}</h3>
@@ -223,15 +226,28 @@ export function Admin() {
                       {c.todas && <Badge tone="neutral">Todas as permissões</Badge>}
                       {c.padrao && <Badge tone="good">Quem se cadastra</Badge>}
                       {c.sistema && <Badge tone="neutral">Do sistema</Badge>}
+                      {!c.isActive && <Badge tone="neutral">Desativado</Badge>}
                       <span className="font-mono tnum">
                         {c.usuarios} {c.usuarios === 1 ? "pessoa" : "pessoas"}
                       </span>
                     </div>
                     {c.descricao && <p className="text-[13px] text-muted">{c.descricao}</p>}
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* O admin e o cargo de quem se cadastra ficam sempre ativos. */}
+                    <label className={`flex h-9 items-center gap-2 px-1 text-[13px] text-ink-2 ${c.todas || c.padrao ? "opacity-50" : "cursor-pointer"}`}>
+                      <input
+                        type="checkbox"
+                        checked={c.isActive}
+                        disabled={c.todas || c.padrao}
+                        onChange={(e) => void acaoCargo(`/api/admin/cargos/${c.id}`, "PATCH", { acao: "ativo", isActive: e.target.checked })}
+                        aria-label={`${c.isActive ? "Desativar" : "Ativar"} o cargo ${c.nome}`}
+                        className="h-4 w-4 accent-[var(--color-ink)]"
+                      />
+                      Ativo
+                    </label>
                     <Btn onClick={() => setEditando(c.id)}>Editar</Btn>
-                    {!c.padrao && !c.todas && <Btn onClick={() => void acaoCargo(`/api/admin/cargos/${c.id}`, "PATCH", { acao: "padrao" })}>Usar para quem se cadastra</Btn>}
+                    {!c.padrao && !c.todas && c.isActive && <Btn onClick={() => void acaoCargo(`/api/admin/cargos/${c.id}`, "PATCH", { acao: "padrao" })}>Usar para quem se cadastra</Btn>}
                     {!c.sistema && (
                       <Btn danger onClick={() => void acaoCargo(`/api/admin/cargos/${c.id}`, "DELETE")}>
                         Apagar

@@ -15,8 +15,8 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/lojas/[slu
   if (!parsed.success || !STORES.some((s) => s.slug === slug)) return Response.json({ erro: "pedido inválido" }, { status: 400 });
   await prisma.storeState.upsert({
     where: { slug },
-    create: { slug, pausedByUser: parsed.data.paused },
-    update: { pausedByUser: parsed.data.paused, updatedAt: new Date() },
+    create: { slug, isActive: !parsed.data.paused },
+    update: { isActive: !parsed.data.paused, updatedAt: new Date() },
   });
   await pool.query("select pg_notify($1, $2)", [NOTIFY_CHANNEL, JSON.stringify({ type: "store", slug })]);
   return Response.json({ ok: true });

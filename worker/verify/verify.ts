@@ -154,7 +154,7 @@ async function verifyInner(o: Offer) {
       return markNotVerified(o, "loja fora da lista (suspeito)");
     }
     const state = await prisma.storeState.findUnique({ where: { slug: store.slug } });
-    if (state?.pausedByUser) return markNotVerified(o, "loja pausada por você");
+    if (state && !state.isActive) return markNotVerified(o, "loja pausada por você");
     // Só vira "produto" um link que é de um produto. Página de erro (AliExpress /error/404), moedas, live da Shopee,
     // promoção da Amazon ou a home davam um product_id único para ofertas sem nada a ver, e o preço lido dali
     // ia para o card como "conferido". Esses links nem são abertos: o preço continua o do post.

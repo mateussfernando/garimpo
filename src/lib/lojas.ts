@@ -54,7 +54,7 @@ export async function getLojas(): Promise<LojasDTO> {
     if (st?.pauseUntil && st.pauseUntil.getTime() > now) {
       health = "pausada_loja";
       healthNote = `${st.pauseNote ?? "pediu pausa"} · volta às ${st.pauseUntil.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
-    } else if (st?.pausedByUser) {
+    } else if (st && !st.isActive) {
       health = "pausada_usuario";
       healthNote = "fora da verificação, por você";
     }

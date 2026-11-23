@@ -104,7 +104,7 @@ const running = new Set<number>();
 
 /** Roda a cada minuto: lê cada fonte ligada cujo intervalo venceu. Fontes de domínios diferentes andam juntas. */
 export async function collectConfiguradas(): Promise<void> {
-  const list = await prisma.source.findMany({ where: { kind: { in: KINDS }, enabled: true, deletedAt: null } });
+  const list = await prisma.source.findMany({ where: { kind: { in: KINDS }, isActive: true, deletedAt: null } });
   const now = Date.now();
   const due = list.filter((s) => {
     if (running.has(s.id)) return false;

@@ -1,9 +1,12 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { PERMISSOES, PERMISSOES_DO_USUARIO } from "./permissoes";
 
-// A lista do código e a semente da migração precisam andar juntas: permissão nova entra nas duas.
-const semente = readFileSync("prisma/migrations/20261122233257_cargos/migration.sql", "utf8");
+// A lista do código e a semente das migrações precisam andar juntas: permissão nova entra no código e numa migração.
+const semente = readdirSync("prisma/migrations", { withFileTypes: true })
+  .filter((d) => d.isDirectory())
+  .map((d) => readFileSync(`prisma/migrations/${d.name}/migration.sql`, "utf8"))
+  .join("\n");
 
 describe("permissões", () => {
   it("toda permissão do código está na semente do banco", () => {

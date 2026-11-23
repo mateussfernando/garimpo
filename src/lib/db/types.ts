@@ -42,6 +42,12 @@ export function asJson<T>(value: Prisma.JsonValue | null | undefined): T {
   return value as unknown as T;
 }
 
+/**
+ * Oferta que está na Vitrine: ativa e, se tem produto, com o produto ativo (is_active). Um admin tira uma oferta ou um
+ * produto inteiro (todas as lojas) da Vitrine de todos; aí ela também sai da conferência, da IA e do radar.
+ */
+export const NA_VITRINE = { isActive: true, NOT: { product: { is: { isActive: false } } } } satisfies Prisma.OfferWhereInput;
+
 /** Valor para gravar numa coluna JSON que aceita null: o Prisma pede `Prisma.DbNull` em vez de null. */
 export function jsonOrNull<T>(value: T | null | undefined): Prisma.InputJsonValue | typeof Prisma.DbNull {
   return value == null ? Prisma.DbNull : (value as unknown as Prisma.InputJsonValue);

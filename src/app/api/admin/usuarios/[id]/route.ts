@@ -29,6 +29,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/admin/usua
   }
 
   const cargo = await prisma.cargo.findUnique({ where: { id: parsed.data.cargoId } });
+  if (cargo && !cargo.isActive) return Response.json({ erro: "este cargo está desativado: ative antes de usar" }, { status: 400 });
   if (!cargo) return Response.json({ erro: "cargo não encontrado" }, { status: 404 });
   if (alvo.isActive && alvo.cargo?.todas && !cargo.todas && (await contarAdmins()) <= 1) {
     return Response.json({ erro: "é o único administrador: dê o cargo de admin a outra pessoa antes" }, { status: 400 });

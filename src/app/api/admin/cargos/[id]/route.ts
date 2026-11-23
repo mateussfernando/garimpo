@@ -3,14 +3,18 @@ import { CargoInput } from "@/lib/admin";
 import { prisma } from "@/lib/db/prisma";
 import { exigir } from "@/lib/sessao";
 
-const Body = z.discriminatedUnion("acao", [CargoInput.extend({ acao: z.literal("editar") }), z.object({ acao: z.literal("padrao") })]);
+const Body = z.discriminatedUnion("acao", [
+  CargoInput.extend({ acao: z.literal("editar") }),
+  z.object({ acao: z.literal("padrao") }),
+  z.object({ acao: z.literal("ativo"), isActive: z.boolean() }),
+]);
 
 async function find(idText: string) {
   const id = Number(idText);
   return Number.isInteger(id) ? prisma.cargo.findUnique({ where: { id } }) : null;
 }
 
-// Editar nome, descrição e permissões, ou tornar este o cargo de quem se cadastra.
+// Editar nome, descrição e permissões, tornar este o cargo de quem se cadastra, ou ativar/desativar.
 export async function PATCH(request: Request, ctx: RouteContext<"/api/admin/cargos/[id]">) {
   const eu = await exigir("usuarios.gerenciar", request);
   if (eu instanceof Response) return eu;
@@ -19,8 +23,16 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/admin/carg
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ erro: parsed.error.issues[0]?.message ?? "pedido inválido" }, { status: 400 });
   const b = parsed.data;
+  if (b.acao === "ativo") {
+    // Desativado: some da lista para escolher e quem está nele fica com as permissões do padrão. Nada é apagado.
+    if (!b.isActive && cargo.todas) return Response.json({ erro: "o cargo de administrador não se desativa" }, { status: 400 });
+    if (!b.isActive && cargo.padrao) return Response.json({ erro: "é o cargo de quem se cadastra: escolha outro padrão antes" }, { status: 400 });
+    await prisma.cargo.update({ where: { id: cargo.id }, data: { isActive: b.isActive } });
+    return Response.json({ ok: true });
+  }
   if (b.acao === "padrao") {
     if (cargo.todas) return Response.json({ erro: "quem se cadastra nunca vira administrador" }, { status: 400 });
+    if (!cargo.isActive) return Response.json({ erro: "ative o cargo antes de usá-lo para quem se cadastra" }, { status: 400 });
     await prisma.$transaction([
       prisma.cargo.updateMany({ where: { padrao: true }, data: { padrao: false } }),
       prisma.cargo.update({ where: { id: cargo.id }, data: { padrao: true } }),

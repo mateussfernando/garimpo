@@ -10,6 +10,7 @@ export const PERMISSOES = {
   "fontes.gerenciar": "Tela Fontes: grupos, convites, sugestões e fontes configuráveis",
   "lojas.gerenciar": "Tela Lojas: saúde das lojas e pausar a conferência",
   "cupons.moderar": "Esconder um cupom para todos",
+  "ofertas.moderar": "Tirar uma oferta ou um produto da Vitrine de todos",
   "sistema.ver": "Saúde das fontes, máquina e fila de conferência no cabeçalho",
   "usuarios.gerenciar": "Usuários e cargos",
 } as const;

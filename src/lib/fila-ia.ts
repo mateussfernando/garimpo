@@ -1,6 +1,7 @@
 import { STORES } from "@/config/stores";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { NA_VITRINE } from "@/lib/db/types";
 import { normalize } from "@/lib/money";
 import { cleanTitle, type Verdict } from "@/lib/offers";
 import { HORA, atras } from "@/lib/tempo";
@@ -31,7 +32,7 @@ const keyOf = (title: string, price: number | null) => `${normalize(title).repla
 
 /** Ofertas de produto das últimas 48 h: quantas já têm análise e quais esperam, agrupadas por produto. */
 export async function getFila(): Promise<FilaDTO> {
-  const where = { kind: "produto", dismissed: false, createdAt: { gte: atras(48 * HORA) } } satisfies Prisma.OfferWhereInput;
+  const where = { kind: "produto", dismissed: false, ...NA_VITRINE, createdAt: { gte: atras(48 * HORA) } } satisfies Prisma.OfferWhereInput;
   const [total, analyzed] = await Promise.all([
     prisma.offer.count({ where }),
     prisma.offer.count({ where: { ...where, analysis: { isNot: null } } }),

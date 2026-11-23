@@ -193,18 +193,18 @@ export async function startTelegram() {
       const url = username ? `https://t.me/${username}` : `telegram:${id}`;
       let row = await prisma.source.findUnique({ where: { slug } });
       if (!row) {
-        row = await prisma.source.create({ data: { slug, kind: "telegram", name, url, enabled: isPromoGroup(name) } });
-        console.log(`[telegram] fonte nova: ${name} (${row.enabled ? "ligada" : "desligada"})`);
-      } else if (row.enabled && !row.decision && isOffTopicGroup(name)) {
+        row = await prisma.source.create({ data: { slug, kind: "telegram", name, url, isActive: isPromoGroup(name) } });
+        console.log(`[telegram] fonte nova: ${name} (${row.isActive ? "ligada" : "desligada"})`);
+      } else if (row.isActive && !row.decision && isOffTopicGroup(name)) {
         // Grupo de outro assunto que tinha ligado sozinho: desliga.
-        row = await prisma.source.update({ where: { id: row.id }, data: { name, url, enabled: false } });
+        row = await prisma.source.update({ where: { id: row.id }, data: { name, url, isActive: false } });
         console.log(`[telegram] desligado (outro assunto): ${name}`);
       } else if (row.name !== name || row.url !== url) {
         await prisma.source.update({ where: { id: row.id }, data: { name, url } });
       }
       await prisma.source.update({ where: { id: row.id }, data: { lastRunAt: new Date() } });
 
-      if (!row.enabled) {
+      if (!row.isActive) {
         chats.delete(id);
         off++;
         continue;

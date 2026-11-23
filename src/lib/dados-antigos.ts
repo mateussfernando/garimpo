@@ -45,7 +45,7 @@ export async function assumirDadosAntigos(userId: string): Promise<Assumidos | n
           exclusions: a.exclusions,
           targetCents: a.targetCents,
           ceilingCents: a.ceilingCents,
-          active: a.active,
+          isActive: a.isActive,
           origin: a.origin,
           editedAt: a.editedAt,
           deletedAt: a.deletedAt,

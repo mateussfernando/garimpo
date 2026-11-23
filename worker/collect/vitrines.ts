@@ -96,7 +96,7 @@ export function textFor(p: VitrineProduct): string {
 
 async function sourceOf(slug: string) {
   const s = await prisma.source.findUnique({ where: { slug } });
-  return s?.enabled ? s : null;
+  return s?.isActive ? s : null;
 }
 
 type Alvos = Awaited<ReturnType<typeof alvosDoSistema>>;

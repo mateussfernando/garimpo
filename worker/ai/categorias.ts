@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { CATEGORIES, CATEGORY_SLUGS, OTHER_CATEGORY } from "@/config/categories";
 import { prisma } from "@/lib/db/prisma";
+import { NA_VITRINE } from "@/lib/db/types";
 import { DIA, atras } from "@/lib/tempo";
 import { notify } from "../pipeline";
 import { guardedCall } from "./budget";
@@ -28,7 +29,7 @@ export async function runCategorias(batches = 2): Promise<{ classificadas: numbe
   let lotes = 0;
   for (let b = 0; b < batches; b++) {
     const rows = await prisma.offer.findMany({
-      where: { kind: "produto", category: null, categorySource: null, dismissed: false, createdAt: { gte: atras(7 * DIA) } },
+      where: { kind: "produto", category: null, categorySource: null, dismissed: false, ...NA_VITRINE, createdAt: { gte: atras(7 * DIA) } },
       select: { id: true, title: true },
       orderBy: { createdAt: "desc" },
       take: BATCH,

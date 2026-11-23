@@ -3,7 +3,7 @@ import { STORES, cleanUrl, decodeTrackingUrl, isShortener, storeByName, storeFor
 import { Prisma } from "@/generated/prisma/client";
 import { NOTIFY_CHANNEL, pool } from "@/lib/db";
 import { prisma } from "@/lib/db/prisma";
-import { alvoFromDb, json, jsonOrNull, type EventDetail } from "@/lib/db/types";
+import { NA_VITRINE, alvoFromDb, json, jsonOrNull, type EventDetail } from "@/lib/db/types";
 import { contasSemAlvos, darAlvosIniciais } from "@/lib/alvos-iniciais";
 import { DADOS_ANTIGOS_KEY } from "@/lib/dados-antigos";
 import { DIA, HORA, MIN, atras } from "@/lib/tempo";
@@ -35,7 +35,7 @@ export async function ensureSeed() {
     await prisma.alvo.updateMany({ where: { slug: a.slug, origin: "seed", editedAt: null, deletedAt: null }, data: { name: a.name, terms: a.terms, exclusions: a.exclusions } });
   }
   // Alvo do código que saiu da lista (o antigo "Acessórios") fica desligado. Nada é apagado.
-  await prisma.alvo.updateMany({ where: { origin: "seed", editedAt: null, slug: { notIn: ALVOS_V0.map((a) => a.slug) } }, data: { active: false } });
+  await prisma.alvo.updateMany({ where: { origin: "seed", editedAt: null, slug: { notIn: ALVOS_V0.map((a) => a.slug) } }, data: { isActive: false } });
   // Conta criada antes de cada um ter os seus Alvos ganha a cópia agora.
   for (const id of await contasSemAlvos()) await darAlvosIniciais(id);
 }
@@ -50,8 +50,8 @@ export async function alvosDoSistema() {
   const ids = await prisma.$queryRaw<{ id: number }[]>`
     select a.id from alvos a
     left join usuarios u on u.id = a.owner_id
-    left join cargos c on c.id = coalesce(u.cargo_id, (select id from cargos where padrao order by id limit 1))
-    where a.active and a.deleted_at is null and (
+    left join cargos c on c.id = coalesce((select id from cargos where id = u.cargo_id and is_active), (select id from cargos where padrao order by id limit 1))
+    where a.is_active and a.deleted_at is null and (
       (a.owner_id is null and not exists (select 1 from app_settings where key = ${DADOS_ANTIGOS_KEY}))
       or (a.owner_id is not null and u.is_active and (c.todas or exists (select 1 from cargo_permissoes cp where cp.cargo_id = c.id and cp.permissao_slug = 'fontes.gerenciar')))
     )`;
@@ -64,7 +64,7 @@ export async function ehDoSistema(userId: string): Promise<boolean> {
   const [r] = await prisma.$queryRaw<{ ok: boolean }[]>`
     select coalesce(c.todas or exists (select 1 from cargo_permissoes cp where cp.cargo_id = c.id and cp.permissao_slug = 'fontes.gerenciar'), false) as ok
     from usuarios u
-    left join cargos c on c.id = coalesce(u.cargo_id, (select id from cargos where padrao order by id limit 1))
+    left join cargos c on c.id = coalesce((select id from cargos where id = u.cargo_id and is_active), (select id from cargos where padrao order by id limit 1))
     where u.id = ${userId}`;
   return !!r?.ok;
 }
@@ -75,7 +75,7 @@ type AlvoDb = Awaited<ReturnType<typeof alvosDoSistema>>[number];
 export async function alvosPorDono(userId?: string): Promise<Map<string, AlvoDb[]>> {
   const rows = (
     // Conta desativada: os Alvos dela param (ficam como estão, sem ofertas novas).
-    await prisma.alvo.findMany({ where: { ownerId: userId ?? { not: null }, owner: { isActive: true }, active: true, deletedAt: null }, orderBy: { id: "asc" } })
+    await prisma.alvo.findMany({ where: { ownerId: userId ?? { not: null }, owner: { isActive: true }, isActive: true, deletedAt: null }, orderBy: { id: "asc" } })
   ).map(alvoFromDb);
   const by = new Map<string, AlvoDb[]>();
   for (const a of rows) by.set(a.ownerId!, [...(by.get(a.ownerId!) ?? []), a]);
@@ -460,7 +460,7 @@ export async function setSourceStatus(slug: string, status: string, note: string
 /** Fila de verificação. Fontes ao vivo (Telegram) passam na frente; depois, as mais novas. */
 export async function pendingOffers(limit: number) {
   // Duas consultas no lugar do "order by (kind = 'telegram') desc": primeiro as do Telegram, depois as outras.
-  const base = { verifyStatus: "pendente", dismissed: false } satisfies Prisma.OfferWhereInput;
+  const base = { verifyStatus: "pendente", dismissed: false, ...NA_VITRINE } satisfies Prisma.OfferWhereInput;
   const live = await prisma.offer.findMany({ where: { ...base, source: { kind: "telegram" } }, orderBy: { createdAt: "desc" }, take: limit });
   if (live.length >= limit) return live;
   const rest = await prisma.offer.findMany({ where: { ...base, source: { kind: { not: "telegram" } } }, orderBy: { createdAt: "desc" }, take: limit - live.length });

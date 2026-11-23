@@ -46,7 +46,7 @@ export async function POST(request: Request) {
   }
   let r: { id: number };
   try {
-    r = await prisma.source.create({ data: { ...row, enabled: true }, select: { id: true } });
+    r = await prisma.source.create({ data: { ...row, isActive: true }, select: { id: true } });
   } catch (e) {
     // Slug repetido (a mesma sugestão duas vezes): igual ao "on conflict do nothing" de antes.
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return Response.json({ erro: "essa fonte já existe" }, { status: 409 });

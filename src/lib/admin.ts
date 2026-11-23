@@ -13,6 +13,7 @@ export type AdminCargoDTO = {
   todas: boolean;
   padrao: boolean;
   sistema: boolean;
+  isActive: boolean;
   permissoes: Permissao[];
   usuarios: number;
 };
@@ -50,6 +51,7 @@ export async function getAdmin(): Promise<AdminDTO> {
       todas: c.todas,
       padrao: c.padrao,
       sistema: c.sistema,
+      isActive: c.isActive,
       permissoes: c.todas ? (Object.keys(PERMISSOES) as Permissao[]) : (c.permissoes.map((p) => p.permissaoSlug) as Permissao[]),
       usuarios: contagem.get(c.id) ?? 0,
     })),

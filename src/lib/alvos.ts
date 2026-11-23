@@ -105,7 +105,7 @@ export async function getAlvos(userId: string): Promise<AlvosDTO> {
         name: a.name,
         terms: a.terms,
         exclusions: a.exclusions,
-        active: a.active,
+        active: a.isActive,
         origin: a.origin === "usuario" ? "usuario" : "seed",
         edited: a.editedAt != null,
         canReset: !!s && (!same(s.terms, a.terms) || !same(s.exclusions, a.exclusions) || s.name !== a.name),
@@ -154,7 +154,7 @@ export type TesteDTO = { total: number; pega: number; exemplos: { id: number; ti
  * Determinístico, sem IA: o mesmo matchAlvo do worker.
  */
 export async function testAlvo(userId: string, input: { id: number | null; terms: string[]; exclusions: string[] }): Promise<TesteDTO> {
-  const others = (await prisma.alvo.findMany({ where: { ownerId: userId, active: true, deletedAt: null } })).map(alvoFromDb).filter((a) => a.id !== input.id);
+  const others = (await prisma.alvo.findMany({ where: { ownerId: userId, isActive: true, deletedAt: null } })).map(alvoFromDb).filter((a) => a.id !== input.id);
   const me: AlvoLite = { id: -1, slug: "teste", name: "teste", terms: cleanTerms(input.terms), exclusions: cleanTerms(input.exclusions) };
   if (!me.terms.length) return { total: 0, pega: 0, exemplos: [], perde: [] };
   const list: AlvoLite[] = [...others, me];

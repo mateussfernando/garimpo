@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { getOfferDetail } from "@/lib/detail";
-import { exigir } from "@/lib/sessao";
+import { exigir, pode } from "@/lib/sessao";
 import { contextoDe, detalheVisivel } from "@/lib/visao";
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/offers/[id]">) {
@@ -14,6 +14,9 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/offers/[id]
   if (!Number.isInteger(offerId)) return Response.json({ erro: "id inválido" }, { status: 400 });
   const detail = await getOfferDetail(offerId, eu.id);
   if (!detail) return Response.json({ erro: "oferta não encontrada" }, { status: 404 });
+  // Tirada da Vitrine: só quem modera ainda abre (para devolver).
+  const fora = !detail.offer.isActive || detail.offer.productActive === false;
+  if (fora && !pode(eu, "ofertas.moderar")) return Response.json({ erro: "oferta não encontrada" }, { status: 404 });
   return Response.json(detalheVisivel(detail, await contextoDe(eu)), { headers: { "Cache-Control": "no-store" } });
 }
 

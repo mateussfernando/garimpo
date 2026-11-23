@@ -5,7 +5,7 @@ import { useCallback, useMemo, useState } from 'react'
 import type { OfferDetailDTO } from '@/lib/detail'
 import { CompararLojas, spreadText, storeCount } from './comparar-lojas'
 import { AiAnalysis } from './ia'
-import { AppHeader, Badge, ago, brl, useLive, useNow, useStatus } from './shell'
+import { AppHeader, Badge, ago, brl, podeVer, useLive, useMe, useNow, useStatus } from './shell'
 
 const dayBR = (iso: string) => iso.slice(8, 10) + '/' + iso.slice(5, 7)
 
@@ -220,6 +220,7 @@ export function Detalhe({ id }: { id: number }) {
   const [view, setView] = useState<'chart' | 'table'>('chart')
   const { status, live } = useStatus()
   const now = useNow(30_000)
+  const me = useMe()
 
   const load = useCallback(async () => {
     const r = await fetch(`/api/offers/${id}`, { cache: 'no-store' })
@@ -238,6 +239,19 @@ export function Detalhe({ id }: { id: number }) {
       })
     },
     [id],
+  )
+
+  // Tirar da Vitrine de todos (ou devolver): a oferta, ou o produto inteiro. Só quem tem ofertas.moderar.
+  const vitrine = useCallback(
+    async (body: { oferta?: boolean; produto?: boolean }) => {
+      await fetch(`/api/offers/${id}/vitrine`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      await load()
+    },
+    [id, load],
   )
 
   const rows = useMemo(() => (d ? [...d.history].reverse() : []), [d])
@@ -473,6 +487,39 @@ export function Detalhe({ id }: { id: number }) {
                 <p className="text-xs text-muted">
                   O botão abre a página da loja. O Garimpo nunca compra sozinho.
                 </p>
+                {podeVer(me, 'ofertas.moderar') && (
+                  <div className="flex flex-col gap-2 rounded-[10px] border border-control p-3">
+                    <span className="text-[11px] uppercase tracking-[0.06em] text-label">
+                      Vitrine de todos
+                    </span>
+                    {(!d.offer.isActive || d.offer.productActive === false) && (
+                      <p className="text-[13px] text-bad">
+                        {d.offer.productActive === false
+                          ? 'O produto está fora da Vitrine (todas as lojas).'
+                          : 'Esta oferta está fora da Vitrine.'}{' '}
+                        Ninguém mais vê; nada foi apagado.
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void vitrine({ oferta: !d.offer.isActive })}
+                        className="h-10 rounded-[10px] border border-control px-3.5 text-[13px] text-ink-2 hover:text-ink"
+                      >
+                        {d.offer.isActive ? 'Tirar esta oferta' : 'Devolver esta oferta'}
+                      </button>
+                      {d.offer.productActive !== null && (
+                        <button
+                          type="button"
+                          onClick={() => void vitrine({ produto: !d.offer.productActive })}
+                          className="h-10 rounded-[10px] border border-control px-3.5 text-[13px] text-ink-2 hover:text-ink"
+                        >
+                          {d.offer.productActive ? 'Tirar o produto (todas as lojas)' : 'Devolver o produto'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

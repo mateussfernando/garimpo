@@ -67,6 +67,12 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 23/11/2026, 01:20 · `pnpm insights`: a IA controlada pelo terminal
+
+- **Feito:** `pnpm insights` (e o antigo `pnpm ia:insights`, que agora abre o mesmo menu) controla a IA pelo terminal, com as mesmas regras dos botões do cabeçalho e da Fila da IA. Sem nada abre um menu numerado; com uma opção faz só ela: `situacao`, `pausar`, `continuar` (já pede uma rodada ao worker), `usar claude|agy|ambos`, `gerar [n]` (insights dos n produtos de nota mais alta, aqui no terminal), `ultimos [n]`, `fila`, `rodar` (o "Chamar IA agora", feito pelo worker) e `radar`. "Worker rodando" é conferido pela conexão que escuta o canal da IA; o uso da assinatura do Claude mostra quando foi medido (com só o agy trabalhando, o número fica velho). As telas do site atualizam na hora. Saiu `worker/ai/run-once.ts`.
+- **Testado:** todas as opções direto e pelo menu (com a entrada digitada): pausar barra o `gerar`, continuar volta e avisa o worker, `usar` com modo inválido só mostra as escolhas; a IA terminou como estava (ligada, só o agy).
+- **Pendente:** a Fase 8 (deploy) fica para depois, a pedido do usuário.
+
 ### 23/11/2026, 00:55 · deploy-v2, Fase 7: blindagem do worker, da IA e do banco
 
 - **Antes:** dump `garimpoi-20261122-2332-antes-da-fase-7.dump` (6,1 MB).

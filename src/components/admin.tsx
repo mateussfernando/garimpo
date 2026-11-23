@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import type { Permissao } from "@/config/permissoes";
 import type { AdminCargoDTO, AdminDTO } from "@/lib/admin";
-import { AppHeader, Badge, PageTitle, useLive, useStatus } from "./shell";
+import { AppHeader, Badge, PageTitle, useLive, useMe, useStatus } from "./shell";
 
 async function send(url: string, method: string, body?: unknown): Promise<string | null> {
   const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -78,6 +78,7 @@ export function Admin() {
   const [data, setData] = useState<AdminDTO | null>(null);
   const [editando, setEditando] = useState<number | "novo" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const me = useMe();
   const { status, live } = useStatus();
   const load = useCallback(async () => {
     const r = await fetch("/api/admin", { cache: "no-store" });
@@ -90,6 +91,11 @@ export function Admin() {
     setErro(await send(`/api/admin/usuarios/${userId}`, "PATCH", { cargoId }));
     await load();
   };
+  const trocarAtivo = async (userId: string, isActive: boolean) => {
+    setErro(await send(`/api/admin/usuarios/${userId}`, "PATCH", { isActive }));
+    await load();
+  };
+  const ativos = data?.usuarios.filter((u) => u.isActive).length ?? 0;
   const acaoCargo = async (url: string, method: string, body?: unknown) => {
     setErro(await send(url, method, body));
     await load();
@@ -111,20 +117,40 @@ export function Admin() {
 
         <section aria-labelledby="usuarios" className="flex flex-col gap-3">
           <h2 id="usuarios" className="text-lg font-semibold tracking-tight">
-            Usuários <span className="font-mono text-sm font-normal text-muted">{data?.usuarios.length ?? ""}</span>
+            Usuários{" "}
+            <span className="font-mono text-sm font-normal text-muted">
+              {data ? (ativos === data.usuarios.length ? data.usuarios.length : `${ativos} ativos de ${data.usuarios.length}`) : ""}
+            </span>
           </h2>
           <div role="table" aria-label="Usuários" className="overflow-x-auto rounded-2xl border border-card-line bg-surface">
-            <div role="row" className="grid min-w-[720px] grid-cols-[1.4fr_1.6fr_0.8fr_0.9fr_1.2fr] gap-3 border-b border-line px-4 py-2.5 text-[11px] uppercase tracking-[0.06em] text-label">
-              {["Nome", "E-mail", "Entra com", "Desde", "Cargo"].map((h) => (
+            <div role="row" className="grid min-w-[780px] grid-cols-[0.5fr_1.4fr_1.6fr_0.8fr_0.9fr_1.2fr] gap-3 border-b border-line px-4 py-2.5 text-[11px] uppercase tracking-[0.06em] text-label">
+              {["Ativo", "Nome", "E-mail", "Entra com", "Desde", "Cargo"].map((h) => (
                 <span key={h} role="columnheader">
                   {h}
                 </span>
               ))}
             </div>
             {(data?.usuarios ?? []).map((u) => (
-              <div key={u.id} role="row" className="grid min-w-[720px] grid-cols-[1.4fr_1.6fr_0.8fr_0.9fr_1.2fr] items-center gap-3 border-b border-line px-4 py-2 last:border-b-0">
+              <div
+                key={u.id}
+                role="row"
+                className={`grid min-w-[780px] grid-cols-[0.5fr_1.4fr_1.6fr_0.8fr_0.9fr_1.2fr] items-center gap-3 border-b border-line px-4 py-2 last:border-b-0 ${u.isActive ? "" : "opacity-55"}`}
+              >
+                <span role="cell" className="flex items-center">
+                  {/* Desativada: não entra e os Alvos param; nada é apagado. A própria conta não se desativa. */}
+                  <input
+                    type="checkbox"
+                    checked={u.isActive}
+                    disabled={u.id === me?.id}
+                    onChange={(e) => void trocarAtivo(u.id, e.target.checked)}
+                    aria-label={`${u.isActive ? "Desativar" : "Ativar"} a conta de ${u.name}`}
+                    title={u.id === me?.id ? "Você não pode desativar a sua própria conta" : u.isActive ? "Ativa: desmarque para desativar" : "Desativada: marque para ativar"}
+                    className="h-4 w-4 cursor-pointer accent-[var(--color-ink)] disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </span>
                 <span role="cell" className="truncate text-sm font-medium">
                   {u.name}
+                  {!u.isActive && <span className="ml-2 text-[11px] font-normal text-muted">desativada</span>}
                 </span>
                 <span role="cell" className="truncate text-[13px] text-ink-2">
                   {u.email}
@@ -153,7 +179,11 @@ export function Admin() {
             ))}
             {data && data.usuarios.length === 0 && <p className="px-4 py-6 text-center text-[13px] text-muted">Ninguém cadastrado ainda.</p>}
           </div>
-          {data && <p className="text-xs text-muted">Sem cargo marcado, vale o padrão ({nomeCargo(null)}).</p>}
+          {data && (
+            <p className="text-xs text-muted">
+              Sem cargo marcado, vale o padrão ({nomeCargo(null)}). Conta desativada não entra (nem com Google) e os Alvos dela param; nada dela é apagado.
+            </p>
+          )}
         </section>
 
         <section aria-labelledby="cargos" className="flex flex-col gap-3">

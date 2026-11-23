@@ -3,6 +3,7 @@
 // Sessões no banco (tabela `sessoes`), em cookie httpOnly. Só roda no servidor: nada aqui vai para o navegador.
 import bcrypt from "bcryptjs";
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { prisma } from "@/lib/db/prisma";
@@ -46,8 +47,17 @@ export const auth = betterAuth({
     },
   },
   telemetry: { enabled: false },
-  // Conta nova (e-mail ou Google) começa com a cópia dos Alvos iniciais, e o worker classifica as ofertas de 7 dias neles.
   databaseHooks: {
+    // Conta desativada (tela Usuários) não entra: nem com senha nem com Google.
+    session: {
+      create: {
+        before: async (session) => {
+          const u = await prisma.user.findUnique({ where: { id: session.userId }, select: { isActive: true } });
+          if (u && !u.isActive) throw new APIError("FORBIDDEN", { code: "CONTA_DESATIVADA", message: "Esta conta está desativada." });
+        },
+      },
+    },
+    // Conta nova (e-mail ou Google) começa com a cópia dos Alvos iniciais, e o worker classifica as ofertas de 7 dias neles.
     user: {
       create: {
         after: async (user) => {

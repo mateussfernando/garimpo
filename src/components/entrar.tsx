@@ -15,6 +15,7 @@ function destinoSeguro(de: string | null): string {
 function mensagem(err: { status?: number; code?: string; message?: string } | null, modo: Modo): string {
   if (!err) return "";
   if (err.status === 429) return "Muitas tentativas. Espere um minuto e tente de novo.";
+  if (err.code === "CONTA_DESATIVADA") return "Esta conta está desativada. Fale com o administrador do Garimpo.";
   if (modo === "entrar") return "E-mail ou senha errados.";
   if (err.code === "USER_ALREADY_EXISTS" || err.code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL") return "Já existe uma conta com esse e-mail. Use Entrar.";
   if (err.code === "PASSWORD_TOO_SHORT") return "A senha precisa ter pelo menos 8 caracteres.";

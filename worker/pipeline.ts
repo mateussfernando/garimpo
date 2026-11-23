@@ -53,7 +53,7 @@ export async function alvosDoSistema() {
     left join cargos c on c.id = coalesce(u.cargo_id, (select id from cargos where padrao order by id limit 1))
     where a.active and a.deleted_at is null and (
       (a.owner_id is null and not exists (select 1 from app_settings where key = ${DADOS_ANTIGOS_KEY}))
-      or (a.owner_id is not null and (c.todas or exists (select 1 from cargo_permissoes cp where cp.cargo_id = c.id and cp.permissao_slug = 'fontes.gerenciar')))
+      or (a.owner_id is not null and u.is_active and (c.todas or exists (select 1 from cargo_permissoes cp where cp.cargo_id = c.id and cp.permissao_slug = 'fontes.gerenciar')))
     )`;
   if (!ids.length) return [];
   return (await prisma.alvo.findMany({ where: { id: { in: ids.map((r) => r.id) } }, orderBy: { id: "asc" } })).map(alvoFromDb);
@@ -74,7 +74,8 @@ type AlvoDb = Awaited<ReturnType<typeof alvosDoSistema>>[number];
 /** Alvos ligados de cada conta (os pessoais), por dono. Com `userId`, só os dele. */
 export async function alvosPorDono(userId?: string): Promise<Map<string, AlvoDb[]>> {
   const rows = (
-    await prisma.alvo.findMany({ where: { ownerId: userId ?? { not: null }, active: true, deletedAt: null }, orderBy: { id: "asc" } })
+    // Conta desativada: os Alvos dela param (ficam como estão, sem ofertas novas).
+    await prisma.alvo.findMany({ where: { ownerId: userId ?? { not: null }, owner: { isActive: true }, active: true, deletedAt: null }, orderBy: { id: "asc" } })
   ).map(alvoFromDb);
   const by = new Map<string, AlvoDb[]>();
   for (const a of rows) by.set(a.ownerId!, [...(by.get(a.ownerId!) ?? []), a]);

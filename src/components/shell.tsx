@@ -122,7 +122,13 @@ let mePromise: Promise<Me | null> | null = null;
 export function useMe(): Me | null {
   const [me, setMe] = useState<Me | null>(null);
   useEffect(() => {
-    mePromise ??= fetch("/api/me", { cache: "no-store" }).then((r) => (r.ok ? (r.json() as Promise<Me>) : null)).catch(() => null);
+    mePromise ??= fetch("/api/me", { cache: "no-store" })
+      .then((r) => {
+        // Sessão que acabou ou conta desativada: volta para a tela de entrar.
+        if (r.status === 401) location.replace("/entrar");
+        return r.ok ? (r.json() as Promise<Me>) : null;
+      })
+      .catch(() => null);
     let vivo = true;
     void mePromise.then((m) => vivo && setMe(m));
     return () => {

@@ -59,8 +59,9 @@ async function main() {
   if (existente) {
     const ok = await perguntar(`Já existe a conta de ${existente.name}. Tornar administrador? (s/n) `);
     if (!/^s/i.test(ok)) return console.log("Nada mudou.");
-    await prisma.user.update({ where: { id: existente.id }, data: { cargoId: admin.id } });
-    console.log(`Pronto: ${existente.name} (${email}) agora é ${admin.nome}.`);
+    // Também reativa: é a saída se o único admin ficar desativado.
+    await prisma.user.update({ where: { id: existente.id }, data: { cargoId: admin.id, isActive: true } });
+    console.log(`Pronto: ${existente.name} (${email}) agora é ${admin.nome}${existente.isActive ? "" : " e a conta foi reativada"}.`);
     return oferecerDadosAntigos(existente.id);
   }
 

@@ -67,6 +67,13 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 23/11/2026, 00:45 · `usuarios.is_active`: ativar e desativar contas
+
+- **Antes:** dump `garimpoi-20261123-0026-antes-do-is-active.dump`.
+- **Feito:** coluna `is_active` (padrão do usuário nos esquemas dele) em `usuarios`, migração `usuarios_is_active` (só acrescenta; toda conta começa ativa). Na tela Usuários, a coluna "Ativo" com caixa de marcar e a linha apagada de leve quando desativada. Conta desativada: não entra (nem com senha nem com Google: "Esta conta está desativada"), perde o acesso na hora mesmo com a sessão aberta (a tela volta para /entrar) e os Alvos dela param de pegar ofertas. Nada dela é apagado; reativar devolve tudo. Travas: ninguém desativa a própria conta, e o último administrador ativo não é desativado nem perde o cargo. `pnpm admin:criar` também reativa (saída se o admin ficar desativado).
+- **Testado (por HTTP, só com o site no ar):** desativada, a conta comum2 levou 401 na Vitrine, em /api/me e nos Alvos com a sessão que já tinha; ao entrar de novo, 403 com "conta desativada" e sem cookie; reativada, entra e vê a Vitrine. O admin não se desativa; um comum não reativa ninguém (403); pedido com campo a mais dá 400. 140 testes, `tsc` e `eslint`.
+- **Em aberto:** quais outras tabelas ganham `is_active` (a análise está na resposta ao usuário).
+
 ### 23/11/2026, 01:20 · `pnpm insights`: a IA controlada pelo terminal
 
 - **Feito:** `pnpm insights` (e o antigo `pnpm ia:insights`, que agora abre o mesmo menu) controla a IA pelo terminal, com as mesmas regras dos botões do cabeçalho e da Fila da IA. Sem nada abre um menu numerado; com uma opção faz só ela: `situacao`, `pausar`, `continuar` (já pede uma rodada ao worker), `usar claude|agy|ambos`, `gerar [n]` (insights dos n produtos de nota mais alta, aqui no terminal), `ultimos [n]`, `fila`, `rodar` (o "Chamar IA agora", feito pelo worker) e `radar`. "Worker rodando" é conferido pela conexão que escuta o canal da IA; o uso da assinatura do Claude mostra quando foi medido (com só o agy trabalhando, o número fica velho). As telas do site atualizam na hora. Saiu `worker/ai/run-once.ts`.

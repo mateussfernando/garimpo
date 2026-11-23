@@ -26,7 +26,9 @@ async function cargoPadrao() {
 export const getUser = cache(async (): Promise<Usuario | null> => {
   const s = await auth.api.getSession({ headers: await headers() });
   if (!s) return null;
-  const row = await prisma.user.findUnique({ where: { id: s.user.id }, select: { cargo: { include: { permissoes: true } } } });
+  const row = await prisma.user.findUnique({ where: { id: s.user.id }, select: { isActive: true, cargo: { include: { permissoes: true } } } });
+  // Conta desativada pelo admin vale como sem sessão, na hora (mesmo com o cookie ainda válido).
+  if (!row?.isActive) return null;
   const cargo = row?.cargo ?? (await cargoPadrao());
   // Sem cargo nenhum (banco sem a semente): nenhuma permissão. Nunca o contrário.
   const permissoes = !cargo ? [] : cargo.todas ? TODAS : cargo.permissoes.map((p) => p.permissaoSlug).filter(ehPermissao);

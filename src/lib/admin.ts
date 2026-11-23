@@ -4,7 +4,7 @@ import { PERMISSOES, type Permissao } from "@/config/permissoes";
 import { prisma } from "@/lib/db/prisma";
 import { normalize } from "@/lib/money";
 
-export type AdminUsuarioDTO = { id: string; name: string; email: string; cargoId: number | null; metodos: string[]; createdAt: string };
+export type AdminUsuarioDTO = { id: string; name: string; email: string; cargoId: number | null; isActive: boolean; metodos: string[]; createdAt: string };
 export type AdminCargoDTO = {
   id: number;
   slug: string;
@@ -22,7 +22,7 @@ export async function getAdmin(): Promise<AdminDTO> {
   const [users, cargos] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: "asc" },
-      select: { id: true, name: true, email: true, cargoId: true, createdAt: true, accounts: { select: { providerId: true } } },
+      select: { id: true, name: true, email: true, cargoId: true, isActive: true, createdAt: true, accounts: { select: { providerId: true } } },
     }),
     prisma.cargo.findMany({ orderBy: { id: "asc" }, include: { permissoes: true } }),
   ]);
@@ -38,6 +38,7 @@ export async function getAdmin(): Promise<AdminDTO> {
       name: u.name,
       email: u.email,
       cargoId: u.cargoId,
+      isActive: u.isActive,
       metodos: [...new Set(u.accounts.map((a) => (a.providerId === "credential" ? "senha" : a.providerId)))],
       createdAt: u.createdAt.toISOString(),
     })),
@@ -73,7 +74,7 @@ export async function slugCargo(nome: string): Promise<string> {
   return slug;
 }
 
-/** Quantos usuários têm um cargo com todas as permissões (os administradores). */
+/** Quantos usuários ativos têm um cargo com todas as permissões (os administradores que conseguem entrar). */
 export async function contarAdmins(): Promise<number> {
-  return prisma.user.count({ where: { cargo: { todas: true } } });
+  return prisma.user.count({ where: { isActive: true, cargo: { todas: true } } });
 }

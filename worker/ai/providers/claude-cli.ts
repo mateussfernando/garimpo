@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { ambienteMinimo } from "./ambiente";
 import { mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -32,8 +33,9 @@ async function run(args: string[], input: string): Promise<string> {
 
 function runIn(config: string, args: string[], input: string): Promise<string> {
   mkdirSync(config, { recursive: true });
-  const env: NodeJS.ProcessEnv = { ...process.env, CLAUDE_CONFIG_DIR: config };
-  delete env.ANTHROPIC_API_KEY;
+  // Só o token da assinatura e a pasta de configuração própria; nada do .env do worker (nem ANTHROPIC_API_KEY,
+  // que venceria a assinatura).
+  const env = ambienteMinimo({ CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN, CLAUDE_CONFIG_DIR: config });
   return new Promise((resolve, reject) => {
     // Sem shell: o claude.exe recebe cada argumento como está. O prompt vai por stdin.
     const child = spawn("claude", args, { cwd: WORK, env, windowsHide: true });

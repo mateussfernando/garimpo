@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { ambienteMinimo } from "./ambiente";
 import { mkdirSync, readdirSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -47,7 +48,8 @@ function run(args: string[], input: string): Promise<{ out: string; err: string;
   mkdirSync(WORK, { recursive: true });
   return new Promise((resolve, reject) => {
     // Sem shell: cada argumento vai como está. O prompt vai por stdin (a linha de comando do Windows não cabe um lote).
-    const child = spawn("agy", args, { cwd: WORK, windowsHide: true });
+    // Ambiente mínimo: o agy entra com o login guardado na pasta do usuário; nada do .env do worker vai junto.
+    const child = spawn("agy", args, { cwd: WORK, env: ambienteMinimo(), windowsHide: true });
     let out = "";
     let err = "";
     const timer = setTimeout(() => child.kill(), 150_000);

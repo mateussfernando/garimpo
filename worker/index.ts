@@ -13,11 +13,12 @@ import { runRadar } from "./ai/radar";
 import { runInsights } from "./ai/insights";
 import { collectVitrines } from "./collect/vitrines";
 import { collectConfiguradas, testFonte } from "./collect/genericas";
-import { FONTES_CMD_CHANNEL, FONTE_TESTE_KEY, type FontesCmd } from "@/lib/fontes";
+import { FONTES_CMD_CHANNEL, FONTE_TESTE_KEY } from "@/lib/fontes";
 import { startTelegram } from "./ingest/telegram";
 import { ALVOS_CMD_CHANNEL, AlvosCmdSchema } from "@/lib/alvos";
 import { ehDoSistema, ensureSeed, notify, rematchOffers, rematchPessoal, rescoreBand } from "./pipeline";
 import { verifyTick } from "./verify/verify";
+import { AiCmdSchema, FontesCmdSchema, lerComando } from "./comandos";
 
 // Plano acelerado: nada de agendamento. A coleta roda só enquanto o worker
 // está ligado (pnpm dev), a cada 10 min, e a verificação a cada 10 s.
@@ -148,7 +149,9 @@ async function main() {
     const aiCmd = new Client(pgConfig());
     await aiCmd.connect();
     await aiCmd.query(`LISTEN ${AI_CMD_CHANNEL}`);
-    aiCmd.on("notification", () => void rodarAgora());
+    aiCmd.on("notification", (n) => {
+      if (lerComando(AiCmdSchema, n.payload, "ia")) void rodarAgora();
+    });
     aiCmd.on("error", (e) => console.error("[ia] canal de comandos caiu:", e.message));
     console.log(`[ia] insights ligados (${process.env.AI_PROVIDER ?? "claude-cli"}, modelo único claude-haiku-5-5)`);
   }
@@ -234,8 +237,8 @@ async function listenFontes() {
   await cmd.query(`LISTEN ${FONTES_CMD_CHANNEL}`);
   cmd.on("notification", (n) => {
     void (async () => {
-      const c = JSON.parse(n.payload ?? "{}") as FontesCmd;
-      if (c.acao !== "testar") return;
+      const c = lerComando(FontesCmdSchema, n.payload, "fontes");
+      if (!c) return;
       const result = await testFonte(c.kind, c.config);
       await setSetting(FONTE_TESTE_KEY, { token: c.token, at: Date.now(), result });
       await notify({ type: "fonte_teste", token: c.token });

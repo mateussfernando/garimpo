@@ -33,6 +33,7 @@ App pessoal que roda em localhost num PC só do usuário (decisão de 10/11: o s
 - Fotos: guardar só o endereço (URL) de CDN externo, nunca arquivo de imagem no projeto, no banco ou no Storage (decisão de 12/11).
 - Domínio fora de config/stores.ts = suspeito: não abrir, não mostrar na Vitrine principal.
 - Coleta educada: ler robots.txt, 1 requisição por domínio a cada 5-10 s, cache (10 min na verificação, 12 h na coleta diária), pausa em 429/403/503 que vale para o domínio inteiro (www, api...), segura os pedidos já na fila, sobrevive ao reinício do worker (app_settings "pausas") e cresce se o site reclamar de novo em 24 h (1 h, 6 h, 24 h; Retry-After maior vence), User-Agent fixo, sem proxy. O objetivo é nunca insistir num site que pediu para parar. Falhou = "não verificado".
+- Segurança (deploy-v2, Fase 7): o worker só abre endereços públicos (worker/http/rede.ts confere cada endereço e cada redirecionamento: nada de localhost, rede de casa, link-local ou porta fora da web). Comando que chega por pg_notify passa pelo zod (worker/comandos.ts, AlvosCmdSchema). `claude -p` e `agy` rodam com ambiente mínimo (worker/ai/providers/ambiente.ts): nada do .env do worker vai para eles. Tabela nova em migração: `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` (confira com `pnpm db:travas`).
 - Não adicionar dependências sem perguntar. Nunca instalar forks de whatsapp-web.js ou baileys.
 - O parser só muda com os testes Vitest de fixtures/messages passando.
 

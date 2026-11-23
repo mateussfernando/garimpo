@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { connection } from "next/server";
 import { z } from "zod";
 import { pool } from "@/lib/db";
-import { FONTES_CMD_CHANNEL, FONTE_TESTE_KEY, type FontesCmd } from "@/lib/fontes";
+import { FONTES_CMD_CHANNEL, FONTE_TESTE_KEY, checkFonte, type FontesCmd } from "@/lib/fontes";
 import { getSetting } from "@/lib/settings";
 import { exigir } from "@/lib/sessao";
 
@@ -15,8 +15,11 @@ export async function POST(request: Request) {
   if (eu instanceof Response) return eu;
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ erro: "pedido inválido" }, { status: 400 });
+  // A configuração já é conferida aqui (o worker confere de novo antes de abrir o site).
+  const ok = checkFonte(parsed.data.kind, parsed.data.config, null);
+  if ("erro" in ok) return Response.json({ erro: ok.erro }, { status: 400 });
   const token = randomUUID();
-  const cmd: FontesCmd = { acao: "testar", token, kind: parsed.data.kind, config: parsed.data.config };
+  const cmd: FontesCmd = { acao: "testar", token, kind: parsed.data.kind, config: ok.config };
   await pool.query("select pg_notify($1, $2)", [FONTES_CMD_CHANNEL, JSON.stringify(cmd)]);
   return Response.json({ token });
 }

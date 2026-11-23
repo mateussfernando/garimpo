@@ -4,6 +4,8 @@
 // na fila, sobrevive ao reinício do worker e cresce se o site reclamar de novo: 1 h, 6 h, 24 h.
 // O objetivo é nunca insistir num site que pediu para parar, para o seu IP não entrar em lista de bloqueio.
 
+import { conferirUrl } from "./rede";
+
 export const USER_AGENT = "GarimpoBot/0.1 (app pessoal de ofertas; coleta educada)";
 const ROBOTS_TTL = 24 * 60 * 60 * 1000;
 /** Pausa por reclamação: a 1ª em 24 h vale 1 h, a 2ª 6 h, da 3ª em diante 24 h. */
@@ -111,22 +113,37 @@ function schedule<T>(host: string, fn: () => Promise<T>): Promise<T> {
   return run;
 }
 
+/** Saltos de redirecionamento no modo "follow" (o fetch não segue sozinho: cada salto passa pela trava de rede). */
+const MAX_REDIRECTS = 5;
+
 async function rawFetch(url: string, redirect: "follow" | "manual"): Promise<FetchResult> {
-  const res = await fetch(url, {
-    redirect,
-    signal: AbortSignal.timeout(20_000),
-    headers: {
-      "User-Agent": USER_AGENT,
-      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "pt-BR,pt;q=0.9",
-    },
-  });
-  let body = "";
-  if (redirect === "follow" || res.status < 300 || res.status >= 400) {
-    const buf = await res.arrayBuffer();
-    body = new TextDecoder("utf-8").decode(buf.byteLength > MAX_BODY ? buf.slice(0, MAX_BODY) : buf);
+  let current = url;
+  for (let hop = 0; ; hop++) {
+    // Cada endereço, inclusive o de cada redirecionamento, passa pela trava de rede antes de sair.
+    await conferirUrl(current);
+    const res = await fetch(current, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(20_000),
+      headers: {
+        "User-Agent": USER_AGENT,
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "pt-BR,pt;q=0.9",
+      },
+    });
+    const location = res.headers.get("location");
+    const isRedirect = res.status >= 300 && res.status < 400 && !!location;
+    if (redirect === "follow" && isRedirect && hop < MAX_REDIRECTS) {
+      await res.body?.cancel();
+      current = new URL(location!, current).toString();
+      continue;
+    }
+    let body = "";
+    if (!isRedirect) {
+      const buf = await res.arrayBuffer();
+      body = new TextDecoder("utf-8").decode(buf.byteLength > MAX_BODY ? buf.slice(0, MAX_BODY) : buf);
+    } else await res.body?.cancel();
+    return { url: current, status: res.status, body, location, retryAfter: res.headers.get("retry-after") };
   }
-  return { url: res.url || url, status: res.status, body, location: res.headers.get("location"), retryAfter: res.headers.get("retry-after") };
 }
 
 function parseRobots(txt: string): RobotsRules {
@@ -202,6 +219,8 @@ export async function politeFetch(
   url: string,
   opts: { redirect?: "follow" | "manual"; ttlMs?: number } = {},
 ): Promise<FetchResult> {
+  // Endereço da rede interna nem entra na fila (nem o robots.txt dele é pedido).
+  await conferirUrl(url);
   const u = new URL(url);
   const host = u.hostname;
   const until = pausedFor(host);
@@ -242,4 +261,4 @@ export async function unshorten(url: string, maxHops = 5): Promise<string> {
 }
 
 // Usado só nos testes.
-export const __test = { parseRobots, siteOf };
+export const __test = { parseRobots, siteOf, rawFetch };

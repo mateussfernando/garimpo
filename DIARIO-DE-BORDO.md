@@ -67,6 +67,26 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 23/11/2026, 00:55 · deploy-v2, Fase 7: blindagem do worker, da IA e do banco
+
+- **Antes:** dump `garimpoi-20261122-2332-antes-da-fase-7.dump` (6,1 MB).
+- **Feito:**
+  - **Rede interna barrada (SSRF):** `worker/http/rede.ts` confere todo endereço que o worker abre, inclusive cada redirecionamento (o `fetch` não segue mais sozinho) e o robots.txt: só http/https, só portas 80 e 443, sem usuário e senha na URL, nada de `localhost`, `.local`, nome sem domínio, e o nome é resolvido no DNS antes; qualquer IP interno (127.x, 10.x, 172.16-31.x, 192.168.x, 169.254.x, CGNAT, IPv6 local e IPv4 disfarçado em IPv6, hexadecimal ou decimal) barra o pedido. Vale para verificação, coleta, fontes configuráveis e encurtadores;
+  - **Comandos conferidos:** `worker/comandos.ts` (zod) para os canais da IA, das Fontes e do Telegram, além do de Alvos (Fase 6). Formato errado é ignorado e fica no log. O "Testar" das Fontes já confere a configuração no site. A releitura dos chats do Telegram virou no máximo uma a cada 15 s (pedir demais faz o Telegram travar a conta);
+  - **IA com ambiente mínimo:** `claude -p` e `agy` não herdam mais o ambiente do worker (que tinha `DATABASE_URL`, a sessão do Telegram e os segredos do login e do Mercado Livre). Recebem só o que o sistema precisa para rodar e, no Claude, o token da assinatura;
+  - **Banco trancado (RLS):** migração `travar_tabelas` liga o RLS em todas as tabelas e, no Supabase, tira toda permissão dos papéis públicos (`anon` e `authenticated`). O site e o worker entram como dono e não mudam nada. `pnpm db:travas` confere (rodar antes de cada deploy);
+  - **Cabeçalhos de segurança** em toda resposta: sem moldura de outro site (`frame-ancestors 'none'`, `X-Frame-Options`), `nosniff`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, HSTS só em produção e sem `X-Powered-By`.
+- **Testado:**
+  - 10 testes da rede: `localhost`, `192.168.0.1`, `169.254.169.254`, `[::1]`, `[::ffff:127.0.0.1]`, `0x7f.1`, `2130706433`, nome que resolve para a rede de casa, `file://`, porta 5432 e senha na URL são barrados; redirecionamento de um encurtador para `192.168.0.1` é barrado antes de sair do PC (o pedido ao roteador nunca acontece); loja e encurtador de verdade passam;
+  - Com o worker rodando: 14 ofertas conferidas na loja em 15 min (com redirecionamentos e encurtadores), nenhuma barrada por engano;
+  - 7 testes das travas da IA: `--tools ""`, sem sessão salva, sem `--bare` nem pular permissões, sem shell, Haiku; agy em `strict`, com todo comando negado, `--sandbox` e sem atalhos; nenhum segredo do .env no ambiente dos dois; o texto das ofertas vai pela entrada, nunca na linha de comando, e no agy as regras vêm antes dos dados;
+  - Chamada de verdade a cada um com um "ataque" no texto da oferta (criar arquivo, rodar `set`, mostrar o `DATABASE_URL`): os dois responderam só o resumo da oferta, nenhum arquivo foi criado e nenhum segredo apareceu;
+  - Nenhum módulo da IA lê contas, Alvos de usuário nem nome de grupo (conferido no código);
+  - RLS, no banco de cópia: um papel de fora com permissão de leitura em tudo vê 0 usuários, 0 sessões e 0 ofertas; o dono vê as 20.026. `pnpm db:travas` passa no banco de verdade;
+  - Comandos: JSON quebrado, ação desconhecida, campo a mais (ex.: um "prompt" escondido no comando da IA) e tipo errado são ignorados. 140 testes, `tsc` e `eslint`.
+- **Limite conhecido:** o nome é conferido no DNS logo antes do pedido; um site que troque o IP do nome entre a conferência e a conexão (DNS rebinding) ainda passaria. Fechar isso pede trocar o `fetch` por `http.request` com a conferência na hora de conectar; fica como melhoria.
+- **Próximo passo:** Fase 8, preparar o deploy (sem publicar): `docs/deploy.md`, Supabase (pooler, Data API), Google e `next build` com variáveis de produção.
+
 ### 23/11/2026, 00:05 · deploy-v2, Fase 6: Alvos e marcações de cada conta
 
 - **Antes:** dump `garimpoi-20261122-2252-antes-da-fase-6.dump` (6,0 MB) em `C:\Users\Jogga\garimpo-backups`.

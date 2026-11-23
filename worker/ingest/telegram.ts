@@ -15,6 +15,7 @@ import { StringSession } from "telegram/sessions";
 import { hostOf } from "@/config/stores";
 import { isOffTopicGroup, isPromoGroup } from "@/config/telegram-filter";
 import { CMD_CHANNEL, pgConfig } from "@/lib/db";
+import { TelegramCmdSchema, lerComando } from "../comandos";
 import { prisma } from "@/lib/db/prisma";
 import { asJson, json } from "@/lib/db/types";
 import type { SourceStats } from "@/lib/db/types";
@@ -259,7 +260,36 @@ export async function startTelegram() {
   const cmd = new Client(pgConfig());
   await cmd.connect();
   await cmd.query(`LISTEN ${CMD_CHANNEL}`);
-  cmd.on("notification", () => void syncDialogs().then(() => notify({ type: "source" })).catch((e) => console.error("[telegram] erro ao listar chats:", e)));
+  // Vários pedidos seguidos viram uma leitura só, no máximo uma a cada 15 s: a lista de chats vem do Telegram, e
+  // pedir demais faz o Telegram travar a conta por um tempo (FloodWait).
+  let syncing = false;
+  let again = false;
+  let lastSync = 0;
+  const syncAgora = async (): Promise<void> => {
+    if (syncing) {
+      again = true;
+      return;
+    }
+    syncing = true;
+    try {
+      const wait = lastSync + 15_000 - Date.now();
+      if (wait > 0) await new Promise((ok) => setTimeout(ok, wait));
+      lastSync = Date.now();
+      await syncDialogs();
+      await notify({ type: "source" });
+    } catch (e) {
+      console.error("[telegram] erro ao listar chats:", e);
+    } finally {
+      syncing = false;
+      if (again) {
+        again = false;
+        void syncAgora();
+      }
+    }
+  };
+  cmd.on("notification", (n) => {
+    if (lerComando(TelegramCmdSchema, n.payload, "telegram")) void syncAgora();
+  });
   cmd.on("error", (e) => console.error("[telegram] canal de comandos caiu:", e.message));
 
   const first = await syncDialogs();

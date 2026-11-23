@@ -185,6 +185,11 @@ model Offer {
   interest         Boolean?
   cashCents        Int?            @map("cash_cents")
   listPriceCents   Int?            @map("list_price_cents")
+  /// Mínimo e máximo de referência que a página do Promobit traz para a oferta (referencePrices); vazio = fonte sem isso.
+  refMinCents      Int?            @map("ref_min_cents")
+  refMaxCents      Int?            @map("ref_max_cents")
+  /// Curtidas da oferta na comunidade (Promobit offerLikes); entra no calor social (S) da nota.
+  curtidas         Int?
   shippingCents    Int?            @map("shipping_cents")
   freeShipping     Boolean?        @map("free_shipping")
   coupon           String?

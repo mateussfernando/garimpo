@@ -10,6 +10,7 @@ import { usePreco } from "./preco";
 import { CompararLojas, spreadText, storeCount } from "./comparar-lojas";
 import { ComoANota } from "./como-a-nota";
 import { registrarClique } from "./gabarito";
+import { HistoricoBloco } from "./historico";
 import { AiAnalysis } from "./ia";
 import { VotoNota } from "./voto-nota";
 import { endsIn, parcelaText, vsBand } from "./offer-card";
@@ -178,6 +179,7 @@ export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { 
 
             <ComoANota nota={o.nota} d={o.notaDetalhe} iaScore={o.ia?.score ?? null} iaConfianca={o.ia?.confidence ?? null} />
             <VotoNota offerId={o.id} nota={o.nota} pref={pref} />
+            <HistoricoBloco o={o} />
 
             {ready.parts && (
               <section aria-label={`Sinais do algoritmo, nota ${fmtNota(o.nota)}`} className="flex flex-col gap-3">

@@ -61,7 +61,53 @@ function* walkDeals(node: unknown, depth = 0): Generator<{ title: string; path: 
   for (const v of Object.values(o)) yield* walkDeals(v, depth + 1);
 }
 
-export type DealPage = { title: string; text: string; outboundUrl: string | null; imageUrl: string | null; storeName: string | null };
+export type DealPage = {
+  title: string;
+  text: string;
+  outboundUrl: string | null;
+  imageUrl: string | null;
+  storeName: string | null;
+  /** Só o Promobit: mínimo e máximo de referência (referencePrices) e curtidas (offerLikes) da página que já lemos. */
+  refMinCents: number | null;
+  refMaxCents: number | null;
+  curtidas: number | null;
+};
+
+/** Primeiro valor da chave no JSON da página (a oferta principal vem antes das relacionadas). */
+function achar(node: unknown, chave: string, depth = 0): unknown {
+  if (!node || typeof node !== "object" || depth > 14) return undefined;
+  if (Array.isArray(node)) {
+    for (const n of node) {
+      const v = achar(n, chave, depth + 1);
+      if (v !== undefined) return v;
+    }
+    return undefined;
+  }
+  const o = node as Record<string, unknown>;
+  if (chave in o) return o[chave];
+  for (const v of Object.values(o)) {
+    const r = achar(v, chave, depth + 1);
+    if (r !== undefined) return r;
+  }
+  return undefined;
+}
+
+/** referencePrices e offerLikes do __NEXT_DATA__ do Promobit. Qualquer campo que sumir ou mudar vira null: a nota segue sem ele. */
+export function referenciasDoPromobit(html: string): { refMinCents: number | null; refMaxCents: number | null; curtidas: number | null } {
+  const vazio = { refMinCents: null, refMaxCents: null, curtidas: null };
+  const data = nextData(html);
+  if (!data) return vazio;
+  const reais = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.round(v * 100) : null);
+  const ref = achar(data, "referencePrices") as { minPrice?: unknown; maxPrice?: unknown } | undefined;
+  const likes = achar(data, "offerLikes");
+  const min = reais(ref?.minPrice);
+  const max = reais(ref?.maxPrice);
+  return {
+    refMinCents: min != null && max != null && max > min ? min : null,
+    refMaxCents: min != null && max != null && max > min ? max : null,
+    curtidas: typeof likes === "number" && Number.isInteger(likes) && likes >= 0 ? likes : null,
+  };
+}
 
 /** Lê o post: título, texto com preço, link para a loja e foto. */
 export function readDealPage(html: string, pageUrl: string, c: Community, fallbackTitle: string): DealPage {
@@ -83,7 +129,7 @@ export function readDealPage(html: string, pageUrl: string, c: Community, fallba
   const priceBits = body.match(/[^\n]{0,80}R\$\s?[\d.,]+[^\n]{0,80}/g)?.slice(0, 6).join("\n") ?? "";
   const storeName = STORES.find((s) => new RegExp(`\\b${s.name.replace(/[!.]/g, "")}\\b`, "i").test(ogDesc + " " + priceBits))?.name ?? ld?.seller ?? null;
   const text = [title, ogDesc, priceBits].filter(Boolean).join("\n");
-  return { title, text, outboundUrl, imageUrl: image ?? ld?.image ?? null, storeName };
+  return { title, text, outboundUrl, imageUrl: image ?? ld?.image ?? null, storeName, ...(c.slug === "promobit" ? referenciasDoPromobit(html) : { refMinCents: null, refMaxCents: null, curtidas: null }) };
 }
 
 async function sourceId(slug: string): Promise<number | null> {
@@ -120,6 +166,9 @@ export async function collectCommunity(c: Community): Promise<{ found: number; r
           outboundUrl: deal.outboundUrl,
           imageUrl: deal.imageUrl,
           storeName: deal.storeName,
+          refMinCents: deal.refMinCents,
+          refMaxCents: deal.refMaxCents,
+          curtidas: deal.curtidas,
         });
         if (offerId) added++;
       } catch (err) {

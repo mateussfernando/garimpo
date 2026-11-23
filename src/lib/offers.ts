@@ -2,13 +2,14 @@ import { STORES } from "@/config/stores";
 import { prisma } from "@/lib/db/prisma";
 import { NA_VITRINE, asJson, type OfferExtra, type OfferSpecs } from "@/lib/db/types";
 import { getAiStatus, type AiStatus } from "@/lib/ai-usage";
+import { estatisticas, type HistoricoDTO } from "@/lib/historico";
 import { montarNota, type NotaDetalheDTO } from "@/lib/nota";
 import { mercadoDe, notaDePartes, pontoA, type Partes } from "@/lib/nota-algoritmo";
 import { reguaDePosicao } from "@/lib/nota-posicao";
 import { valorDe, type PrecoPref } from "@/lib/preco";
 import { clusterSameProduct } from "@/lib/same-product";
 import { getSetting } from "@/lib/settings";
-import { HORA, atras, inicioDoDia } from "@/lib/tempo";
+import { DIA, HORA, atras, inicioDoDia } from "@/lib/tempo";
 
 export type Verdict = "excelente" | "boa" | "ok" | "fraca" | "evitar";
 /** Análise da IA da oferta (worker/ai/analises.ts). */
@@ -76,6 +77,11 @@ export type OfferDTO = {
   nota: number | null;
   /** Como a nota saiu: de quem, com que peso, se divergem (src/lib/nota.ts). */
   notaDetalhe: NotaDetalheDTO | null;
+  /** O preço de agora contra o histórico do produto (preços que o próprio app registrou); null = pouca história. */
+  historico: HistoricoDTO | null;
+  /** Mínimo e máximo de referência da página do Promobit; null = a oferta não veio de lá. */
+  refPromobit: { minCents: number; maxCents: number } | null;
+  curtidas: number | null;
   /** Os sinais do algoritmo (0 a 1); null = não se sabe, e o sinal ficou fora da conta. */
   notaParts: Partes | null;
   watched: boolean;
@@ -148,6 +154,14 @@ export async function listOffers(opts: { userId: number | null; onlyId?: number;
         prisma.ofertaUsuario.findMany({ where: { userId, offerId: { in: ids } } }),
       ])
     : [[], []];
+  // Histórico de 30 dias dos produtos: preços que o próprio app registrou ao conferir as lojas (price_points).
+  const produtoIds = [...new Set(found.map((o) => o.productId).filter((x): x is number => x != null))];
+  const pontos = produtoIds.length
+    ? await prisma.pricePoint.findMany({ where: { productId: { in: produtoIds }, observedAt: { gte: atras(30 * DIA) } }, select: { productId: true, observedAt: true, priceCardCents: true, cashCents: true } })
+    : [];
+  const serieDe = new Map<number, { t: number; card: number | null; cash: number | null }[]>();
+  for (const x of pontos) serieDe.set(x.productId, [...(serieDe.get(x.productId) ?? []), { t: x.observedAt.getTime(), card: x.priceCardCents, cash: x.cashCents }]);
+  const agora = Date.now();
   const meuAlvo = new Map(pessoais.filter((p) => p.alvo?.isActive && !p.alvo.deletedAt).map((p) => [p.offerId, p]));
   const marcaDe = new Map(marcas.map((m) => [m.offerId, m]));
   // A referência da faixa (alvo + faixa) não é uma relação do Prisma: vem numa consulta só e é ligada aqui.
@@ -175,6 +189,11 @@ export async function listOffers(opts: { userId: number | null; onlyId?: number;
   const all = rows.map(({ o, p, alvo, ref, refGeral, marca, source, sourceKind, productImage, ia }) => {
     const algo = algoritmoDoModo(o, p, ref, refGeral, pref);
     const precoDoModo = valorDe(o, pref);
+    // Série no preço em destaque: no Pix, o Pix de cada dia (cai no cartão onde não houve Pix).
+    const serie = (o.productId ? (serieDe.get(o.productId) ?? []) : []).flatMap((x) => {
+      const v = pref === "pix" && x.cash != null && x.cash > 0 ? x.cash : x.card;
+      return v != null ? [{ t: x.t, cents: v }] : [];
+    });
     return {
     productId: o.productId,
     sources: [source],
@@ -215,6 +234,9 @@ export async function listOffers(opts: { userId: number | null; onlyId?: number;
     // Por enquanto a nota do algoritmo (0 a 100); vira a nota única (0 a 10) em `aplicarNota`, depois de agrupar.
     nota: algo.valor,
     notaDetalhe: null as NotaDetalheDTO | null,
+    historico: estatisticas(serie, precoDoModo, o.listPriceCents, agora),
+    refPromobit: o.refMinCents != null && o.refMaxCents != null ? { minCents: o.refMinCents, maxCents: o.refMaxCents } : null,
+    curtidas: o.curtidas,
     notaParts: algo.partes,
     watched: marca?.watched ?? false,
     snoozedUntil: marca?.snoozedUntil?.toISOString() ?? null,

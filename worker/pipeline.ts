@@ -1,4 +1,5 @@
 import { ALVOS_V0 } from "@/config/alvos";
+import { estatisticas, pontoD } from "@/lib/historico";
 import { STORES, cleanUrl, decodeTrackingUrl, isShortener, storeByName, storeForUrl } from "@/config/stores";
 import { Prisma } from "@/generated/prisma/client";
 import { NOTIFY_CHANNEL, pool } from "@/lib/db";
@@ -114,6 +115,10 @@ export type RawInput = {
   outboundUrl: string | null;
   imageUrl: string | null;
   storeName?: string | null;
+  /** Promobit: mínimo e máximo de referência da página e curtidas (histórico que a própria página traz). */
+  refMinCents?: number | null;
+  refMaxCents?: number | null;
+  curtidas?: number | null;
 };
 
 /** Grava o item cru (uma vez só) e cria a oferta. Devolve o id da oferta nova, ou null se já existia. */
@@ -158,6 +163,9 @@ async function createOffer(rawId: number, input0: RawInput): Promise<number> {
       interest: parsed.interest,
       cashCents: parsed.cashCents,
       listPriceCents: parsed.listPriceCents,
+      refMinCents: input.refMinCents ?? null,
+      refMaxCents: input.refMaxCents ?? null,
+      curtidas: input.curtidas ?? null,
       shippingCents: parsed.shippingCents,
       freeShipping: parsed.freeShipping,
       coupon: parsed.coupon,
@@ -258,8 +266,16 @@ export async function scoreOffer(offerId: number, opts: { silent?: boolean; so?:
   const since = new Date(o.createdAt.getTime() - 15 * MIN);
   const same = o.productId ? Prisma.sql`product_id = ${o.productId}` : Prisma.sql`lower(title) = lower(${o.title})`;
   const [{ n }] = await prisma.$queryRaw<{ n: number }[]>`select count(distinct source_id)::int as n from offers where ${same} and created_at >= ${since}`;
+  // Desconto real (D): o preço de agora contra o histórico do produto (price_points); sem série, o mínimo e o máximo do Promobit.
+  const pontos = o.productId && o.priceCardCents
+    ? (await prisma.pricePoint.findMany({ where: { productId: o.productId, observedAt: { gte: atras(30 * DIA) } }, select: { observedAt: true, priceCardCents: true } }))
+        .filter((x) => x.priceCardCents != null)
+        .map((x) => ({ t: x.observedAt.getTime(), cents: x.priceCardCents! }))
+    : [];
+  const D = pontoD(estatisticas(pontos, o.priceCardCents, o.listPriceCents, Date.now()), { minCents: o.refMinCents, maxCents: o.refMaxCents }, o.priceCardCents);
   const base = {
     priceCardCents: o.priceCardCents,
+    D,
     storeTrust: store?.trust ?? null,
     freeShipping: o.freeShipping,
     shippingCents: o.shippingCents,

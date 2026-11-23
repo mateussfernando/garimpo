@@ -68,6 +68,13 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 23/11/2026, 05:30 · Nota única, Fase 2: histórico de preço (desconto real, selos) sem raspar
+
+- **Feito:** `src/lib/historico.ts` (puro, testado): série própria (`price_points`, 30 dias) vira um ponto por dia, sem valores fora de lugar (IQR; o dia a R$ 1.712 não puxa a mediana), com mediana, mínimo, máximo, desconto real, "mais barato que em X% dos dias" e selos. **D** (desconto real) entra na nota do algoritmo (`PESOS_COM_D`: D 0,30 · A 0,25 · C 0,15 · F 0,10 · S 0,20; sem D valem os pesos de antes) e **dá preço ao algoritmo sem depender de Alvo**: ele opina com A ou D. O worker calcula o D em `scoreOffer`; o site calcula a série no preço do modo (no Pix, o Pix de cada dia) para o DTO (`historico`). Promobit: `readDealPage` guarda `referencePrices` (mín/máx, só se máx > mín) e `offerLikes` da página que já lê (`offers.ref_min_cents`, `ref_max_cents`, `curtidas`; migração só acrescenta, dump `…-0507-antes-do-historico-fase-2`); sem série própria o D vem da posição entre mín e máx, puxada para o meio. Telas: selos no card ("Menor em N dias", "X% abaixo do normal", "Black Fraude?", "\"De\" inflado?", só com 5+ dias, e os vermelhos só com 14+ dias e 5+ pontos, sempre como indício) e bloco "Histórico de preço" no Detalhe e no painel, com "Ver histórico ↗" (abre uma busca no navegador; o app não lê esses sites).
+- **Testado:** 185 testes (histórico, D, leitor do Promobit). No site: só 11 de 1.128 cards têm histórico (4+ dias com preço), e os 11 entram na nota com D; ainda nenhuma oferta nova do Promobit passou pelo leitor novo (0 com mín/máx), então isso só aparece quando chegarem posts.
+- **Atenção:** a cobertura é pequena hoje (o histórico próprio começou em 11/11, 12 dias) e cresce todo dia; **Black Fraude ainda não pode aparecer** (nenhum produto tem 14 dias; os primeiros chegam por volta de 25/11). Fica ligado e só dispara com os mínimos.
+- **Pendente:** Fase 3 (Pix × parcelar, faixa de certeza, curtidas no S) e Fase 4 (`pnpm notas:calibrar`).
+
 ### 23/11/2026, 05:00 · Nota única 0–10 (algoritmo + IA), que segue cartão/Pix: Fase 1
 
 - **Pedido do usuário:** a nota e a comparação entre lojas seguirem a escolha cartão/Pix; uma nota só em vez de uma do algoritmo e outra da IA, de 0 a 10 com casa decimal; um histórico de preços e mais inovações. Plano aprovado em `C:\Users\Jogga\.claude\plans\splendid-exploring-fern.md` (4 fases, prazo: Black Friday 27/11). **Esta entrada é só a Fase 1.**

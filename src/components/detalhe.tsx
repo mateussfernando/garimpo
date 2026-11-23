@@ -7,6 +7,7 @@ import { fmtNota, notaDica } from '@/lib/nota'
 import { CompararLojas, spreadText, storeCount } from './comparar-lojas'
 import { ComoANota } from './como-a-nota'
 import { registrarClique } from './gabarito'
+import { HistoricoBloco } from './historico'
 import { AiAnalysis } from './ia'
 import { VotoNota } from './voto-nota'
 import { precoDe, valorDe } from '@/lib/preco'
@@ -665,6 +666,7 @@ export function Detalhe({ id }: { id: number }) {
                     iaConfianca={d.offer.ia?.confidence ?? null}
                   />
                   <VotoNota offerId={d.offer.id} nota={d.offer.nota} pref={pref} />
+                  <HistoricoBloco o={d.offer} />
                   {d.parts ? (
                     <div className="flex flex-col gap-4">
                       {(['A', 'C', 'F', 'S'] as const).map((k) => {

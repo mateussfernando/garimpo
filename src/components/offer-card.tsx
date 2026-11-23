@@ -5,6 +5,7 @@ import { fmtNota, notaDica } from "@/lib/nota";
 import type { OfferDTO } from "@/lib/offers";
 import { storeCount } from "./comparar-lojas";
 import { registrarClique } from "./gabarito";
+import { SelosHistorico } from "./historico";
 import { AiLine } from "./ia";
 import { precoDe } from "@/lib/preco";
 import { usePreco } from "./preco";
@@ -144,6 +145,7 @@ export function OfferCard({ o, index, now, flash, onOpen, onWatch, onDismiss }: 
               Alvo atingido
             </Badge>
           )}
+          <SelosHistorico o={o} />
           {delta != null && delta <= -5 && (
             <Badge tone="good" title={`Mediana de ${o.band!.n} preços da faixa ${o.band!.label}: ${brl(o.band!.medianCents)}`}>
               {Math.abs(delta)}% abaixo da faixa

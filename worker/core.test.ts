@@ -43,7 +43,7 @@ describe("Nota rápida", () => {
   });
   it("sem referência de preço o algoritmo não opina, e o que não se sabe fica fora (nada de nota por padrão)", () => {
     const n = notaRapida({ priceCardCents: 10000, targetCents: null, ceilingCents: null, storeTrust: null, freeShipping: null, shippingCents: null, sources15: 1 });
-    expect(n.parts).toEqual({ A: null, C: null, F: null, S: 0.25 });
+    expect(n.parts).toEqual({ A: null, C: null, F: null, S: 0.25, D: null });
     expect(n.nota).toBeNull();
     expect(n.base).toBe(0.1);
   });
@@ -55,6 +55,16 @@ describe("Nota rápida", () => {
     // O mesmo preço com loja própria e frete grátis não pode ficar abaixo de quem não se sabe nada da loja.
     const cheia = notaRapida({ priceCardCents: 8500, targetCents: 8500, ceilingCents: 11500, storeTrust: 1, freeShipping: true, shippingCents: 0, sources15: 0 });
     expect(cheia.nota).toBe(90);
+  });
+  it("com histórico (D) o algoritmo opina sem Alvo, e os pesos mudam", () => {
+    // Sem mercado da faixa (A nulo), só o D, a loja própria e frete grátis: D 0,30 · C 0,15 · F 0,10 · S 0,20 (S = 0)
+    const n = notaRapida({ priceCardCents: 8000, targetCents: null, ceilingCents: null, D: 1, storeTrust: 1, freeShipping: true, shippingCents: 0, sources15: 0 });
+    expect(n.parts.D).toBe(1);
+    expect(n.nota).toBe(73); // 100 x (0,30 + 0,15 + 0,10) / 0,75
+    // Preço sempre acima do histórico: D = 0 derruba a nota
+    expect(notaRapida({ priceCardCents: 8000, targetCents: null, ceilingCents: null, D: 0, storeTrust: 1, freeShipping: true, shippingCents: 0, sources15: 0 }).nota!).toBeLessThan(n.nota!);
+    // Sem D e sem A continua sem opinar
+    expect(notaRapida({ priceCardCents: 8000, targetCents: null, ceilingCents: null, D: null, storeTrust: 1, freeShipping: true, shippingCents: 0, sources15: 4 }).nota).toBeNull();
   });
   it("refaz a nota com outro A (o do Pix) sem mexer nos demais sinais", () => {
     const base = { A: 0.6, C: 1, F: 1, S: 0 } as const; // S = 0 é "sei que ninguém mais postou": conta, com peso 0,10

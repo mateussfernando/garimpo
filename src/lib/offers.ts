@@ -262,8 +262,10 @@ export type StatusDTO = {
   sources: { slug: string; name: string; status: string; note: string | null; lastRunAt: string | null }[];
   /** Escuta do Telegram: grupos ligados e total de grupos e canais achados. */
   telegram: { on: number; total: number } | null;
-  ai: AiStatus;
-  pending: number;
+  /** Só para quem gerencia a IA (src/lib/visao.ts); null para os outros. */
+  ai: AiStatus | null;
+  /** Fila de conferência: só para quem vê o sistema. */
+  pending: number | null;
   today: number;
   alvos: { slug: string; name: string; targetCents: number | null; ceilingCents: number | null }[];
   /** Comentário geral da IA sobre o momento (worker/ai/radar.ts). */

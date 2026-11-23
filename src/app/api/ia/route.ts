@@ -2,6 +2,7 @@ import { z } from "zod";
 import { AI_CHOICES, AI_CHOICE_KEY, AI_CMD_CHANNEL, AI_STATE_KEY } from "@/lib/ai-usage";
 import { NOTIFY_CHANNEL, pool } from "@/lib/db";
 import { setSetting } from "@/lib/settings";
+import { exigir } from "@/lib/sessao";
 
 // Botões da IA no cabeçalho. O site nunca chama a IA: "rodar" só avisa o worker por pg_notify.
 // "provedor" escolhe quem trabalha (Claude, agy ou os dois); o worker lê a escolha a cada rodada.
@@ -11,6 +12,8 @@ const Body = z.discriminatedUnion("acao", [
 ]);
 
 export async function POST(request: Request) {
+  const eu = await exigir("ia.gerenciar", request);
+  if (eu instanceof Response) return eu;
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ erro: "pedido inválido" }, { status: 400 });
   const b = parsed.data;

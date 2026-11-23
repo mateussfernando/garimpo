@@ -66,6 +66,20 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 22/11/2026, 22:55 · deploy-v2, Fase 5: admin e usuário comum separados (API, telas e tempo real)
+
+- **Feito:**
+  - Toda rota de `src/app/api` chama `exigir(<permissão>)` logo depois de `connection()`; as que mudam algo também conferem a origem. Fontes (inclusive Testar, convite e reler), Lojas, `/api/ia` e Fila da IA, esconder cupom e `/api/admin` são só de quem tem a permissão de admin; Vitrine, Detalhe, Cupons, eventos e status pedem `ofertas.ver`; Alvos pedem `alvos.proprios`;
+  - `src/lib/visao.ts` monta o que cada um vê: sem `ofertas.detalhes_internos`, o nome de grupo do Telegram vira "Grupo do Telegram" (fonte, "em N fontes", lojas e calor social), o link do post do cupom some e o motivo técnico de "não conferido" vira "não deu para conferir o preço na loja"; sem `ia.analises.ver`, a análise da IA e o insight saem da resposta;
+  - Cabeçalho (`/api/status`): custo e uso da IA só com `ia.gerenciar`; saúde das fontes, Telegram, "Verificando" e fila só com `sistema.ver`; radar só com `ia.analises.ver`. Na tela, Pausar, Chamar IA, "Usar", "Fontes" e "Máquina" seguem as mesmas permissões;
+  - Eventos: o comum não vê "canal novo" (nome de grupo);
+  - Tempo real (`/api/stream`) exige sessão e passa cada aviso por `src/lib/avisos.ts`: o admin recebe o aviso inteiro; o comum só oferta, cupom, Alvos, evento e insight, sem detalhe (só o tipo e o número). Pausa de loja, fonte, IA e canal novo não saem para ele; aviso com dono (o "Alvo atingido" da Fase 6) só vai para o dono;
+  - `<Restrita>` nas telas Fontes, IA, Lojas, Usuários e Alvos: quem não pode vê "Esta tela é só para administradores" e o link para a Vitrine (quem barra de verdade é a API).
+- **Testado (por HTTP, com uma conta comum e uma admin, contra os dados reais):** o comum leva 403 em `/api/fontes`, `/api/lojas`, `/api/ia/fila`, `/api/admin` e Testar fonte, e também ao pausar a IA, pausar loja, reler fontes e esconder cupom; o admin leva 200 em tudo. Nenhum dos 39 nomes de grupo do Telegram aparece nos campos de fonte da Vitrine, do Detalhe, dos Cupons e dos eventos do comum (só aparecem "KaBuM!", que é nome de loja, e o título de um cupom). Status do comum: IA `null`, 0 fontes, Telegram `null`, fila `null`; o do admin vem completo. 0 de 158 cupons com link do post para o comum. Tempo real: com 5 avisos de teste, o comum recebeu só `{"type":"offer","id":1}`; o admin recebeu 4 inteiros e ninguém recebeu o aviso com dono de outra pessoa. Sem sessão, `/api/stream` dá 401. 118 testes, `tsc` e `eslint`.
+- **Achado:** o limite de 5 logins por minuto vale também para os scripts de teste (eles esperam e tentam de novo).
+- **Pendente:** os Alvos ainda são de todos (o comum lê e muda os mesmos Alvos do admin) até a Fase 6. O cabeçalho e o menu do comum não foram vistos no navegador (o painel do navegador estava fechado); a API foi testada.
+- **Próximo passo:** Fase 6, Alvos e marcações de cada usuário (com dump antes).
+
 ### 22/11/2026, 21:00 · deploy-v2, Fase 4: cargos e permissões
 
 - **Feito:**

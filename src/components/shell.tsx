@@ -160,7 +160,7 @@ function UsageBar({ label, w }: { label: string; w: { pct: number; resetsAt: num
   );
 }
 
-type AiChoice = StatusDTO["ai"]["choice"];
+type AiChoice = NonNullable<StatusDTO["ai"]>["choice"];
 /** Quem trabalha na IA. O agy é o Antigravity CLI (Gemini 3.8 Flash Low), pela conta do Antigravity. */
 export const AI_CHOICE_LABEL: Record<AiChoice, string> = { claude: "Claude", agy: "agy (Antigravity)", ambos: "Claude + agy" };
 
@@ -300,10 +300,13 @@ export function AppHeader({ active, status, live }: { active: NavKey | null; sta
         <Metric label="Ofertas hoje">
           <span className="font-mono tnum text-[13px] text-ink-2">{status?.today ?? "—"}</span>
         </Metric>
-        <Metric label="Verificando">
-          <span className="font-mono tnum text-[13px] text-ink-2">{status?.pending ?? "—"}</span>
-        </Metric>
-        <AiControls ai={ai ?? null} />
+        {podeVer(me, "sistema.ver") && (
+          <Metric label="Verificando">
+            <span className="font-mono tnum text-[13px] text-ink-2">{status?.pending ?? "—"}</span>
+          </Metric>
+        )}
+        {podeVer(me, "ia.gerenciar") && <AiControls ai={ai ?? null} />}
+        {podeVer(me, "sistema.ver") && (
         <Metric label="Fontes">
           <span className="flex flex-wrap items-center gap-3 text-xs text-ink-2">
             {(status?.sources ?? []).map((s) => (
@@ -321,12 +324,15 @@ export function AppHeader({ active, status, live }: { active: NavKey | null; sta
             )}
           </span>
         </Metric>
-        <Metric label="Máquina">
-          <span className="flex items-center gap-1.5 text-xs text-ink-2">
-            <span className="h-[7px] w-[7px] rounded-full bg-good-dot" />
-            Este PC · tudo local
-          </span>
-        </Metric>
+        )}
+        {podeVer(me, "sistema.ver") && (
+          <Metric label="Máquina">
+            <span className="flex items-center gap-1.5 text-xs text-ink-2">
+              <span className="h-[7px] w-[7px] rounded-full bg-good-dot" />
+              Este PC · tudo local
+            </span>
+          </Metric>
+        )}
       </div>
     </header>
   );

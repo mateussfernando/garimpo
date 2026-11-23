@@ -4,6 +4,7 @@ import { CMD_CHANNEL, NOTIFY_CHANNEL, pool } from "@/lib/db";
 import { prisma } from "@/lib/db/prisma";
 import { json } from "@/lib/db/types";
 import { checkFonte, urlOfFonte } from "@/lib/fontes";
+import { exigir } from "@/lib/sessao";
 
 // Confirmar liga a fonte; pausar e ignorar desligam; retomar e desfazer voltam ao estado de sugestão ou confirmada.
 // As fontes da tela (feed, página de ofertas, busca VTEX) também se editam, leem agora e se apagam.
@@ -33,6 +34,8 @@ async function find(idText: string) {
 }
 
 export async function PATCH(request: Request, ctx: RouteContext<"/api/fontes/[id]">) {
+  const eu = await exigir("fontes.gerenciar", request);
+  if (eu instanceof Response) return eu;
   const src = await find((await ctx.params).id);
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!src) return Response.json({ erro: "fonte não encontrada" }, { status: 404 });
@@ -68,7 +71,9 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/fontes/[id
 }
 
 // Apagar: só as fontes da tela. A fonte some e para de ser lida; as ofertas que ela trouxe ficam.
-export async function DELETE(_request: Request, ctx: RouteContext<"/api/fontes/[id]">) {
+export async function DELETE(request: Request, ctx: RouteContext<"/api/fontes/[id]">) {
+  const eu = await exigir("fontes.gerenciar", request);
+  if (eu instanceof Response) return eu;
   const src = await find((await ctx.params).id);
   if (!src) return Response.json({ erro: "fonte não encontrada" }, { status: 404 });
   if (!GENERIC.includes(src.kind)) return Response.json({ erro: "fontes do código e do Telegram só se pausam" }, { status: 400 });

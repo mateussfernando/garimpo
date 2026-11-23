@@ -1,11 +1,15 @@
 import { connection } from "next/server";
 import { Client } from "pg";
 import { NOTIFY_CHANNEL, pgConfig } from "@/lib/db";
+import { avisoPara } from "@/lib/avisos";
+import { exigir } from "@/lib/sessao";
 
-// Tempo real: o worker chama pg_notify; aqui fazemos LISTEN e repassamos por SSE.
+// Tempo real: o worker chama pg_notify; aqui fazemos LISTEN e repassamos por SSE, filtrado por quem está vendo.
 // (Com Cache Components não se exporta `runtime`: a rota já roda em Node.)
 export async function GET(request: Request) {
   await connection();
+  const eu = await exigir("ofertas.ver");
+  if (eu instanceof Response) return eu;
   const client = new Client(pgConfig());
   await client.connect();
   await client.query(`LISTEN ${NOTIFY_CHANNEL}`);
@@ -32,7 +36,10 @@ export async function GET(request: Request) {
         }
       };
       send("retry: 3000\n\nevent: ready\ndata: {}\n\n");
-      client.on("notification", (msg) => send(`data: ${msg.payload ?? "{}"}\n\n`));
+      client.on("notification", (msg) => {
+        const out = avisoPara(eu, msg.payload ?? "{}");
+        if (out) send(`data: ${out}\n\n`);
+      });
       client.on("error", () => {
         shutdown();
         try {

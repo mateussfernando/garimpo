@@ -3,6 +3,7 @@ import { ALVOS_V0 } from "@/config/alvos";
 import { prisma } from "@/lib/db/prisma";
 import { AlvoInput, FaixaInput, tellWorker } from "@/lib/alvos";
 import { effectiveTargets } from "../../../../../worker/match/alvos";
+import { exigir } from "@/lib/sessao";
 
 const Body = z.discriminatedUnion("acao", [
   AlvoInput.extend({ acao: z.literal("editar") }),
@@ -18,6 +19,8 @@ async function find(idText: string) {
 }
 
 export async function PATCH(request: Request, ctx: RouteContext<"/api/alvos/[id]">) {
+  const eu = await exigir("alvos.proprios", request);
+  if (eu instanceof Response) return eu;
   const alvo = await find((await ctx.params).id);
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!alvo) return Response.json({ erro: "Alvo não encontrado" }, { status: 404 });
@@ -59,7 +62,9 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/alvos/[id]
 }
 
 // Apagar = some da tela e das ofertas, e não volta quando o worker sobe. O histórico de preços fica no banco.
-export async function DELETE(_request: Request, ctx: RouteContext<"/api/alvos/[id]">) {
+export async function DELETE(request: Request, ctx: RouteContext<"/api/alvos/[id]">) {
+  const eu = await exigir("alvos.proprios", request);
+  if (eu instanceof Response) return eu;
   const alvo = await find((await ctx.params).id);
   if (!alvo) return Response.json({ erro: "Alvo não encontrado" }, { status: 404 });
   await prisma.alvo.update({ where: { id: alvo.id }, data: { active: false, deletedAt: new Date() } });

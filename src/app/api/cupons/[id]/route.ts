@@ -1,11 +1,14 @@
 import { z } from "zod";
 import { NOTIFY_CHANNEL, pool } from "@/lib/db";
 import { prisma } from "@/lib/db/prisma";
+import { exigir } from "@/lib/sessao";
 
 // Esconder um cupom que não vale (ou desfazer).
 const Body = z.object({ hidden: z.boolean() });
 
 export async function PATCH(request: Request, ctx: RouteContext<"/api/cupons/[id]">) {
+  const eu = await exigir("cupons.moderar", request);
+  if (eu instanceof Response) return eu;
   const { id } = await ctx.params;
   const parsed = Body.safeParse(await request.json().catch(() => null));
   const n = Number(id);

@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useState } from "react";
 import type { FonteDTO, FonteState, FontesDTO } from "@/lib/fontes";
 import { ConfigActions, FonteForm, Sugestoes } from "./fontes-config";
-import { AppHeader, Badge, PageTitle, ago, useLive, useNow, useStatus } from "./shell";
+import { Badge, PageTitle, ago, useLive, useNow } from "./shell";
 
 const LABEL: Record<FonteState, string> = { confirmada: "Confirmada", sugerida: "Sugerida", pausada: "Pausada", ignorada: "Ignorada" };
 
@@ -20,7 +20,6 @@ export function Fontes() {
   const [scanning, setScanning] = useState(false);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
-  const { status, live } = useStatus();
   const now = useNow(30_000);
 
   const load = useCallback(async () => {
@@ -52,8 +51,7 @@ export function Fontes() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <AppHeader active="fontes" status={status} live={live} />
-      <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-7 px-8 pb-10 pt-7">
+      <div className="flex flex-col gap-7">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <PageTitle title="Fontes">
             Grupos e canais de promoção achados sozinhos na sua conta do Telegram, as comunidades na web e as fontes que você adiciona aqui (feed RSS, página de ofertas e busca em loja VTEX). O Garimpo só lê: não envia mensagens, não entra em grupos e nunca abre conversas individuais.
@@ -202,7 +200,7 @@ export function Fontes() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {(data?.invites ?? []).map((i) => (
-                <article key={i.link} className="flex flex-col gap-2 rounded-2xl border border-[rgba(255,143,90,0.45)] bg-surface p-5">
+                <article key={i.link} className="flex flex-col gap-2 rounded-2xl border border-pause-line bg-surface p-5">
                   <span className="text-[11px] uppercase tracking-[0.06em] text-pause">Link de convite encontrado</span>
                   <h3 className="break-all font-mono text-sm">{i.link}</h3>
                   <p className="text-[13px] text-muted">
@@ -217,7 +215,7 @@ export function Fontes() {
             </div>
           )}
         </section>
-      </main>
+      </div>
     </div>
   );
 }

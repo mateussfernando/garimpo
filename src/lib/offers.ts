@@ -109,7 +109,10 @@ export type OfferDTO = {
   isActive: boolean;
   /** O produto está na Vitrine; false = um admin tirou o produto inteiro; null = oferta sem produto da loja. */
   productActive: boolean | null;
+  /** A postagem mais recente do produto (ordena "mais novos"). */
   createdAt: string;
+  /** A primeira vez que a oferta (ou o mesmo produto, no card agrupado) apareceu: a data "Entrou" do card. */
+  entrouEm: string;
 };
 
 /**
@@ -266,6 +269,7 @@ export async function listOffers(opts: { userId: number | null; onlyId?: number;
     isActive: o.isActive,
     productActive: o.product ? o.product.isActive : null,
     createdAt: o.createdAt.toISOString(),
+    entrouEm: o.createdAt.toISOString(),
     };
   });
   const cards = opts.onlyId != null ? all.map((o) => strip({ ...o, lojas: storeQuotes([o], pref) })) : groupByProduct(all, pref).map(strip);
@@ -380,6 +384,8 @@ export function groupByProduct(list: Row[], pref: PrecoPref = "cartao"): Row[] {
         // Sem foto na melhor oferta: vale a foto de outra cópia do mesmo produto.
         imageUrl: best.imageUrl ?? g.find((o) => o.imageUrl)?.imageUrl ?? null,
         createdAt: g.reduce((mx, o) => (o.createdAt > mx ? o.createdAt : mx), best.createdAt),
+        // A primeira vez que o produto apareceu (a data "Entrou" do card); o createdAt acima é a postagem mais recente.
+        entrouEm: g.reduce((mn, o) => (o.entrouEm < mn ? o.entrouEm : mn), best.entrouEm),
       };
     })
     .sort((a, b) => (b.nota ?? -1) - (a.nota ?? -1) || b.createdAt.localeCompare(a.createdAt));

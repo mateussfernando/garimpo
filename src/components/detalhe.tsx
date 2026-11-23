@@ -89,7 +89,7 @@ function Chart({ d }: { d: OfferDetailDTO }) {
           const v = yMin + ((yMax - yMin) * k) / 3
           return (
             <g key={k}>
-              <line x1="56" x2="696" y1={y(v)} y2={y(v)} stroke="#1F2329" />
+              <line x1="56" x2="696" y1={y(v)} y2={y(v)} className="stroke-line" />
               <text
                 x="48"
                 y={y(v) + 4}
@@ -109,7 +109,7 @@ function Chart({ d }: { d: OfferDetailDTO }) {
             x2="696"
             y1={y(d.stats.alvoCents)}
             y2={y(d.stats.alvoCents)}
-            stroke="#F5B83D"
+            className="stroke-gold"
             strokeWidth="1.5"
             strokeDasharray="6 5"
           />
@@ -120,7 +120,7 @@ function Chart({ d }: { d: OfferDetailDTO }) {
             x2="696"
             y1={y(med)}
             y2={y(med)}
-            stroke="#9BA1A9"
+            className="stroke-muted"
             strokeWidth="1.2"
             strokeDasharray="2 5"
           />
@@ -128,7 +128,7 @@ function Chart({ d }: { d: OfferDetailDTO }) {
         <path
           d={path}
           fill="none"
-          stroke="#ECEDEE"
+          className="stroke-ink"
           strokeWidth="2"
           strokeLinejoin="round"
         />
@@ -584,7 +584,7 @@ export function Detalhe({ id }: { id: number }) {
                       d.stats.alvoCents
                         ? brl(d.stats.alvoCents)
                         : 'sem referência',
-                      'text-gold',
+                      'text-gold-ink',
                     ],
                     [
                       'Mediana de 30 dias',

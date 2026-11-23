@@ -5,7 +5,7 @@ import { useCallback, useState } from "react";
 import { AGY_PARALLEL, AI_AUTO_STOP_PCT, AI_PARALLEL } from "@/config/pricing";
 import type { FilaDTO, FilaItem } from "@/lib/fila-ia";
 import { VERDICT } from "./ia";
-import { AI_CHOICE_LABEL, AppHeader, Badge, PageTitle, ago, brl, useLive, useNow, useStatus } from "./shell";
+import { AI_CHOICE_LABEL, Badge, PageTitle, ago, brl, useLive, useNow, useStatus } from "./shell";
 
 function Thumb({ src }: { src: string | null }) {
   return (
@@ -41,7 +41,7 @@ function Row({ it, now, children }: { it: FilaItem; now: number | null; children
 export function FilaIa() {
   const [data, setData] = useState<FilaDTO | null>(null);
   const [busy, setBusy] = useState(false);
-  const { status, live } = useStatus();
+  const { status } = useStatus();
   const now = useNow(30_000);
   const load = useCallback(async () => {
     setData(await fetch("/api/ia/fila", { cache: "no-store" }).then((r) => r.json()));
@@ -84,8 +84,7 @@ export function FilaIa() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <AppHeader active="ia" status={status} live={live} />
-      <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-8 pb-10 pt-7">
+      <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <PageTitle title="Fila da IA">
             As ofertas das últimas 48 h que ainda esperam a análise da IA. O mesmo produto postado em vários grupos vai uma vez só; a análise vale para todos os posts iguais.
@@ -164,7 +163,7 @@ export function FilaIa() {
             )}
           </section>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

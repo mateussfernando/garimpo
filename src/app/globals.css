@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-/* Tokens de design/tokens.md. Ouro só para "Alvo atingido". */
+/* Tokens de design/tokens.md. Ouro só para "Alvo atingido". Os valores do @theme são o tema escuro; o claro
+   redefine as mesmas variáveis em [data-theme="light"] (o script do <head> escolhe antes de pintar). */
 @theme {
   --color-bg: #0b0c0e;
   --color-surface: #121418;
@@ -22,12 +23,64 @@
   --color-good-dot: #3ddc84;
   --color-bad: #ff9a9a;
   --color-pause: #ff8f5a;
+  /* Ouro como texto (no claro precisa ser mais escuro para ler); fundos e bordas dos selos e avisos. */
+  --color-gold-ink: #f5b83d;
+  --color-good-bg: rgba(61, 220, 132, 0.12);
+  --color-good-line: rgba(61, 220, 132, 0.35);
+  --color-bad-bg: rgba(255, 107, 107, 0.12);
+  --color-bad-line: rgba(255, 107, 107, 0.4);
+  --color-pause-bg: rgba(255, 143, 90, 0.15);
+  --color-pause-line: rgba(255, 143, 90, 0.45);
+  --color-war: #08090b;
   --font-sans: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
+/* Sombras, pontilhado da foto e brilho de oferta nova: mudam com o tema. */
+:root {
+  --sombra: rgba(0, 0, 0, 0.5);
+  --pontos: rgba(255, 255, 255, 0.07);
+  --brilho: 236, 237, 238;
+}
+
 html {
   color-scheme: dark;
+}
+
+/* Tema claro: mesmas variáveis, contraste AA no texto. Ouro só como fundo (com texto escuro em cima) ou o ouro-texto. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-bg: #f5f6f8;
+  --color-surface: #ffffff;
+  --color-deep: #eef0f3;
+  --color-active: #e6e9ee;
+  --color-pill: #ffffff;
+  --color-line: #e2e5ea;
+  --color-card-line: #dce0e6;
+  --color-control: #c9cfd8;
+  --color-num: #0d1015;
+  --color-ink: #14171c;
+  --color-ink-2: #39404a;
+  --color-ink-3: #4c545f;
+  --color-muted: #5b636e;
+  --color-label: #69717d;
+  --color-gold: #f5b83d;
+  --color-on-gold: #1a1404;
+  --color-gold-ink: #8a5800;
+  --color-good: #137a43;
+  --color-good-dot: #1f9d55;
+  --color-bad: #b42318;
+  --color-pause: #b5541b;
+  --color-good-bg: rgba(31, 157, 85, 0.1);
+  --color-good-line: rgba(31, 157, 85, 0.35);
+  --color-bad-bg: rgba(217, 45, 32, 0.08);
+  --color-bad-line: rgba(217, 45, 32, 0.35);
+  --color-pause-bg: rgba(181, 84, 27, 0.1);
+  --color-pause-line: rgba(181, 84, 27, 0.4);
+  --color-war: #eceef2;
+  --sombra: rgba(15, 20, 30, 0.14);
+  --pontos: rgba(0, 0, 0, 0.06);
+  --brilho: 20, 23, 28;
 }
 
 body {
@@ -38,7 +91,7 @@ body {
 
 .dots {
   background-color: var(--color-deep);
-  background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-image: radial-gradient(var(--pontos) 1px, transparent 1px);
   background-size: 14px 14px;
 }
 
@@ -65,8 +118,8 @@ body {
 
 /* Oferta que acabou de chegar: brilho suave por 1 min. */
 @keyframes fresh-glow {
-  0%, 100% { box-shadow: 0 0 0 1px rgba(236, 237, 238, 0.35), 0 0 22px rgba(236, 237, 238, 0.1); }
-  50% { box-shadow: 0 0 0 1px rgba(236, 237, 238, 0.7), 0 0 30px rgba(236, 237, 238, 0.2); }
+  0%, 100% { box-shadow: 0 0 0 1px rgba(var(--brilho), 0.35), 0 0 22px rgba(var(--brilho), 0.1); }
+  50% { box-shadow: 0 0 0 1px rgba(var(--brilho), 0.7), 0 0 30px rgba(var(--brilho), 0.2); }
 }
 .fresh { animation: fresh-glow 2s ease-in-out infinite; }
 

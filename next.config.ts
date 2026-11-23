@@ -25,6 +25,14 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: SEGURANCA }];
   },
+  // As telas de administração moraram na raiz até 23/11; hoje ficam na área Admin.
+  async redirects() {
+    return [
+      { source: "/fontes", destination: "/admin/fontes", permanent: false },
+      { source: "/lojas", destination: "/admin/lojas", permanent: false },
+      { source: "/ia", destination: "/admin/ia", permanent: false },
+    ];
+  },
   turbopack: {
     rules: {
       "*.css": {

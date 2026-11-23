@@ -9,7 +9,7 @@ import { SelosHistorico } from "./historico";
 import { AiLine } from "./ia";
 import { precoDe } from "@/lib/preco";
 import { usePreco } from "./preco";
-import { Badge, ago, brl } from "./shell";
+import { Badge, ago, brl, dataHora } from "./shell";
 
 /** Quanto falta para o fim da oferta, em texto curto. null se já passou ou não há prazo. */
 export function endsIn(iso: string | undefined, now: number | null): string | null {
@@ -105,7 +105,7 @@ export function OfferCard({ o, index, now, flash, onOpen, onWatch, onDismiss }: 
           </span>
         )}
         {fresh && <span className="absolute bottom-3 left-3 rounded-full bg-ink px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-bg">Agora</span>}
-        {soldOut && <span className="absolute bottom-3 left-3 rounded-full border border-[rgba(255,107,107,0.4)] bg-pill px-2.5 py-1 text-[11px] font-semibold uppercase text-bad">Esgotado</span>}
+        {soldOut && <span className="absolute bottom-3 left-3 rounded-full border border-bad-line bg-pill px-2.5 py-1 text-[11px] font-semibold uppercase text-bad">Esgotado</span>}
       </button>
 
       <div className="flex flex-1 flex-col gap-3 p-4">
@@ -199,6 +199,10 @@ export function OfferCard({ o, index, now, flash, onOpen, onWatch, onDismiss }: 
             </svg>
           </button>
         </div>
+
+        <p className="-mt-1 text-[11.5px] text-label" title={ago(o.entrouEm, now) || undefined}>
+          Entrou {dataHora(o.entrouEm)}
+        </p>
       </div>
     </motion.article>
   );

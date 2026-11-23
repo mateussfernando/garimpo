@@ -10,7 +10,7 @@ const KIND: Record<
 > = {
   alvo: {
     label: 'Alvo atingido',
-    cls: 'border-gold text-gold',
+    cls: 'border-gold text-gold-ink',
     dot: 'bg-gold',
   },
   nova: { label: 'Nova', cls: 'border-control text-ink-2', dot: 'bg-ink-3' },
@@ -21,7 +21,7 @@ const KIND: Record<
   },
   esgotou: {
     label: 'Esgotou',
-    cls: 'border-[rgba(255,107,107,0.4)] text-bad',
+    cls: 'border-bad-line text-bad',
     dot: 'bg-bad',
   },
   canal: {

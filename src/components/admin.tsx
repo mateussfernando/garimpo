@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import type { Permissao } from "@/config/permissoes";
 import type { AdminCargoDTO, AdminDTO } from "@/lib/admin";
-import { AppHeader, Badge, PageTitle, useLive, useMe, useStatus } from "./shell";
+import { Badge, PageTitle, useLive, useMe } from "./shell";
 
 async function send(url: string, method: string, body?: unknown): Promise<string | null> {
   const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -12,7 +12,7 @@ async function send(url: string, method: string, body?: unknown): Promise<string
 }
 
 function Btn({ children, onClick, primary, danger, disabled }: { children: React.ReactNode; onClick?: () => void; primary?: boolean; danger?: boolean; disabled?: boolean }) {
-  const tone = primary ? "border-ink bg-ink text-bg" : danger ? "border-[rgba(255,107,107,0.4)] text-bad" : "border-control text-ink-2 hover:text-ink";
+  const tone = primary ? "border-ink bg-ink text-bg" : danger ? "border-bad-line text-bad" : "border-control text-ink-2 hover:text-ink";
   return (
     <button type="button" onClick={onClick} disabled={disabled} className={`h-10 rounded-[10px] border px-3.5 text-[13px] font-medium disabled:opacity-50 ${tone}`}>
       {children}
@@ -79,7 +79,6 @@ export function Admin() {
   const [editando, setEditando] = useState<number | "novo" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const me = useMe();
-  const { status, live } = useStatus();
   const load = useCallback(async () => {
     const r = await fetch("/api/admin", { cache: "no-store" });
     if (r.ok) setData(await r.json());
@@ -104,13 +103,12 @@ export function Admin() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <AppHeader active="admin" status={status} live={live} />
-      <main className="mx-auto flex w-full max-w-[1200px] flex-col gap-7 px-4 pb-10 pt-7 sm:px-8">
+      <div className="flex flex-col gap-7">
         <PageTitle title="Usuários e cargos">
           Quem usa o Garimpo e o que cada cargo pode ver e fazer. Quem se cadastra entra no cargo padrão; só um administrador muda o cargo de alguém.
         </PageTitle>
         {erro && (
-          <p role="alert" className="rounded-[10px] border border-[rgba(255,107,107,0.4)] px-3 py-2 text-sm text-bad">
+          <p role="alert" className="rounded-[10px] border border-bad-line px-3 py-2 text-sm text-bad">
             {erro}
           </p>
         )}
@@ -269,7 +267,7 @@ export function Admin() {
             ),
           )}
         </section>
-      </main>
+      </div>
     </div>
   );
 }

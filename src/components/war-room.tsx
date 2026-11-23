@@ -130,7 +130,7 @@ export function WarRoom() {
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
   return (
-    <div className="flex min-h-screen flex-col" style={{ background: "#08090B" }}>
+    <div className="flex min-h-screen flex-col" style={{ background: "var(--color-war)" }}>
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line px-8 py-3">
         <div className="flex items-center gap-3">
           <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">

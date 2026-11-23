@@ -23,7 +23,7 @@ function Btn({
   const tone = primary
     ? 'border-ink bg-ink text-bg'
     : danger
-      ? 'border-[rgba(255,107,107,0.4)] text-bad hover:bg-[rgba(255,107,107,0.08)]'
+      ? 'border-bad-line text-bad hover:bg-bad-bg'
       : 'border-control text-ink-2 hover:text-ink'
   return (
     <button

@@ -443,13 +443,12 @@ export function Cupons() {
         ))}
       </footer>
       <Toaster
-        theme="dark"
-        position="bottom-left"
+                position="bottom-left"
         toastOptions={{
           style: {
-            background: '#1C2026',
-            border: '1px solid #2C313A',
-            color: '#ECEDEE',
+            background: 'var(--color-pill)',
+            border: '1px solid var(--color-control)',
+            color: 'var(--color-ink)',
           },
         }}
       />

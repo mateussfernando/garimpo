@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { AnimatePresence, LayoutGroup, MotionConfig } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Toaster, toast } from "sonner";
@@ -62,7 +63,7 @@ export function Vitrine() {
         description: `${brl(e.to)} no cartão${e.target ? ` · alvo ${brl(e.target)}` : ""}${e.band ? ` · ${e.band}` : ""}${played ? "" : " · som desligado"}`,
         duration: 25_000,
         action: e.offerId != null ? { label: "Ver", onClick: () => setOpenId(e.offerId) } : undefined,
-        style: { borderColor: "#F5B83D", background: "#17140A", color: "#F5B83D" },
+        style: { borderColor: "var(--color-gold)", background: "color-mix(in srgb, var(--color-gold) 10%, var(--color-surface))", color: "var(--color-gold-ink)" },
       });
     };
   }, [play, flashTitle]);
@@ -175,41 +176,66 @@ export function Vitrine() {
         <Feed events={events} now={now} onOpen={open} />
 
         <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-8 pb-8 pt-7">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div className="flex flex-col gap-1.5">
-              <h1 className="text-[30px] font-semibold tracking-tight">Vitrine</h1>
-              <p className="text-sm text-muted">Ofertas ao vivo de qualquer produto dos seus grupos e comunidades, ordenadas pela nota. O preço grande é o total no cartão.</p>
-            </div>
-            <div className="flex items-center gap-3 text-[13px] text-muted">
-              {lastOfferAt && <span>última oferta {ago(lastOfferAt, now)}</span>}
-              <button type="button" onClick={toggleMute} aria-pressed={!muted} className="flex h-11 items-center gap-2 rounded-[10px] border border-control px-3.5 text-ink-2 hover:text-ink" title="Som do alerta de Alvo atingido">
+          <h1 className="text-[30px] font-semibold tracking-tight">Vitrine</h1>
+
+          <div className="-mt-2 flex flex-wrap items-center justify-between gap-3 text-[13px] text-muted">
+            {lastOfferAt ? <span>Última oferta {ago(lastOfferAt, now)}</span> : <span />}
+            <div className="flex items-center gap-2">
+              <Link
+                href="/war-room"
+                className="flex h-10 items-center gap-2 rounded-[10px] border border-control px-3.5 text-ink-2 hover:text-ink"
+                title="Uma oferta por vez, em tela cheia, para decidir rápido (War Room)"
+              >
+                Modo decisão
+              </Link>
+              <button
+                type="button"
+                onClick={toggleMute}
+                aria-pressed={!muted}
+                aria-label={muted ? "Ligar o som do alerta de Alvo atingido" : "Desligar o som do alerta de Alvo atingido"}
+                className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-control text-ink-2 hover:text-ink"
+                title={muted ? "Som desligado" : "Som ligado"}
+              >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M11 5L6 9H3v6h3l5 4z" />
                   {muted ? <path d="M22 9l-6 6M16 9l6 6" /> : <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />}
                 </svg>
-                {muted ? "Som desligado" : "Som ligado"}
               </button>
             </div>
           </div>
 
-          {status?.radar && <RadarPanel radar={status.radar} now={now} onOpen={open} />}
+          {status?.radar && (
+            // O comentário geral da IA fica recolhido: abre quem quiser ler, sem empurrar as ofertas para baixo.
+            <details className="group rounded-2xl border border-card-line bg-surface">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-[13px] text-ink-2 hover:text-ink">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="font-medium text-ink">Radar da IA</span>
+                  <span className="truncate text-muted">{status.radar.manchete}</span>
+                </span>
+                <span className="text-muted transition-transform group-open:rotate-90" aria-hidden="true">›</span>
+              </summary>
+              <div className="border-t border-line p-3">
+                <RadarPanel radar={status.radar} now={now} onOpen={open} />
+              </div>
+            </details>
+          )}
 
           {atingidos.length > 0 && (
             <section aria-labelledby="alvos-atingidos" className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-gold)_45%,transparent)] bg-[color-mix(in_srgb,var(--color-gold)_7%,var(--color-bg))] p-[18px]">
-              <h2 id="alvos-atingidos" className="flex items-center gap-2.5 text-[15px] font-semibold text-gold">
+              <h2 id="alvos-atingidos" className="flex items-center gap-2.5 text-[15px] font-semibold text-gold-ink">
                 <span className="h-2 w-2 rounded-full bg-gold" />
                 Alvos atingidos
               </h2>
               <div className="grid grid-cols-[repeat(auto-fit,minmax(min(380px,100%),1fr))] gap-3">
                 {atingidos.map((o) => (
-                  <div key={o.id} className="flex min-w-0 items-center gap-3.5 rounded-xl border border-[#23272E] bg-[#111316] p-3">
+                  <div key={o.id} className="flex min-w-0 items-center gap-3.5 rounded-xl border border-card-line bg-surface p-3">
                     <button type="button" onClick={() => open(o.id)} className="dots flex h-14 w-14 flex-none items-center justify-center overflow-hidden rounded-[10px]" aria-label={`Abrir ${o.title}`}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       {o.imageUrl && <img src={o.imageUrl} alt="" className="h-full w-full object-contain" loading="lazy" referrerPolicy="no-referrer" />}
                     </button>
                     <button type="button" onClick={() => open(o.id)} className="flex min-w-0 flex-1 flex-col gap-1 text-left">
                       <span className="truncate font-medium">{o.title}</span>
-                      <span className="truncate font-mono text-[13px] text-[#DADDE1]">
+                      <span className="truncate font-mono text-[13px] text-ink-2">
                         {brl(precoDe(o, pref).cents)} <span className="text-muted">· alvo {brl(o.alvo?.targetCents)}{o.band ? ` · ${o.band.label}` : ""}</span>
                       </span>
                     </button>
@@ -292,7 +318,7 @@ export function Vitrine() {
           />
         )}
       </AnimatePresence>
-      <Toaster theme="dark" position="bottom-left" toastOptions={{ style: { background: "#1C2026", border: "1px solid #2C313A", color: "#ECEDEE" } }} />
+      <Toaster position="bottom-left" toastOptions={{ style: { background: "var(--color-pill)", border: "1px solid var(--color-control)", color: "var(--color-ink)" } }} />
     </MotionConfig>
   );
 }

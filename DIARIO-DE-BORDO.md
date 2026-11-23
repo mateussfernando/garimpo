@@ -68,6 +68,18 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 23/11/2026, 07:30 · Garimpo mais amigável: tema claro/escuro, área Admin com Painel, menu enxuto, data no card
+
+- **Pedido do usuário:** por que a barra "Ao vivo" mostra "Alvo atingido" sem Alvos; design mais amigável e menos poluído com tema claro e escuro; área só de admin com abas e estatísticas; a data em que a oferta entrou no card; o contador do 11.11 virar Black Friday; tirar o texto de baixo do título da Vitrine. Escolhas: tema segue o sistema; menu de todos = Vitrine, Cupons, Alvos; card "Entrou 23/11 às 14:32"; barra some sem Alvo ligado.
+- **Barra "Ao vivo":** os 47 acontecimentos eram dos Alvos da conta admin, criados por volta de 01:05 e apagados às 01:12. `/api/events` agora só traz os das últimas 48 h e de ofertas ainda num Alvo ligado e não apagado da conta; sem Alvo ligado a barra some (nada apagado do banco).
+- **Tema:** tokens do claro em `:root[data-theme="light"]`, novos tokens de selo (`good-bg`, `bad-line`, `pause-bg`…), `gold-ink`, `--pontos`, `--sombra`; as ~32 cores fixas viraram tokens; `TemaToggle` (Claro / Escuro / Sistema) no menu da conta; `SCRIPT_TEMA` no `<head>` e `TemaSync` seguindo o sistema.
+- **Cabeçalho:** menu com Vitrine, Cupons e Alvos; selo "Black Friday em 3d 17h" (ao vivo no dia 27, some depois); menu da conta com nome, tema, "Admin e estatísticas" e Sair; a faixa de status (11.11, fila, IA, fontes, máquina) saiu. Vitrine: só o título, "Última oferta há…", botão "Modo decisão" (War Room) e som em ícone; o Radar da IA fica recolhido.
+- **Card:** "Entrou 23/11 às 14:32" no pé (a primeira vez que o produto apareceu, `entrouEm`), com "há X" no mouse.
+- **Admin:** `/admin` com abas (Painel, Fontes, Lojas, Fila da IA, Usuários, cada uma pela permissão de antes). Painel (`/api/admin/painel`, `sistema.ver`): ofertas em 48 h e hoje, % conferidas, sem loja, fila; fontes, Telegram e máquina; controles da IA (saíram do cabeçalho), análises em 24 h e esperando; distribuição das notas 0–10 e de onde a nota vem; contas, 👍/👎, cliques em Comprar e Alvos atingidos em 7 dias; ofertas por fonte e por loja. `/fontes`, `/lojas` e `/ia` redirecionam.
+- **Testado:** 196 testes (inclui o tema e o script do `<head>`), `tsc` e `eslint`. HTTP: Painel 200 para admin e 403 para comum; abas de `/admin` 200; `/fontes` → `/admin/fontes`; barra vazia para a conta sem Alvo ligado e só eventos de até 5,3 h para a conta com Alvos. No navegador: menu com 3 itens, selo da Black Friday, "Entrou …" nos cards, barra sumida.
+- **Pendente:** o `pnpm dev` que estava no ar não recompilou o CSS depois da mudança (o tema claro ainda não aparecia); precisa reiniciar e conferir o claro e o escuro na tela.
+
+
 ### 23/11/2026, 06:30 · Entrar vira popup (some a página /entrar); por que o botão do Google não aparece
 
 - **Pedido do usuário:** "cadê o botão de logar com o Google" e tirar a página de entrar, deixando só um popup.

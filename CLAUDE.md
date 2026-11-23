@@ -46,7 +46,8 @@ App pessoal que roda em localhost num PC só do usuário (decisão de 10/11: o s
 ## Interface
 - Ofertas de qualquer produto (decisão de 11/11): os grupos em que o usuário entra são o filtro. Alvos só classificam. Cada oferta ganha categoria (src/config/categories.ts, por regra; o resto vai para a IA em lote) e posts que são só cupom vão para a tabela coupons e a tela Cupons, não para a Vitrine.
 - Home = Vitrine: grade de cards com foto, total no cartão, parcela, selos (frete grátis, desconto real, Black Fraude, com juros), nota e botão Comprar.
-- Tema escuro, Geist + Geist Mono com tabular-nums. Ouro só para "Alvo atingido", verde para desconto real e frete grátis, vermelho para Black Fraude e "com juros".
+- Tema claro e escuro (23/11): segue o sistema por padrão, com Claro / Escuro / Sistema no menu da conta (localStorage `garimpo:tema`, aplicado no `<head>` por `SCRIPT_TEMA` de src/lib/tema.ts, sem piscar). As cores são só tokens (`src/app/globals.css`: o `@theme` é o escuro, `:root[data-theme="light"]` redefine as mesmas variáveis); nada de cor fixa em componente (use `text-gold-ink` para ouro como texto, `bg-good-bg`/`border-bad-line` etc. para selos). Geist + Geist Mono com tabular-nums. Ouro só para "Alvo atingido", verde para desconto real e frete grátis, vermelho para Black Fraude e "com juros".
+- Menu de todos: Vitrine, Cupons, Alvos (a War Room abre pelo botão "Modo decisão" da Vitrine). Administração mora em /admin (Painel de estatísticas, Fontes, Lojas, Fila da IA, Usuários), aberta pelo menu da conta; /fontes, /lojas e /ia redirecionam para lá. O cabeçalho não tem mais a faixa de status: fila, IA, fontes e máquina ficam no Painel. O selo do topo conta até a Black Friday (27/11).
 - Atalhos: J/K, Enter (Comprar), C, B, X, S, W, Cmd+K.
 - Todo estado incerto vira selo: verificado há X min, não verificado, sem histórico.
 

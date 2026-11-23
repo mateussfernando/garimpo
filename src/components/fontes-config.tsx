@@ -9,7 +9,7 @@ import { Badge } from "./shell";
 type Teste = { ok: boolean; note: string; total: number; items: { title: string; priceCents: number | null; url: string; store: string | null }[] };
 
 export function Btn({ children, onClick, primary, danger, disabled }: { children: React.ReactNode; onClick: () => void; primary?: boolean; danger?: boolean; disabled?: boolean }) {
-  const tone = primary ? "border-ink bg-ink text-bg" : danger ? "border-[rgba(255,107,107,0.4)] text-bad hover:bg-[rgba(255,107,107,0.08)]" : "border-control text-ink-2 hover:text-ink";
+  const tone = primary ? "border-ink bg-ink text-bg" : danger ? "border-bad-line text-bad hover:bg-bad-bg" : "border-control text-ink-2 hover:text-ink";
   return (
     <button type="button" onClick={onClick} disabled={disabled} className={`h-11 rounded-[10px] border px-3.5 text-[13px] font-medium disabled:opacity-50 ${tone}`}>
       {children}
@@ -46,11 +46,11 @@ function useTeste() {
 
 function TesteBox({ t }: { t: ReturnType<typeof useTeste> }) {
   if (t.busy) return <p className="rounded-[10px] border border-line bg-bg px-3 py-2.5 text-[13px] text-muted">Testando… o worker lê a fonte com a coleta educada (pode levar alguns segundos por domínio).</p>;
-  if (t.erro) return <p className="rounded-[10px] border border-[rgba(255,107,107,0.4)] px-3 py-2.5 text-[13px] text-bad">{t.erro}</p>;
+  if (t.erro) return <p className="rounded-[10px] border border-bad-line px-3 py-2.5 text-[13px] text-bad">{t.erro}</p>;
   if (!t.result) return null;
   const r = t.result;
   return (
-    <div aria-live="polite" className={`flex flex-col gap-1.5 rounded-[10px] border px-3 py-2.5 ${r.ok ? "border-line bg-bg" : "border-[rgba(255,143,90,0.45)]"}`}>
+    <div aria-live="polite" className={`flex flex-col gap-1.5 rounded-[10px] border px-3 py-2.5 ${r.ok ? "border-line bg-bg" : "border-pause-line"}`}>
       <span className={`text-[13px] ${r.ok ? "text-ink" : "text-pause"}`}>{r.note}</span>
       {r.items.map((i, k) => (
         <span key={k} className="flex items-baseline gap-2 text-xs">

@@ -1,6 +1,6 @@
 # Tokens visuais do Garimpo
 
-Tema escuro único, com cara de terminal de pregão. A cor tem significado: ouro é só para "Alvo atingido".
+Dois temas desde 23/11: o escuro (a tabela abaixo, com cara de terminal de pregão) e um claro com as mesmas variáveis (`:root[data-theme="light"]` em `src/app/globals.css`: fundo `#F5F6F8`, superfície `#FFFFFF`, texto `#14171C`, verde `#137A43`, vermelho `#B42318`, laranja `#B5541B`, ouro de fundo `#F5B83D` e ouro como texto `#8A5800`). O padrão segue o sistema. A cor tem significado: ouro é só para "Alvo atingido".
 
 ## Cores
 

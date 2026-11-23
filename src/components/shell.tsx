@@ -9,11 +9,14 @@ import { pedirEntrar } from "./entrar-evento";
 import type { StatusDTO } from "@/lib/offers";
 import { obterMe, podeVer, useMe } from "./me";
 import { PrecoToggle } from "./preco";
+import { TemaToggle } from "./tema";
 
 export const brl = (cents: number | null | undefined) =>
   cents == null ? "—" : (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export const START_11_11 = new Date("2026-11-11T00:00:00-03:00").getTime();
+// Black Friday de 2026: sexta, 27/11, o dia inteiro (horário de Brasília).
+export const BF_INICIO = new Date("2026-11-27T00:00:00-03:00").getTime();
+export const BF_FIM = new Date("2026-11-28T00:00:00-03:00").getTime();
 
 export function useNow(everyMs: number) {
   const [now, setNow] = useState<number | null>(null);
@@ -28,16 +31,22 @@ export function useNow(everyMs: number) {
   return now;
 }
 
-export function Countdown() {
+/** Selo do cabeçalho: quanto falta para a Black Friday, "ao vivo" no dia e nada depois. */
+export function BlackFriday() {
   const now = useNow(1000);
-  if (now == null) return <span className="font-mono tnum text-[15px] font-semibold text-gold">--:--:--</span>;
-  const left = START_11_11 - now;
-  if (left <= 0) return <span className="font-mono text-[15px] font-semibold text-gold">ao vivo</span>;
-  const s = Math.floor(left / 1000);
+  if (now == null || now >= BF_FIM) return null;
   const p = (n: number) => String(n).padStart(2, "0");
+  let texto: string;
+  if (now >= BF_INICIO) texto = "ao vivo";
+  else {
+    const s = Math.floor((BF_INICIO - now) / 1000);
+    const d = Math.floor(s / 86400);
+    texto = d >= 1 ? `em ${d}d ${Math.floor((s % 86400) / 3600)}h` : `em ${p(Math.floor(s / 3600))}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}`;
+  }
   return (
-    <span className="font-mono tnum text-[15px] font-semibold text-gold">
-      {p(Math.floor(s / 3600))}:{p(Math.floor((s % 3600) / 60))}:{p(s % 60)}
+    <span className="hidden h-9 items-center gap-2 rounded-full border border-control bg-pill px-3 text-xs text-ink-2 sm:flex" title="Black Friday: sexta, 27 de novembro">
+      <span className="font-semibold text-ink">Black Friday</span>
+      <span className="font-mono tnum">{texto}</span>
     </span>
   );
 }
@@ -48,12 +57,21 @@ export function ago(iso: string | null, now: number | null) {
   return min < 1 ? "agora" : min < 60 ? `há ${min} min` : min < 1440 ? `há ${Math.round(min / 60)} h` : `há ${Math.round(min / 1440)} d`;
 }
 
+const DATA_HORA = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+/** "23/11 às 14:32", no horário de Brasília. */
+export function dataHora(iso: string | null): string {
+  if (!iso) return "";
+  const partes = Object.fromEntries(DATA_HORA.formatToParts(new Date(iso)).map((p) => [p.type, p.value]));
+  return `${partes.day}/${partes.month} às ${partes.hour}:${partes.minute}`;
+}
+
 export type Tone = "gold" | "good" | "bad" | "neutral";
 export function Badge({ tone, children, title }: { tone: Tone; children: React.ReactNode; title?: string }) {
   const cls = {
     gold: "bg-gold text-on-gold font-semibold",
-    good: "text-good bg-[rgba(61,220,132,0.12)] border border-[rgba(61,220,132,0.35)]",
-    bad: "text-bad bg-[rgba(255,107,107,0.12)] border border-[rgba(255,107,107,0.4)]",
+    good: "text-good bg-good-bg border border-good-line",
+    bad: "text-bad bg-bad-bg border border-bad-line",
     neutral: "text-ink-2 bg-active border border-control",
   }[tone];
   return (
@@ -129,22 +147,21 @@ export function useStatus() {
 }
 
 // Cada item diz a permissão que precisa. O menu só esconde; quem barra de verdade são as rotas (exigir()).
+// Menu enxuto para todos; o que é de administração mora na área Admin (/admin), aberta pelo menu da conta.
 const NAV = [
   { key: "vitrine", href: "/", label: "Vitrine", perm: "ofertas.ver" },
-  { key: "alvos", href: "/alvos", label: "Alvos", perm: "alvos.proprios" },
-  { key: "fontes", href: "/fontes", label: "Fontes", perm: "fontes.gerenciar" },
   { key: "cupons", href: "/cupons", label: "Cupons", perm: "ofertas.ver" },
-  { key: "ia", href: "/ia", label: "Fila da IA", perm: "ia.gerenciar" },
-  { key: "lojas", href: "/lojas", label: "Lojas", perm: "lojas.gerenciar" },
-  { key: "war-room", href: "/war-room", label: "War Room", perm: "ofertas.ver" },
-  { key: "admin", href: "/admin", label: "Usuários", perm: "usuarios.gerenciar" },
+  { key: "alvos", href: "/alvos", label: "Alvos", perm: "alvos.proprios" },
 ] as const satisfies readonly { key: string; href: string; label: string; perm: Permissao }[];
-export type NavKey = (typeof NAV)[number]["key"];
+export type NavKey = (typeof NAV)[number]["key"] | "war-room" | "admin";
+
+/** Qualquer uma destas abre a área Admin no menu da conta. */
+export const PERMISSOES_ADMIN: Permissao[] = ["sistema.ver", "fontes.gerenciar", "lojas.gerenciar", "ia.gerenciar", "usuarios.gerenciar"];
 
 // Quem sou e o que posso (src/components/me.ts); reexportado aqui porque as telas já importam daqui.
 export { podeVer, useMe, type Me } from "./me";
 
-function Metric({ label, children }: { label: string; children: React.ReactNode }) {
+export function Metric({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-[11px] uppercase tracking-[0.06em] text-label">{label}</span>
@@ -176,7 +193,7 @@ type AiChoice = NonNullable<StatusDTO["ai"]>["choice"];
 export const AI_CHOICE_LABEL: Record<AiChoice, string> = { claude: "Claude", agy: "agy (Antigravity)", ambos: "Claude + agy" };
 
 /** IA no cabeçalho: qual IA, custo, uso da assinatura (5 h e semana), Pausar/Continuar e Chamar IA agora. */
-function AiControls({ ai }: { ai: StatusDTO["ai"] | null }) {
+export function AiControls({ ai }: { ai: StatusDTO["ai"] | null }) {
   const [busy, setBusy] = useState<string | null>(null);
   const send = async (acao: "pausar" | "continuar" | "rodar" | "provedor", modo?: AiChoice) => {
     setBusy(acao);
@@ -194,7 +211,7 @@ function AiControls({ ai }: { ai: StatusDTO["ai"] | null }) {
       <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.06em] text-label">
         IA
         {ai?.paused ? (
-          <span className="rounded-full bg-[rgba(255,143,90,0.15)] px-2 normal-case tracking-normal text-pause">pausada</span>
+          <span className="rounded-full bg-pause-bg px-2 normal-case tracking-normal text-pause">pausada</span>
         ) : running ? (
           <span className="normal-case tracking-normal text-good">trabalhando…</span>
         ) : null}
@@ -246,49 +263,100 @@ agy: gemini-3.8-flash-low · ${agyToday} chamadas hoje, pela conta do Antigravit
   );
 }
 
-/** Quem está logado e o botão Sair. */
+/** Menu da conta: nome, tema, área Admin (para quem administra) e Sair. Visitante: tema, Entrar e Criar conta. */
 function UserMenu() {
   const { data, isPending } = authClient.useSession();
+  const me = useMe();
   const router = useRouter();
   const [saindo, setSaindo] = useState(false);
+  const [aberto, setAberto] = useState(false);
+  const caixa = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!aberto) return;
+    const fora = (e: MouseEvent) => {
+      if (caixa.current && !caixa.current.contains(e.target as Node)) setAberto(false);
+    };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setAberto(false);
+    document.addEventListener("mousedown", fora);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", fora);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [aberto]);
   if (isPending) return null;
-  if (!data) {
-    // Sem conta: a Vitrine está aberta; entrar ou criar conta fica à mão.
-    return (
-      <span className="flex items-center gap-2 text-[13px]">
-        <button type="button" onClick={() => pedirEntrar({ modo: "entrar", de: location.pathname + location.search })} className="flex h-9 items-center rounded-[10px] border border-control px-3 text-xs font-medium text-ink-2 hover:text-ink">
-          Entrar
-        </button>
-        <button type="button" onClick={() => pedirEntrar({ modo: "criar", de: location.pathname + location.search })} className="flex h-9 items-center rounded-[10px] bg-ink px-3 text-xs font-semibold text-bg">
-          Criar conta
-        </button>
-      </span>
-    );
-  }
+  const admin = PERMISSOES_ADMIN.some((p) => podeVer(me, p));
+  // A primeira aba da área Admin que a pessoa pode abrir (o Painel pede "sistema.ver").
+  const destinoAdmin = podeVer(me, "sistema.ver") ? "/admin" : podeVer(me, "fontes.gerenciar") ? "/admin/fontes" : podeVer(me, "lojas.gerenciar") ? "/admin/lojas" : podeVer(me, "ia.gerenciar") ? "/admin/ia" : "/admin/usuarios";
   const sair = async () => {
     setSaindo(true);
     await authClient.signOut();
     router.replace("/");
     router.refresh();
   };
+  const nome = data?.user.name ?? "";
   return (
-    <span className="flex items-center gap-2 text-[13px]">
-      <span className="max-w-40 truncate text-ink-2" title={data.user.email}>
-        {data.user.name}
-      </span>
-      <button type="button" onClick={() => void sair()} disabled={saindo} className="flex h-9 items-center rounded-[10px] border border-control px-3 text-xs font-medium text-ink-2 hover:text-ink disabled:opacity-50">
-        {saindo ? "Saindo…" : "Sair"}
+    <div ref={caixa} className="relative flex items-center gap-2 text-[13px]">
+      {!data && (
+        <>
+          <button type="button" onClick={() => pedirEntrar({ modo: "entrar", de: location.pathname + location.search })} className="flex h-9 items-center rounded-[10px] border border-control px-3 text-xs font-medium text-ink-2 hover:text-ink">
+            Entrar
+          </button>
+          <button type="button" onClick={() => pedirEntrar({ modo: "criar", de: location.pathname + location.search })} className="flex h-9 items-center rounded-[10px] bg-ink px-3 text-xs font-semibold text-bg">
+            Criar conta
+          </button>
+        </>
+      )}
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={aberto}
+        onClick={() => setAberto((a) => !a)}
+        title={data ? data.user.email : "Tema"}
+        className="flex h-9 items-center gap-2 rounded-full border border-control pl-1 pr-2.5 text-ink-2 hover:text-ink"
+      >
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-active text-xs font-semibold text-ink" aria-hidden="true">
+          {data ? (nome.trim()[0] ?? "?").toUpperCase() : "◐"}
+        </span>
+        <span className="hidden max-w-32 truncate sm:inline">{data ? nome : "Tema"}</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+          <path d="M6 9l6 6 6-6" />
+        </svg>
       </button>
-    </span>
+      {aberto && (
+        <div role="menu" className="absolute right-0 top-11 z-50 flex w-64 flex-col gap-3 rounded-2xl border border-card-line bg-surface p-3 shadow-xl">
+          {data && (
+            <div className="flex flex-col px-1">
+              <span className="truncate text-sm font-medium text-ink">{nome}</span>
+              <span className="truncate text-xs text-muted">{data.user.email}</span>
+            </div>
+          )}
+          <div className="flex flex-col gap-1.5">
+            <span className="px-1 text-[11px] uppercase tracking-[0.06em] text-label">Tema</span>
+            <TemaToggle />
+          </div>
+          {admin && (
+            <Link href={destinoAdmin} role="menuitem" onClick={() => setAberto(false)} className="flex h-10 items-center rounded-[10px] px-2 text-sm text-ink-2 hover:bg-active hover:text-ink">
+              Admin e estatísticas
+            </Link>
+          )}
+          {data && (
+            <button type="button" role="menuitem" onClick={() => void sair()} disabled={saindo} className="flex h-10 items-center rounded-[10px] px-2 text-left text-sm text-ink-2 hover:bg-active hover:text-ink disabled:opacity-50">
+              {saindo ? "Saindo…" : "Sair"}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
-export function AppHeader({ active, status, live }: { active: NavKey | null; status: StatusDTO | null; live: boolean }) {
-  const ai = status?.ai;
+/** Cabeçalho de todas as telas: marca, menu curto, Black Friday, ponto "ao vivo", preço em destaque e a conta. */
+export function AppHeader({ active, live }: { active: NavKey | null; status?: StatusDTO | null; live: boolean }) {
   const me = useMe();
   return (
     <header className="border-b border-line">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-8">
         <div className="flex flex-wrap items-center gap-2.5 text-lg font-semibold tracking-tight">
           <Link href="/" className="flex items-center gap-2.5">
             <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
@@ -296,7 +364,7 @@ export function AppHeader({ active, status, live }: { active: NavKey | null; sta
             </svg>
             Garimpo
           </Link>
-          <nav aria-label="Seções do app" className="ml-3 flex flex-wrap gap-1 text-sm font-medium">
+          <nav aria-label="Seções do app" className="ml-2 flex flex-wrap gap-1 text-sm font-medium">
             {NAV.filter((n) => podeVer(me, n.perm) || (me?.visitante && n.key === "alvos")).map((n) => (
               <Link
                 key={n.key}
@@ -309,55 +377,15 @@ export function AppHeader({ active, status, live }: { active: NavKey | null; sta
             ))}
           </nav>
         </div>
-        <span className="flex items-center gap-4">
-          <span className="flex items-center gap-2 text-[13px] text-muted">
+        <span className="flex flex-wrap items-center gap-3">
+          <BlackFriday />
+          <span className="flex items-center gap-2 text-[13px] text-muted" title={live ? "Recebendo ofertas ao vivo" : "Reconectando"}>
             <span className={`h-2 w-2 rounded-full ${live ? "bg-good-dot" : "bg-pause"}`} />
-            {live ? "Ao vivo" : "Reconectando"}
+            <span className="hidden md:inline">{live ? "Ao vivo" : "Reconectando"}</span>
           </span>
           <PrecoToggle />
           <UserMenu />
         </span>
-      </div>
-      <div className="flex flex-wrap items-center gap-x-10 gap-y-2 border-t border-line bg-deep px-8 py-2.5">
-        <Metric label="11.11 começa em">
-          <Countdown />
-        </Metric>
-        <Metric label="Ofertas hoje">
-          <span className="font-mono tnum text-[13px] text-ink-2">{status?.today ?? "—"}</span>
-        </Metric>
-        {podeVer(me, "sistema.ver") && (
-          <Metric label="Verificando">
-            <span className="font-mono tnum text-[13px] text-ink-2">{status?.pending ?? "—"}</span>
-          </Metric>
-        )}
-        {podeVer(me, "ia.gerenciar") && <AiControls ai={ai ?? null} />}
-        {podeVer(me, "sistema.ver") && (
-        <Metric label="Fontes">
-          <span className="flex flex-wrap items-center gap-3 text-xs text-ink-2">
-            {(status?.sources ?? []).map((s) => (
-              <span key={s.slug} className="flex items-center gap-1.5" title={s.note ?? s.status}>
-                <span className={`h-[7px] w-[7px] rounded-full ${statusDot[s.status] ?? "bg-label"}`} />
-                {s.name.replace("Fórum de Promoções do ", "")}
-                {s.status !== "ok" && <span className="text-label">({s.status})</span>}
-              </span>
-            ))}
-            {status?.telegram && (
-              <span className="flex items-center gap-1.5" title={`${status.telegram.on} de ${status.telegram.total} grupos e canais ligados`}>
-                <span className={`h-[7px] w-[7px] rounded-full ${status.telegram.on ? "bg-good-dot" : "bg-label"}`} />
-                Telegram ({status.telegram.on})
-              </span>
-            )}
-          </span>
-        </Metric>
-        )}
-        {podeVer(me, "sistema.ver") && (
-          <Metric label="Máquina">
-            <span className="flex items-center gap-1.5 text-xs text-ink-2">
-              <span className="h-[7px] w-[7px] rounded-full bg-good-dot" />
-              Este PC · tudo local
-            </span>
-          </Metric>
-        )}
       </div>
     </header>
   );

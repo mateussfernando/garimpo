@@ -2,14 +2,13 @@
 
 import { useCallback, useState } from "react";
 import type { LojaDTO, LojasDTO } from "@/lib/lojas";
-import { AppHeader, PageTitle, ago, useLive, useNow, useStatus } from "./shell";
+import { PageTitle, ago, useLive, useNow } from "./shell";
 
 const dot: Record<LojaDTO["health"], string> = { ok: "bg-good-dot", pausada_loja: "bg-pause", pausada_usuario: "bg-label" };
 const healthLabel: Record<LojaDTO["health"], string> = { ok: "OK", pausada_loja: "Pausada 1 h", pausada_usuario: "Pausada por você" };
 
 export function Lojas() {
   const [data, setData] = useState<LojasDTO | null>(null);
-  const { status, live } = useStatus();
   const now = useNow(30_000);
   const load = useCallback(async () => {
     setData(await fetch("/api/lojas", { cache: "no-store" }).then((r) => r.json()));
@@ -24,8 +23,7 @@ export function Lojas() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <AppHeader active="lojas" status={status} live={live} />
-      <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-7 px-8 pb-10 pt-7">
+      <div className="flex flex-col gap-7">
         <PageTitle title="Lojas">
           Onde o Garimpo confere preços. A conferência é educada: respeita o robots.txt, espaça os pedidos e pausa sozinha quando a loja pede.
         </PageTitle>
@@ -136,7 +134,7 @@ export function Lojas() {
             ))}
           </ul>
         </section>
-      </main>
+      </div>
     </div>
   );
 }

@@ -68,7 +68,7 @@ export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { 
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 40, opacity: 0 }}
       transition={{ type: "spring", stiffness: 380, damping: 36 }}
-      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[440px] flex-col border-l border-card-line bg-surface shadow-[-24px_0_60px_rgba(0,0,0,0.5)]"
+      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[440px] flex-col border-l border-card-line bg-surface shadow-[-24px_0_60px_var(--sombra)]"
     >
       <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
         <span className="flex items-center gap-2 text-xs text-label">

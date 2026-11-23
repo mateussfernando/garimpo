@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { asJson, type EventDetail } from "@/lib/db/types";
 import { cleanTitle } from "@/lib/offers";
 import { exigir, pode } from "@/lib/sessao";
+import { HORA, atras } from "@/lib/tempo";
 
 export type EventDTO = {
   id: number;
@@ -23,11 +24,19 @@ export async function GET() {
   await connection();
   const eu = await exigir("ofertas.ver");
   if (eu instanceof Response) return eu;
-  // Os acontecimentos da conta (Alvos dela) e, para quem vê o sistema, o "canal novo" (grupo do Telegram achado).
+  // Os acontecimentos da conta só das últimas 48 h (a janela da Vitrine) e só de ofertas que ainda estão num Alvo ligado e
+  // não apagado dela: apagar ou desligar um Alvo tira da faixa o que ele gerou (o histórico fica no banco). Para quem vê o
+  // sistema, também o "canal novo" (grupo do Telegram achado).
   const sistema = pode(eu, "sistema.ver");
+  const desde = atras(48 * HORA);
+  const daConta = {
+    userId: eu.id,
+    at: { gte: desde },
+    offer: { ofertasAlvo: { some: { userId: eu.id, alvo: { isActive: true, deletedAt: null } } } },
+  };
   const rows = (
     await prisma.event.findMany({
-      where: { OR: [{ userId: eu.id }, ...(sistema ? [{ userId: null, type: "canal" }] : [])] },
+      where: { OR: [daConta, ...(sistema ? [{ userId: null, type: "canal", at: { gte: desde } }] : [])] },
       orderBy: { id: "desc" },
       take: 60,
     })

@@ -1,0 +1,2 @@
+# Migrações do Prisma sempre com fim de linha LF: o checksum gravado no banco não muda entre Windows e Linux (Vercel).
+prisma/migrations/**/*.sql text eol=lf

@@ -38,7 +38,7 @@ async function perguntar(texto: string, oculto = false): Promise<string> {
 }
 
 /** Os Alvos, marcações e eventos de antes das contas passam para o admin (uma vez, e só se ele quiser). */
-async function oferecerDadosAntigos(userId: string) {
+async function oferecerDadosAntigos(userId: number) {
   if (!(await temDadosAntigos())) return;
   const ok = await perguntar("Esta conta fica com os Alvos, as marcações (vigiar, descartar, soneca) e os eventos de antes das contas? (s/n) ");
   if (!/^s/i.test(ok)) return console.log("Os dados de antes continuam sem dono (dá para rodar de novo depois).");
@@ -73,9 +73,10 @@ async function main() {
   if (again !== password) throw new Error("As senhas não batem.");
 
   const res = await auth.api.signUpEmail({ body: { name, email, password } });
-  await prisma.user.update({ where: { id: res.user.id }, data: { cargoId: admin.id } });
+  const novoId = Number(res.user.id);
+  await prisma.user.update({ where: { id: novoId }, data: { cargoId: admin.id } });
   console.log(`Pronto: conta de ${name} (${email}) criada como ${admin.nome}. Entre em /entrar com esse e-mail e senha.`);
-  await oferecerDadosAntigos(res.user.id);
+  await oferecerDadosAntigos(novoId);
 }
 
 main()

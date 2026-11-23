@@ -115,7 +115,7 @@ const NAV = [
 ] as const satisfies readonly { key: string; href: string; label: string; perm: Permissao }[];
 export type NavKey = (typeof NAV)[number]["key"];
 
-export type Me = { id: string; name: string; email: string; image: string | null; cargo: { id: number; slug: string; nome: string }; permissoes: Permissao[] };
+export type Me = { id: number; name: string; email: string; image: string | null; cargo: { id: number; slug: string; nome: string }; permissoes: Permissao[] };
 
 let mePromise: Promise<Me | null> | null = null;
 /** Quem está logado e o que pode (de /api/me). Uma busca por carregamento de página. */

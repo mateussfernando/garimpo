@@ -100,7 +100,7 @@ export type OfferDTO = {
  * A Vitrine de uma conta: as ofertas de produto de 48 h, menos as que ela descartou, com o Alvo, a nota, o preço-alvo
  * e o "Alvo atingido" dela (oferta_alvo) e as marcações dela (oferta_usuario). Sem Alvo dela na oferta, vale a nota geral.
  */
-export async function listOffers(opts: { userId: string; onlyId?: number }): Promise<OfferDTO[]> {
+export async function listOffers(opts: { userId: number; onlyId?: number }): Promise<OfferDTO[]> {
   const { userId } = opts;
   const since = atras(48 * HORA);
   const include = {
@@ -319,7 +319,7 @@ export type RadarDTO = {
   at: string;
 };
 
-export async function getStatus(userId: string): Promise<StatusDTO> {
+export async function getStatus(userId: number): Promise<StatusDTO> {
   const all = await prisma.source.findMany({ orderBy: { id: "asc" } });
   const tg = all.filter((s) => s.kind === "telegram");
   const src = all.filter((s) => s.kind !== "telegram");

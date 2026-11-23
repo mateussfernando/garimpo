@@ -52,7 +52,7 @@ model Alvo {
   editedAt     DateTime?    @map("edited_at") @db.Timestamptz(6)
   deletedAt    DateTime?    @map("deleted_at") @db.Timestamptz(6)
   /// Dono do Alvo: cada usuário tem os seus. Vazio = Alvo de antes das contas (o admin assume com `pnpm admin:criar`).
-  ownerId      String?      @map("owner_id")
+  ownerId      Int?         @map("owner_id")
   owner        User?        @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   alvoRefs     AlvoRef[]
   marketObs    MarketObs[]
@@ -104,7 +104,7 @@ model Event {
   detail  Json?
   at      DateTime @default(now()) @db.Timestamptz(6)
   /// Para quem é o acontecimento (Alvo dele: oferta nova, preço, esgotou, Alvo atingido). Vazio = do sistema (canal novo).
-  userId  String?  @map("user_id")
+  userId  Int?     @map("user_id")
   offer   Offer?   @relation(fields: [offerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "events_offer_id_offers_id_fk")
   user    User?    @relation(fields: [userId], references: [id], onDelete: Restrict)
 
@@ -320,7 +320,9 @@ model WorkerState {
 // ---------- Contas (better-auth). A senha fica em Account.password, com hash bcrypt (bcryptjs, custo 12). ----------
 
 model User {
-  id             String          @id
+  id             Int             @id @default(autoincrement())
+  /// O id de texto que o login usava antes dos ids numéricos (23/11/2026). Só consulta; nada usa.
+  idAntigo       String?         @unique @map("id_antigo")
   name           String
   email          String          @unique
   emailVerified  Boolean         @default(false) @map("email_verified")
@@ -343,14 +345,14 @@ model User {
 }
 
 model Session {
-  id        String   @id
+  id        Int      @id @default(autoincrement())
   expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
   token     String   @unique
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
   ipAddress String?  @map("ip_address")
   userAgent String?  @map("user_agent")
-  userId    String   @map("user_id")
+  userId    Int      @map("user_id")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
@@ -358,10 +360,10 @@ model Session {
 }
 
 model Account {
-  id                    String    @id
+  id                    Int       @id @default(autoincrement())
   accountId             String    @map("account_id")
   providerId            String    @map("provider_id")
-  userId                String    @map("user_id")
+  userId                Int       @map("user_id")
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   accessToken           String?   @map("access_token")
   refreshToken          String?   @map("refresh_token")
@@ -378,7 +380,7 @@ model Account {
 }
 
 model Verification {
-  id         String   @id
+  id         Int      @id @default(autoincrement())
   identifier String
   value      String
   expiresAt  DateTime @map("expires_at") @db.Timestamptz(6)
@@ -391,7 +393,7 @@ model Verification {
 
 /// Limite de tentativas do login (better-auth), no banco para valer também na Vercel (várias instâncias).
 model RateLimit {
-  id          String @id
+  id          Int    @id @default(autoincrement())
   key         String @unique
   count       Int
   lastRequest BigInt @map("last_request")
@@ -444,7 +446,7 @@ model CargoPermissao {
 /// A oferta nos Alvos de um usuário: o Alvo dele que ela pegou, a faixa, a nota com o preço-alvo dele e quando virou "Alvo atingido".
 model OfertaAlvo {
   offerId   Int       @map("offer_id")
-  userId    String    @map("user_id")
+  userId    Int       @map("user_id")
   /// Vazio = deixou de bater com os Alvos dele (o histórico do "Alvo atingido" fica).
   alvoId    Int?      @map("alvo_id")
   bandKey   String?   @map("band_key")
@@ -465,7 +467,7 @@ model OfertaAlvo {
 
 /// Marcações de cada usuário numa oferta: vigiar, descartar e soneca da War Room.
 model OfertaUsuario {
-  userId       String    @map("user_id")
+  userId       Int       @map("user_id")
   offerId      Int       @map("offer_id")
   watched      Boolean   @default(false)
   dismissed    Boolean   @default(false)

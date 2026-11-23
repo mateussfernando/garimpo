@@ -7,7 +7,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 
 export type Usuario = {
-  id: string;
+  id: number;
   name: string;
   email: string;
   image: string | null;
@@ -26,7 +26,7 @@ async function cargoPadrao() {
 export const getUser = cache(async (): Promise<Usuario | null> => {
   const s = await auth.api.getSession({ headers: await headers() });
   if (!s) return null;
-  const row = await prisma.user.findUnique({ where: { id: s.user.id }, select: { isActive: true, cargo: { include: { permissoes: true } } } });
+  const row = await prisma.user.findUnique({ where: { id: Number(s.user.id) }, select: { isActive: true, cargo: { include: { permissoes: true } } } });
   // Conta desativada pelo admin vale como sem sessão, na hora (mesmo com o cookie ainda válido).
   if (!row?.isActive) return null;
   // Cargo desativado vale como sem cargo: a pessoa fica com as permissões do padrão.
@@ -34,7 +34,7 @@ export const getUser = cache(async (): Promise<Usuario | null> => {
   // Sem cargo nenhum (banco sem a semente): nenhuma permissão. Nunca o contrário.
   const permissoes = !cargo ? [] : cargo.todas ? TODAS : cargo.permissoes.map((p) => p.permissaoSlug).filter(ehPermissao);
   return {
-    id: s.user.id,
+    id: Number(s.user.id),
     name: s.user.name,
     email: s.user.email,
     image: s.user.image ?? null,

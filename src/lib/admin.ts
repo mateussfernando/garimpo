@@ -4,7 +4,7 @@ import { PERMISSOES, type Permissao } from "@/config/permissoes";
 import { prisma } from "@/lib/db/prisma";
 import { normalize } from "@/lib/money";
 
-export type AdminUsuarioDTO = { id: string; name: string; email: string; cargoId: number | null; isActive: boolean; metodos: string[]; createdAt: string };
+export type AdminUsuarioDTO = { id: number; name: string; email: string; cargoId: number | null; isActive: boolean; metodos: string[]; createdAt: string };
 export type AdminCargoDTO = {
   id: number;
   slug: string;

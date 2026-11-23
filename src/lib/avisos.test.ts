@@ -5,8 +5,8 @@ import type { Permissao } from "@/config/permissoes";
 vi.mock("@/lib/sessao", () => ({ pode: (u: { permissoes: string[] }, p: string) => u.permissoes.includes(p) }));
 const { avisoPara } = await import("./avisos");
 
-const comum = { id: "u1", permissoes: ["ofertas.ver", "ia.analises.ver", "alvos.proprios"] as Permissao[] };
-const admin = { id: "a1", permissoes: ["ofertas.ver", "sistema.ver", "ia.gerenciar", "ia.analises.ver"] as Permissao[] };
+const comum = { id: 11, permissoes: ["ofertas.ver", "ia.analises.ver", "alvos.proprios"] as Permissao[] };
+const admin = { id: 1, permissoes: ["ofertas.ver", "sistema.ver", "ia.gerenciar", "ia.analises.ver"] as Permissao[] };
 
 describe("avisos do tempo real", () => {
   it("o admin recebe o aviso inteiro", () => {
@@ -24,9 +24,9 @@ describe("avisos do tempo real", () => {
     expect(avisoPara(comum, JSON.stringify({ type: "coupon" }))).toBe('{"type":"coupon"}');
   });
   it("aviso do Alvo de outra pessoa não sai para ninguém além dela", () => {
-    const raw = JSON.stringify({ type: "event", kind: "alvo", offerId: 7, userId: "u2" });
+    const raw = JSON.stringify({ type: "event", kind: "alvo", offerId: 7, userId: 12 });
     expect(avisoPara(comum, raw)).toBeNull();
     expect(avisoPara(admin, raw)).toBeNull();
-    expect(avisoPara({ ...comum, id: "u2" }, raw)).toContain('"kind":"alvo"');
+    expect(avisoPara({ ...comum, id: 12 }, raw)).toContain('"kind":"alvo"');
   });
 });

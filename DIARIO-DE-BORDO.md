@@ -68,6 +68,15 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 23/11/2026, 01:30 · Ids numéricos (1, 2, 3...) nos usuários
+
+- **Antes:** dump `garimpoi-20261123-0043-antes-de-id-numerico.dump`. A migração foi testada primeiro numa cópia restaurada desse dump (`garimpoi_idtest`) e só depois aplicada no banco de verdade.
+- **Pedido do usuário:** o id do usuário era um texto aleatório do login (não era UUID de verdade, 32 caracteres); passa a ser número.
+- **Feito (migração `id_numerico`):** `usuarios.id` virou inteiro SERIAL; os usuários foram numerados pela data de criação (1 = o mais antigo) e o id de texto de antes ficou em `usuarios.id_antigo`. Tudo que apontava para o usuário (Alvos, marcações, eventos, sessões e contas de login) foi convertido pelo número novo antes de a coluna antiga sair (as colunas antigas saem, o mapeamento fica em `id_antigo`; o dump guarda tudo). Por pedir o mesmo tipo de id em todas as tabelas do login, `sessoes`, `contas`, `verificacoes` e `limites_de_acesso` também têm id numérico (better-auth com `generateId: "serial"`). O código trata o id do usuário como número (o `userId` dos avisos do tempo real e do comando de Alvos também). Regra no CLAUDE.md.
+- **Testado:** na cópia e no banco de verdade, contagens iguais antes e depois (3 contas, 33 sessões, 40 Alvos, 2.514 ofertas em Alvos, 110 eventos de usuário). Por HTTP: login das 3 contas de teste (as sessões abertas foram mantidas no banco), cadastro novo vira o **número 4** e já ganha os 10 Alvos, cada conta só vê e mexe nos próprios Alvos e marcações (404 no de outra), desativar e reativar pela tela Usuários, sair. A passagem dos dados de antes para o admin foi refeita na cópia com ids numéricos. 140 testes, `tsc` e `eslint`.
+- **Ficou no seu Postgres:** `garimpoi_idtest` (cópia de teste) e a conta de teste `teste-cadastro@garimpo.test`.
+- **Detalhe:** a resposta do login devolve o id como texto ("2"); o app converte para número, não afeta nada.
+
 ### 23/11/2026, 01:00 · Padrão `is_active` em todas as tabelas de ligar e desligar
 
 - **Antes:** dump `garimpoi-20261123-0033-antes-de-renomear-para-is-active.dump`.

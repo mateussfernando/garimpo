@@ -13,7 +13,7 @@ describe("comandos que chegam ao worker", () => {
     expect(lerComando(AiCmdSchema, '{"acao":"rodar"}', "ia")).toEqual({ acao: "rodar" });
     expect(lerComando(TelegramCmdSchema, "{}", "telegram")).toEqual({});
     expect(lerComando(FontesCmdSchema, JSON.stringify({ acao: "testar", token, kind: "feed", config: { url: "https://x.com/feed" } }), "fontes")).not.toBeNull();
-    expect(lerComando(AlvosCmdSchema, '{"acao":"rematch","userId":"u1"}', "alvos")).not.toBeNull();
+    expect(lerComando(AlvosCmdSchema, '{"acao":"rematch","userId":11}', "alvos")).not.toBeNull();
   });
   it("ignora JSON quebrado, vazio, ação desconhecida e campo a mais", () => {
     for (const p of [undefined, "", "não é json", "null", "[]", '"rodar"']) expect(lerComando(AiCmdSchema, p, "ia")).toBeNull();

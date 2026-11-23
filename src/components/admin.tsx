@@ -87,11 +87,11 @@ export function Admin() {
   }, []);
   useLive(load);
 
-  const trocarCargo = async (userId: string, cargoId: number) => {
+  const trocarCargo = async (userId: number, cargoId: number) => {
     setErro(await send(`/api/admin/usuarios/${userId}`, "PATCH", { cargoId }));
     await load();
   };
-  const trocarAtivo = async (userId: string, isActive: boolean) => {
+  const trocarAtivo = async (userId: number, isActive: boolean) => {
     setErro(await send(`/api/admin/usuarios/${userId}`, "PATCH", { isActive }));
     await load();
   };

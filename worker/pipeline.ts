@@ -60,7 +60,7 @@ export async function alvosDoSistema() {
 }
 
 /** O usuário é dos que decidem a coleta (os Alvos dele entram nos do sistema)? */
-export async function ehDoSistema(userId: string): Promise<boolean> {
+export async function ehDoSistema(userId: number): Promise<boolean> {
   const [r] = await prisma.$queryRaw<{ ok: boolean }[]>`
     select coalesce(c.todas or exists (select 1 from cargo_permissoes cp where cp.cargo_id = c.id and cp.permissao_slug = 'fontes.gerenciar'), false) as ok
     from usuarios u
@@ -72,12 +72,12 @@ export async function ehDoSistema(userId: string): Promise<boolean> {
 type AlvoDb = Awaited<ReturnType<typeof alvosDoSistema>>[number];
 
 /** Alvos ligados de cada conta (os pessoais), por dono. Com `userId`, só os dele. */
-export async function alvosPorDono(userId?: string): Promise<Map<string, AlvoDb[]>> {
+export async function alvosPorDono(userId?: number): Promise<Map<number, AlvoDb[]>> {
   const rows = (
     // Conta desativada: os Alvos dela param (ficam como estão, sem ofertas novas).
     await prisma.alvo.findMany({ where: { ownerId: userId ?? { not: null }, owner: { isActive: true }, isActive: true, deletedAt: null }, orderBy: { id: "asc" } })
   ).map(alvoFromDb);
-  const by = new Map<string, AlvoDb[]>();
+  const by = new Map<number, AlvoDb[]>();
   for (const a of rows) by.set(a.ownerId!, [...(by.get(a.ownerId!) ?? []), a]);
   if (userId && !by.has(userId)) by.set(userId, []);
   return by;
@@ -85,7 +85,7 @@ export async function alvosPorDono(userId?: string): Promise<Map<string, AlvoDb[
 
 /** Classifica uma oferta nos Alvos de cada conta e grava em oferta_alvo. Devolve quem tem a oferta num Alvo. */
 async function classificarParaDonos(offerId: number, title: string) {
-  const out: { userId: string; band: Band | null }[] = [];
+  const out: { userId: number; band: Band | null }[] = [];
   for (const [userId, list] of await alvosPorDono()) {
     const c = classify(title, list);
     if (!c.alvo) continue;
@@ -250,7 +250,7 @@ export async function rescoreBand(alvoId: number, bandKey: string) {
  * sem o preço-alvo de ninguém. A de cada conta que tem a oferta num Alvo usa o preço-alvo dela, e o "Alvo atingido"
  * (com evento e aviso) vale só para ela. Com `so`, refaz só a nota daquela conta.
  */
-export async function scoreOffer(offerId: number, opts: { silent?: boolean; so?: string } = {}) {
+export async function scoreOffer(offerId: number, opts: { silent?: boolean; so?: number } = {}) {
   const o = await prisma.offer.findUnique({ where: { id: offerId } });
   if (!o) return;
   const store = o.store ? STORES.find((s) => s.slug === o.store) : null;
@@ -295,7 +295,7 @@ export async function logEvent(
   offerId: number | null,
   title: string,
   detail: EventDetail = {},
-  userId: string | null = null,
+  userId: number | null = null,
 ) {
   const row = await prisma.event.create({ data: { type, offerId, title: title.slice(0, 200), detail: json(detail), userId }, select: { id: true } });
   await notify({ type: "event", id: row.id, kind: type, offerId, ...(userId ? { userId } : {}) });
@@ -393,7 +393,7 @@ export async function rematchOffers(): Promise<{ total: number; changed: number;
  * Reclassifica as ofertas de 7 dias nos Alvos de cada conta (ou só de uma, quando ela muda os Alvos na tela) e refaz
  * as referências e as notas dela. Oferta que deixou de bater fica sem Alvo na linha da conta, com o histórico do ouro.
  */
-export async function rematchPessoal(userId?: string): Promise<{ users: number; changed: number }> {
+export async function rematchPessoal(userId?: number): Promise<{ users: number; changed: number }> {
   const week = atras(7 * DIA);
   const donos = await alvosPorDono(userId);
   const rows = await prisma.offer.findMany({ where: { createdAt: { gte: week }, kind: "produto" }, select: { id: true, title: true } });
@@ -408,7 +408,7 @@ export async function rematchPessoal(userId?: string): Promise<{ users: number; 
   // Quem tem linhas mas não tem mais Alvo ligado também entra (as linhas dele ficam sem Alvo).
   const users = new Set([...donos.keys(), ...[...have.values()].map((r) => r.userId)]);
   const touched = new Map<string, { alvoId: number; band: Band }>();
-  const rescore = new Map<string, Set<number>>();
+  const rescore = new Map<number, Set<number>>();
   let changed = 0;
   for (const uid of users) {
     const list = donos.get(uid) ?? [];

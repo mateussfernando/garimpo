@@ -3,7 +3,7 @@
 // são do admin; "Alvo atingido" de outra pessoa nunca sai.
 import { pode, type Usuario } from "@/lib/sessao";
 
-type Aviso = { type?: string; kind?: string; id?: number; offerId?: number; userId?: string };
+type Aviso = { type?: string; kind?: string; id?: number; offerId?: number; userId?: number };
 
 export function avisoPara(u: Pick<Usuario, "id" | "permissoes">, raw: string): string | null {
   let a: Aviso;

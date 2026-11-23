@@ -169,8 +169,8 @@ const REMATCH_GAP = 10_000;
 async function listenAlvos() {
   let busy = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const contas = new Set<string>();
-  const ultima = new Map<string, number>();
+  const contas = new Set<number>();
+  const ultima = new Map<number, number>();
   const bands = new Map<string, { alvoId: number; bandKey: string }>();
   const later = (ms: number) => {
     if (timer) clearTimeout(timer);

@@ -9,9 +9,9 @@ export const DADOS_ANTIGOS_KEY = "dados_antigos";
 
 export type Assumidos = { alvos: number; faixas: number; marcacoes: number; ofertasNoAlvo: number; eventos: number };
 
-export async function quemAssumiu(): Promise<string | null> {
+export async function quemAssumiu(): Promise<number | null> {
   const s = await prisma.appSetting.findUnique({ where: { key: DADOS_ANTIGOS_KEY } });
-  return (s?.value as { userId?: string } | null)?.userId ?? null;
+  return (s?.value as { userId?: number } | null)?.userId ?? null;
 }
 
 /** Há algo de antes das contas para assumir? */
@@ -31,7 +31,7 @@ export async function temDadosAntigos(): Promise<boolean> {
  * Um Alvo inicial que a conta já tem com o mesmo nome recebe o estado de antes (inclusive apagado ou desligado).
  * Devolve null se alguém já assumiu.
  */
-export async function assumirDadosAntigos(userId: string): Promise<Assumidos | null> {
+export async function assumirDadosAntigos(userId: number): Promise<Assumidos | null> {
   return prisma.$transaction(
     async (tx) => {
       if (await tx.appSetting.findUnique({ where: { key: DADOS_ANTIGOS_KEY } })) return null;
@@ -76,7 +76,7 @@ export async function assumirDadosAntigos(userId: string): Promise<Assumidos | n
       // Vigiar, descartar e soneca.
       const marcacoes = await tx.$executeRaw`
         insert into oferta_usuario (user_id, offer_id, watched, dismissed, snoozed_until)
-        select ${userId}, id, watched, dismissed, snoozed_until from offers
+        select ${userId}::int, id, watched, dismissed, snoozed_until from offers
         where watched or dismissed or snoozed_until is not null
         on conflict do nothing`;
       // Ofertas que estavam num desses Alvos, com a faixa, a nota e o "Alvo atingido".
@@ -84,7 +84,7 @@ export async function assumirDadosAntigos(userId: string): Promise<Assumidos | n
       for (const [antigo, novo] of mapa) {
         ofertasNoAlvo += await tx.$executeRaw`
           insert into oferta_alvo (offer_id, user_id, alvo_id, band_key, nota, nota_parts, hit_at)
-          select id, ${userId}, ${novo}, band_key, nota, nota_parts, hit_at from offers where alvo_id = ${antigo}
+          select id, ${userId}::int, ${novo}::int, band_key, nota, nota_parts, hit_at from offers where alvo_id = ${antigo}
           on conflict do nothing`;
       }
       // Os acontecimentos da faixa "Ao vivo" de antes (oferta nova, preço, esgotou, Alvo atingido) eram dele.

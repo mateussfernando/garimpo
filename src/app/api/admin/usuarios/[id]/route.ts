@@ -10,7 +10,8 @@ const Body = z.union([z.object({ cargoId: z.number().int().positive() }).strict(
 export async function PATCH(request: Request, ctx: RouteContext<"/api/admin/usuarios/[id]">) {
   const eu = await exigir("usuarios.gerenciar", request);
   if (eu instanceof Response) return eu;
-  const { id } = await ctx.params;
+  const id = Number((await ctx.params).id);
+  if (!Number.isInteger(id)) return Response.json({ erro: "usuário não encontrado" }, { status: 404 });
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ erro: "pedido inválido" }, { status: 400 });
   const alvo = await prisma.user.findUnique({ where: { id }, select: { id: true, isActive: true, cargo: { select: { todas: true } } } });

@@ -33,7 +33,7 @@ const median = (v: number[]) => {
 };
 
 /** O detalhe de uma oferta para uma conta (com o Alvo, a nota e as marcações dela). */
-export async function getOfferDetail(id: number, userId: string): Promise<OfferDetailDTO | null> {
+export async function getOfferDetail(id: number, userId: number): Promise<OfferDetailDTO | null> {
   const row = await prisma.offer.findUnique({ where: { id } });
   if (!row) return null;
   const alone = (await listOffers({ userId, onlyId: id }))[0];

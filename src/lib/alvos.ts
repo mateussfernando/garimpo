@@ -13,7 +13,7 @@ import { matchAlvo, plain, type AlvoLite } from "../../worker/match/alvos";
  */
 export const ALVOS_CMD_CHANNEL = "garimpo_alvos";
 export const AlvosCmdSchema = z.discriminatedUnion("acao", [
-  z.object({ acao: z.literal("rematch"), userId: z.string().min(1).max(100) }),
+  z.object({ acao: z.literal("rematch"), userId: z.number().int().positive() }),
   z.object({ acao: z.literal("faixa"), alvoId: z.number().int().positive(), bandKey: z.string().min(1).max(40) }),
 ]);
 export type AlvosCmd = z.infer<typeof AlvosCmdSchema>;
@@ -85,7 +85,7 @@ export async function tellWorker(cmd: AlvosCmd) {
 const auto = (median: number | null, n: number, f: number) => (median != null && n >= 5 ? Math.round(median * f) : null);
 
 /** Os Alvos de uma conta, com as faixas e quantas ofertas de 7 dias cada um pegou para ela. */
-export async function getAlvos(userId: string): Promise<AlvosDTO> {
+export async function getAlvos(userId: number): Promise<AlvosDTO> {
   const rows = (await prisma.alvo.findMany({ where: { ownerId: userId, deletedAt: null }, orderBy: { id: "asc" } })).map(alvoFromDb);
   const refs = rows.length ? await prisma.alvoRef.findMany({ where: { alvoId: { in: rows.map((a) => a.id) } } }) : [];
   const counts = await prisma.$queryRaw<{ alvoId: number | null; n: number; hits: number }[]>`
@@ -132,14 +132,14 @@ export async function getAlvos(userId: string): Promise<AlvosDTO> {
 }
 
 /** Um Alvo da conta (não apagado), ou null: o Alvo de outra pessoa é "não encontrado" para quem pede. */
-export async function alvoDaConta(idText: string, userId: string) {
+export async function alvoDaConta(idText: string, userId: number) {
   const id = Number(idText);
   if (!Number.isInteger(id)) return null;
   return prisma.alvo.findFirst({ where: { id, ownerId: userId, deletedAt: null } });
 }
 
 /** Slug de um Alvo novo da conta: "u-" na frente, para nunca pegar as faixas especiais dos Alvos do código (monitor, ssd...). */
-export async function newSlug(name: string, userId: string): Promise<string> {
+export async function newSlug(name: string, userId: number): Promise<string> {
   const base = `u-${plain(name).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "alvo"}`;
   const taken = new Set((await prisma.alvo.findMany({ where: { ownerId: userId }, select: { slug: true } })).map((r) => r.slug));
   let slug = base;
@@ -153,7 +153,7 @@ export type TesteDTO = { total: number; pega: number; exemplos: { id: number; ti
  * O que um Alvo pegaria nas ofertas dos últimos 7 dias, com as regras de hoje e os outros Alvos ligados da conta.
  * Determinístico, sem IA: o mesmo matchAlvo do worker.
  */
-export async function testAlvo(userId: string, input: { id: number | null; terms: string[]; exclusions: string[] }): Promise<TesteDTO> {
+export async function testAlvo(userId: number, input: { id: number | null; terms: string[]; exclusions: string[] }): Promise<TesteDTO> {
   const others = (await prisma.alvo.findMany({ where: { ownerId: userId, isActive: true, deletedAt: null } })).map(alvoFromDb).filter((a) => a.id !== input.id);
   const me: AlvoLite = { id: -1, slug: "teste", name: "teste", terms: cleanTerms(input.terms), exclusions: cleanTerms(input.exclusions) };
   if (!me.terms.length) return { total: 0, pega: 0, exemplos: [], perde: [] };

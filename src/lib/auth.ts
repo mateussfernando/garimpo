@@ -46,13 +46,15 @@ export const auth = betterAuth({
       "/sign-up/email": { window: 60 * 60, max: 5 },
     },
   },
+  // Ids numéricos (1, 2, 3...) em todas as tabelas do login: o banco numera (SERIAL).
+  advanced: { database: { generateId: "serial" } },
   telemetry: { enabled: false },
   databaseHooks: {
     // Conta desativada (tela Usuários) não entra: nem com senha nem com Google.
     session: {
       create: {
         before: async (session) => {
-          const u = await prisma.user.findUnique({ where: { id: session.userId }, select: { isActive: true } });
+          const u = await prisma.user.findUnique({ where: { id: Number(session.userId) }, select: { isActive: true } });
           if (u && !u.isActive) throw new APIError("FORBIDDEN", { code: "CONTA_DESATIVADA", message: "Esta conta está desativada." });
         },
       },
@@ -62,7 +64,8 @@ export const auth = betterAuth({
       create: {
         after: async (user) => {
           try {
-            if (await darAlvosIniciais(user.id)) await tellWorker({ acao: "rematch", userId: user.id });
+            const id = Number(user.id);
+            if (await darAlvosIniciais(id)) await tellWorker({ acao: "rematch", userId: id });
           } catch (e) {
             // Sem os Alvos a conta funciona do mesmo jeito; o worker dá a cópia quando subir de novo (ensureSeed).
             console.error("[contas] não deu para criar os Alvos iniciais:", (e as Error).message);

@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 import { NA_VITRINE, alvoFromDb, json, jsonOrNull, type EventDetail } from "@/lib/db/types";
 import { contasSemAlvos, darAlvosIniciais } from "@/lib/alvos-iniciais";
 import { DADOS_ANTIGOS_KEY } from "@/lib/dados-antigos";
-import { DIA, HORA, MIN, atras } from "@/lib/tempo";
+import { DIA, HORA, atras } from "@/lib/tempo";
 import { COMMUNITIES } from "./collect/communities-config";
 import { VITRINES } from "./collect/vitrines-config";
 import { offerFromMessage } from "./ingest/message";
@@ -262,10 +262,6 @@ export async function scoreOffer(offerId: number, opts: { silent?: boolean; so?:
   const o = await prisma.offer.findUnique({ where: { id: offerId } });
   if (!o) return;
   const store = o.store ? STORES.find((s) => s.slug === o.store) : null;
-  // Calor social: fontes distintas com o mesmo produto (ou título igual) em 15 min.
-  const since = new Date(o.createdAt.getTime() - 15 * MIN);
-  const same = o.productId ? Prisma.sql`product_id = ${o.productId}` : Prisma.sql`lower(title) = lower(${o.title})`;
-  const [{ n }] = await prisma.$queryRaw<{ n: number }[]>`select count(distinct source_id)::int as n from offers where ${same} and created_at >= ${since}`;
   // Desconto real (D): o preço de agora contra o histórico do produto (price_points); sem série, o mínimo e o máximo do Promobit.
   const pontos = o.productId && o.priceCardCents
     ? (await prisma.pricePoint.findMany({ where: { productId: o.productId, observedAt: { gte: atras(30 * DIA) } }, select: { observedAt: true, priceCardCents: true } }))
@@ -279,7 +275,6 @@ export async function scoreOffer(offerId: number, opts: { silent?: boolean; so?:
     storeTrust: store?.trust ?? null,
     freeShipping: o.freeShipping,
     shippingCents: o.shippingCents,
-    sources15: n,
   };
   if (!opts.so) {
     const ref = o.alvoId && o.bandKey ? await prisma.alvoRef.findUnique({ where: { alvoId_bandKey: { alvoId: o.alvoId, bandKey: o.bandKey } } }) : null;

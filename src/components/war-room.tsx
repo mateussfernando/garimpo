@@ -11,11 +11,12 @@ import { Badge, Kbd, brl, useLive, useStatus } from "./shell";
 
 type Action = "comprar" | "vigiar" | "soneca" | "descartar";
 const LABEL: Record<Action, string> = { comprar: "Comprar", vigiar: "Vigiando", soneca: "Soneca 1 h", descartar: "Descartada" };
+// Cada sinal vai de 0 a 100; o peso na nota muda conforme o que se sabe. O calor social não entra na nota.
 const WEIGHTS = [
-  ["A", "Encaixe no Alvo", 45],
-  ["C", "Confiança na loja", 25],
-  ["F", "Frete", 20],
-  ["S", "Calor social", 10],
+  ["D", "Desconto real", 100],
+  ["A", "Preço × mercado", 100],
+  ["C", "Confiança na loja", 100],
+  ["F", "Frete", 100],
 ] as const;
 
 /** Entra na fila: toca um Alvo, não está acima do teto do Alvo e não está em soneca. */

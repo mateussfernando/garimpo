@@ -6,7 +6,7 @@ import { estatisticas, type HistoricoDTO } from "@/lib/historico";
 import { montarNota, type NotaDetalheDTO } from "@/lib/nota";
 import { mercadoDe, notaDePartes, pontoA, type Partes } from "@/lib/nota-algoritmo";
 import { reguaDePosicao } from "@/lib/nota-posicao";
-import { valorDe, type PrecoPref } from "@/lib/preco";
+import { RENDIMENTO_PADRAO_PCT, compensa, valorDe, type Compensa, type PrecoPref } from "@/lib/preco";
 import { clusterSameProduct } from "@/lib/same-product";
 import { getSetting } from "@/lib/settings";
 import { DIA, HORA, atras, inicioDoDia } from "@/lib/tempo";
@@ -82,6 +82,8 @@ export type OfferDTO = {
   /** Mínimo e máximo de referência da página do Promobit; null = a oferta não veio de lá. */
   refPromobit: { minCents: number; maxCents: number } | null;
   curtidas: number | null;
+  /** Pix ou parcelar, qual compensa (estimativa pelo rendimento do dinheiro); null = falta Pix ou parcelas, ou empate. */
+  compensa: Compensa | null;
   /** Os sinais do algoritmo (0 a 1); null = não se sabe, e o sinal ficou fora da conta. */
   notaParts: Partes | null;
   watched: boolean;
@@ -162,6 +164,8 @@ export async function listOffers(opts: { userId: number | null; onlyId?: number;
   const serieDe = new Map<number, { t: number; card: number | null; cash: number | null }[]>();
   for (const x of pontos) serieDe.set(x.productId, [...(serieDe.get(x.productId) ?? []), { t: x.observedAt.getTime(), card: x.priceCardCents, cash: x.cashCents }]);
   const agora = Date.now();
+  const cfg = (await getSetting<number>("rendimento_mensal"))?.value;
+  const rendimento = typeof cfg === "number" && cfg >= 0 && cfg < 10 ? cfg : RENDIMENTO_PADRAO_PCT;
   const meuAlvo = new Map(pessoais.filter((p) => p.alvo?.isActive && !p.alvo.deletedAt).map((p) => [p.offerId, p]));
   const marcaDe = new Map(marcas.map((m) => [m.offerId, m]));
   // A referência da faixa (alvo + faixa) não é uma relação do Prisma: vem numa consulta só e é ligada aqui.
@@ -237,6 +241,7 @@ export async function listOffers(opts: { userId: number | null; onlyId?: number;
     historico: estatisticas(serie, precoDoModo, o.listPriceCents, agora),
     refPromobit: o.refMinCents != null && o.refMaxCents != null ? { minCents: o.refMinCents, maxCents: o.refMaxCents } : null,
     curtidas: o.curtidas,
+    compensa: compensa(o, rendimento),
     notaParts: algo.partes,
     watched: marca?.watched ?? false,
     snoozedUntil: marca?.snoozedUntil?.toISOString() ?? null,

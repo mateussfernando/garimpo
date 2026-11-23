@@ -7,6 +7,7 @@ import { fmtNota, notaDica } from '@/lib/nota'
 import { CompararLojas, spreadText, storeCount } from './comparar-lojas'
 import { ComoANota } from './como-a-nota'
 import { registrarClique } from './gabarito'
+import { CompensaLinha } from './compensa'
 import { HistoricoBloco } from './historico'
 import { AiAnalysis } from './ia'
 import { VotoNota } from './voto-nota'
@@ -189,20 +190,25 @@ function Chart({ d }: { d: OfferDetailDTO }) {
   )
 }
 
-const PART_INFO: Record<
-  'A' | 'C' | 'F' | 'S',
-  { label: string; weight: number }
-> = {
-  A: { label: 'Encaixe no Alvo', weight: 45 },
-  C: { label: 'Confiança na loja', weight: 25 },
-  F: { label: 'Frete', weight: 20 },
-  S: { label: 'Calor social', weight: 10 },
+// Cada sinal vai de 0 a 100 (o peso de cada um na nota muda conforme o que se sabe). O calor social não entra na nota.
+const PART_INFO: Record<'D' | 'A' | 'C' | 'F', { label: string }> = {
+  D: { label: 'Desconto real (histórico de preço)' },
+  A: { label: 'Preço contra o mercado da faixa' },
+  C: { label: 'Confiança na loja' },
+  F: { label: 'Frete' },
 }
 
-function partWhy(k: 'A' | 'C' | 'F' | 'S', d: OfferDetailDTO): string {
+function partWhy(k: 'D' | 'A' | 'C' | 'F', d: OfferDetailDTO): string {
   const o = d.offer
   // Sinal que não se sabe não ganha nota por padrão: sai da conta e os outros pesam mais.
   const fora = d.parts?.[k] == null
+  if (k === 'D') {
+    const h = d.offer.historico
+    if (fora) return 'Sem histórico de preço suficiente deste produto: este sinal fica fora da conta'
+    return h
+      ? `Mais barato que em ${Math.round(h.maisBaratoQue * 100)}% dos ${h.dias} dias com preço registrados`
+      : 'Posição do preço entre o mínimo e o máximo de referência do Promobit'
+  }
   if (k === 'A') {
     if (fora)
       return 'Sem preço de referência (a oferta não cai numa faixa com 5 preços vistos): este sinal fica fora da conta e o algoritmo não opina'
@@ -222,7 +228,7 @@ function partWhy(k: 'A' | 'C' | 'F' | 'S', d: OfferDetailDTO): string {
       : o.shippingCents != null
         ? `Frete de ${brl(o.shippingCents)}`
         : 'Frete não informado: fica fora da conta'
-  return `${d.heat.length} ${d.heat.length === 1 ? 'fonte' : 'fontes'} com este produto; nota cheia com 4`
+  return ''
 }
 
 export function Detalhe({ id }: { id: number }) {
@@ -378,6 +384,7 @@ export function Detalhe({ id }: { id: number }) {
                           ? `${brl(d.offer.cashCents)} à vista`
                           : 'parcelas não informadas'}
                   </span>
+                  <CompensaLinha c={d.offer.compensa} />
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {d.offer.freeShipping && (
@@ -664,16 +671,17 @@ export function Detalhe({ id }: { id: number }) {
                     d={d.offer.notaDetalhe}
                     iaScore={d.offer.ia?.score ?? null}
                     iaConfianca={d.offer.ia?.confidence ?? null}
+                    pecas={{ historico: d.offer.historico != null || d.offer.refPromobit != null, conferida: d.offer.verifyStatus === 'verificado', mercado: d.parts?.A != null }}
                   />
                   <VotoNota offerId={d.offer.id} nota={d.offer.nota} pref={pref} />
                   <HistoricoBloco o={d.offer} />
                   {d.parts ? (
                     <div className="flex flex-col gap-4">
-                      {(['A', 'C', 'F', 'S'] as const).map((k) => {
+                      {(['D', 'A', 'C', 'F'] as const).map((k) => {
                         const info = PART_INFO[k]
                         const parte = d.parts![k]
                         const value =
-                          parte == null ? null : Math.round(parte * info.weight)
+                          parte == null ? null : Math.round(parte * 100)
                         return (
                           <div key={k} className="flex flex-col gap-1.5">
                             <div className="flex items-baseline justify-between text-sm">
@@ -685,7 +693,7 @@ export function Detalhe({ id }: { id: number }) {
                                 {value != null && (
                                   <span className="text-muted">
                                     {' '}
-                                    / {info.weight}
+                                    / {100}
                                   </span>
                                 )}
                               </span>
@@ -696,13 +704,13 @@ export function Detalhe({ id }: { id: number }) {
                               aria-label={
                                 value == null
                                   ? 'sem dado'
-                                  : `${value} de ${info.weight}`
+                                  : `${value} de ${100}`
                               }
                             >
                               <div
                                 className="h-full rounded-full bg-ink-3"
                                 style={{
-                                  width: `${value == null ? 0 : (value / info.weight) * 100}%`,
+                                  width: `${value == null ? 0 : (value / 100) * 100}%`,
                                 }}
                               />
                             </div>

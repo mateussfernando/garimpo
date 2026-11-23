@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PESO_IA, fmtNota, montarNota, notaFinal, notaParaQuem, posicaoEm, type EntradaNota } from "./nota";
+import { PESO_IA, faixaDeCerteza, fmtNota, montarNota, notaFinal, notaParaQuem, posicaoEm, type EntradaNota } from "./nota";
 
 const e = (p: Partial<EntradaNota>): EntradaNota => ({ algoPos: null, base: 1, iaPos: null, confianca: null, veredito: null, ...p });
 
@@ -123,5 +123,30 @@ describe("montarNota e notaParaQuem (a permissão de ver a IA)", () => {
   it("régua com poucas notas (menos de 30) usa a própria nota como posição", () => {
     const pouca = { algoritmo: [50, 60, 70], ia: regua.ia };
     expect(montarNota({ valor: 70, base: 1 }, null, pouca).detalhe?.algoritmo?.pos).toBe(0.7);
+  });
+});
+
+describe("faixaDeCerteza", () => {
+  const todas = { historico: true, ia: true, conferida: true, mercado: true };
+  const nada = { historico: false, ia: false, conferida: false, mercado: false };
+  it("sem nota, sem faixa", () => {
+    expect(faixaDeCerteza(null, todas, null)).toBeNull();
+  });
+  it("tudo presente: faixa estreita (0,3); nada: larga (1,5); sempre dentro de 0 a 10", () => {
+    const f = faixaDeCerteza(8, todas, null)!;
+    expect(f.pontos).toBe(4);
+    expect(f.ate - f.de).toBeCloseTo(0.6, 1);
+    const n = faixaDeCerteza(8, nada, null)!;
+    expect(n.pontos).toBe(0);
+    expect(n.ate - n.de).toBeCloseTo(3, 1);
+    const topo = faixaDeCerteza(9.9, nada, null)!;
+    expect(topo.ate).toBe(10);
+    expect(faixaDeCerteza(0.2, nada, null)!.de).toBe(0);
+  });
+  it("quando algoritmo e IA divergem a faixa abre", () => {
+    const d = { fonte: "mistura", algoritmo: { valor: 90, pos: 0.9, base: 1 }, iaPos: 0.3, pesos: { algoritmo: 1, ia: 1 }, divergente: true, vetoIa: false } as const;
+    const junto = faixaDeCerteza(6, todas, { ...d, iaPos: 0.9 })!;
+    const longe = faixaDeCerteza(6, todas, d)!;
+    expect(longe.ate - longe.de).toBeGreaterThan(junto.ate - junto.de);
   });
 });

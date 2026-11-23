@@ -37,3 +37,36 @@ export function precoDe(o: OfertaPreco, pref: PrecoPref): PrecoDestaque {
 
 /** O valor que filtro e ordenação de preço usam: o mesmo do destaque, para a tela não se contradizer. */
 export const valorDe = (o: OfertaPreco, pref: PrecoPref): number | null => precoDe(o, pref).cents;
+
+/** Rendimento mensal padrão do dinheiro que fica na conta enquanto se paga em parcelas (1,0% ao mês). Ajuste: app_settings `rendimento_mensal` (em %). */
+export const RENDIMENTO_PADRAO_PCT = 1;
+
+export type Compensa = {
+  /** O que sai mais barato de verdade: pagar no Pix ou parcelar. */
+  melhor: "pix" | "parcelar";
+  /** Quanto se economiza escolhendo o melhor, em centavos de hoje. */
+  economiaCents: number;
+  /** Valor presente das parcelas na taxa usada. */
+  valorPresenteCents: number;
+  rendimentoPct: number;
+};
+
+type OfertaParcelada = { cashCents: number | null; installments: number | null; installmentCents: number | null };
+
+/**
+ * Pix ou parcelar, qual compensa: o valor presente das parcelas (a primeira daqui a 1 mês, o dinheiro rendendo
+ * `rendimentoPct` ao mês enquanto não sai da conta) contra o preço no Pix. É uma estimativa: não conta cashback, milhas
+ * nem limite do cartão. null = falta Pix ou parcelas, ou a diferença é menor que 0,5% (empate).
+ */
+export function compensa(o: OfertaParcelada, rendimentoPct: number = RENDIMENTO_PADRAO_PCT): Compensa | null {
+  const n = o.installments;
+  const p = o.installmentCents;
+  const pix = o.cashCents;
+  if (n == null || n < 2 || p == null || p <= 0 || pix == null || pix <= 0 || !(rendimentoPct >= 0)) return null;
+  const r = rendimentoPct / 100;
+  let vp = 0;
+  for (let k = 1; k <= n; k++) vp += p / (1 + r) ** k;
+  const dif = vp - pix;
+  if (Math.abs(dif) < pix * 0.005) return null;
+  return { melhor: dif > 0 ? "pix" : "parcelar", economiaCents: Math.round(Math.abs(dif)), valorPresenteCents: Math.round(vp), rendimentoPct };
+}

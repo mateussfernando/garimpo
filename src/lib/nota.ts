@@ -122,6 +122,20 @@ export function notaParaQuem(d: NotaDetalheDTO | null, ia: Pick<IaNota, "confide
   return combinar(d.algoritmo, podeVerIa ? d.iaPos : null, podeVerIa ? ia : null);
 }
 
+/**
+ * Faixa de certeza da nota: quantas das 4 peças que sustentam a nota existem (histórico de preço, análise da IA, preço
+ * conferido na loja, preço contra o mercado da faixa) e a meia-largura da faixa, em pontos da nota (0 a 10): de 0,3 (tudo
+ * presente) a 1,5 (nada), mais metade da distância entre as posições do algoritmo e da IA. Estimativa por regra, não
+ * estatística: quando o gabarito (👍/👎) der erro medido, a largura passa a vir dele.
+ */
+export function faixaDeCerteza(nota: number | null, p: { historico: boolean; ia: boolean; conferida: boolean; mercado: boolean }, d: NotaDetalheDTO | null) {
+  if (nota == null) return null;
+  const pontos = [p.historico, p.ia, p.conferida, p.mercado].filter(Boolean).length;
+  const diverge = d?.algoritmo && d.iaPos != null ? Math.abs(d.algoritmo.pos - d.iaPos) * 10 : 0;
+  const meia = Math.min(3, 1.5 - (pontos / 4) * 1.2 + diverge / 2);
+  return { pontos, de: Math.max(0, um(nota - meia)), ate: Math.min(10, um(nota + meia)) };
+}
+
 /** A frase curta (dica ao passar o mouse) de onde a nota veio. */
 export function notaDica(nota: number | null, d: NotaDetalheDTO | null): string {
   if (nota == null || !d) return "Sem nota ainda: o algoritmo não tem preço de referência para esta oferta e a IA ainda não analisou.";

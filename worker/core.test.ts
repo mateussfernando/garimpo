@@ -36,41 +36,47 @@ describe("Alvos", () => {
 });
 
 describe("Nota rápida", () => {
-  it("dá nota cheia no preço-alvo, loja própria, frete grátis e 4 fontes", () => {
-    const n = notaRapida({ priceCardCents: 8500, targetCents: 8500, ceilingCents: 11500, storeTrust: 1, freeShipping: true, shippingCents: 0, sources15: 4 });
+  it("dá nota cheia no preço-alvo, loja própria e frete grátis", () => {
+    const n = notaRapida({ priceCardCents: 8500, targetCents: 8500, ceilingCents: 11500, storeTrust: 1, freeShipping: true, shippingCents: 0 });
     expect(n.nota).toBe(100);
     expect(n.alvoAtingido).toBe(true);
   });
   it("sem referência de preço o algoritmo não opina, e o que não se sabe fica fora (nada de nota por padrão)", () => {
-    const n = notaRapida({ priceCardCents: 10000, targetCents: null, ceilingCents: null, storeTrust: null, freeShipping: null, shippingCents: null, sources15: 1 });
-    expect(n.parts).toEqual({ A: null, C: null, F: null, S: 0.25, D: null });
+    const n = notaRapida({ priceCardCents: 10000, targetCents: null, ceilingCents: null, storeTrust: null, freeShipping: null, shippingCents: null });
+    expect(n.parts).toEqual({ A: null, C: null, F: null, D: null });
     expect(n.nota).toBeNull();
-    expect(n.base).toBe(0.1);
+    expect(n.base).toBe(0);
   });
-  it("com o A conhecido, o que falta (loja, frete) sai da conta e os pesos se renormalizam", () => {
-    // A = 1 (no alvo), C e F desconhecidos, S = 0: só A (0,45) e S (0,10) contam => 100 x 0,45 / 0,55
-    const n = notaRapida({ priceCardCents: 8500, targetCents: 8500, ceilingCents: 11500, storeTrust: null, freeShipping: null, shippingCents: null, sources15: 0 });
-    expect(n.nota).toBe(82);
-    expect(n.base).toBe(0.55);
-    // O mesmo preço com loja própria e frete grátis não pode ficar abaixo de quem não se sabe nada da loja.
-    const cheia = notaRapida({ priceCardCents: 8500, targetCents: 8500, ceilingCents: 11500, storeTrust: 1, freeShipping: true, shippingCents: 0, sources15: 0 });
-    expect(cheia.nota).toBe(90);
+  it("o calor social não entra na nota (decisão de 23/11)", () => {
+    const n = notaRapida({ priceCardCents: 8500, targetCents: 8500, ceilingCents: 11500, storeTrust: 1, freeShipping: true, shippingCents: 0 });
+    expect(n.parts).not.toHaveProperty("S");
+  });
+  it("com o A conhecido, o que falta (loja, frete) sai da conta: não conhecer não pune", () => {
+    // Só o A (0,50) conta, e A = 1 => 100
+    const n = notaRapida({ priceCardCents: 8500, targetCents: 8500, ceilingCents: 11500, storeTrust: null, freeShipping: null, shippingCents: null });
+    expect(n.nota).toBe(100);
+    expect(n.base).toBe(0.5);
+    // Já uma loja que se sabe ser pouco confiável (0,2) puxa a nota para baixo: (0,50 + 0,28 x 0,2) / 0,78
+    const fraca = notaRapida({ priceCardCents: 8500, targetCents: 8500, ceilingCents: 11500, storeTrust: 0.2, freeShipping: null, shippingCents: null });
+    expect(fraca.nota).toBe(71);
   });
   it("com histórico (D) o algoritmo opina sem Alvo, e os pesos mudam", () => {
-    // Sem mercado da faixa (A nulo), só o D, a loja própria e frete grátis: D 0,30 · C 0,15 · F 0,10 · S 0,20 (S = 0)
-    const n = notaRapida({ priceCardCents: 8000, targetCents: null, ceilingCents: null, D: 1, storeTrust: 1, freeShipping: true, shippingCents: 0, sources15: 0 });
-    expect(n.parts.D).toBe(1);
-    expect(n.nota).toBe(73); // 100 x (0,30 + 0,15 + 0,10) / 0,75
+    // Sem mercado da faixa (A nulo): D 0,38 · C 0,19 · F 0,12
+    const meio = notaRapida({ priceCardCents: 8000, targetCents: null, ceilingCents: null, D: 0.5, storeTrust: 1, freeShipping: true, shippingCents: 0 });
+    expect(meio.nota).toBe(72); // 100 x (0,38 x 0,5 + 0,19 + 0,12) / 0,69
+    expect(notaRapida({ priceCardCents: 8000, targetCents: null, ceilingCents: null, D: 1, storeTrust: 1, freeShipping: true, shippingCents: 0 }).nota).toBe(100);
     // Preço sempre acima do histórico: D = 0 derruba a nota
-    expect(notaRapida({ priceCardCents: 8000, targetCents: null, ceilingCents: null, D: 0, storeTrust: 1, freeShipping: true, shippingCents: 0, sources15: 0 }).nota!).toBeLessThan(n.nota!);
+    expect(notaRapida({ priceCardCents: 8000, targetCents: null, ceilingCents: null, D: 0, storeTrust: 1, freeShipping: true, shippingCents: 0 }).nota!).toBeLessThan(meio.nota!);
     // Sem D e sem A continua sem opinar
-    expect(notaRapida({ priceCardCents: 8000, targetCents: null, ceilingCents: null, D: null, storeTrust: 1, freeShipping: true, shippingCents: 0, sources15: 4 }).nota).toBeNull();
+    expect(notaRapida({ priceCardCents: 8000, targetCents: null, ceilingCents: null, D: null, storeTrust: 1, freeShipping: true, shippingCents: 0 }).nota).toBeNull();
   });
   it("refaz a nota com outro A (o do Pix) sem mexer nos demais sinais", () => {
-    const base = { A: 0.6, C: 1, F: 1, S: 0 } as const; // S = 0 é "sei que ninguém mais postou": conta, com peso 0,10
-    expect(notaDePartes(base).nota).toBe(72); // 100 x (0,45 x 0,6 + 0,25 + 0,20)
-    expect(notaDePartes({ ...base, A: 1 }).nota).toBe(90);
+    const base = { A: 0.6, C: 1, F: 1 } as const;
+    expect(notaDePartes(base).nota).toBe(80); // 100 x (0,50 x 0,6 + 0,28 + 0,22)
+    expect(notaDePartes({ ...base, A: 1 }).nota).toBe(100);
     expect(notaDePartes({ ...base, A: null }).nota).toBeNull();
+    // Linhas antigas, com o S gravado, ignoram o S
+    expect(notaDePartes({ ...base, S: 0 } as never).nota).toBe(80);
   });
 });
 

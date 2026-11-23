@@ -10,17 +10,19 @@ import { usePreco } from "./preco";
 import { CompararLojas, spreadText, storeCount } from "./comparar-lojas";
 import { ComoANota } from "./como-a-nota";
 import { registrarClique } from "./gabarito";
+import { CompensaLinha } from "./compensa";
 import { HistoricoBloco } from "./historico";
 import { AiAnalysis } from "./ia";
 import { VotoNota } from "./voto-nota";
 import { endsIn, parcelaText, vsBand } from "./offer-card";
 import { Badge, ago, brl } from "./shell";
 
+// Cada sinal vai de 0 a 100; o peso na nota muda conforme o que se sabe. O calor social não entra na nota.
 const PARTS = [
-  ["A", "Encaixe no Alvo", 45],
-  ["C", "Confiança na loja", 25],
-  ["F", "Frete", 20],
-  ["S", "Calor social", 10],
+  ["D", "Desconto real", 100],
+  ["A", "Preço × mercado", 100],
+  ["C", "Confiança na loja", 100],
+  ["F", "Frete", 100],
 ] as const;
 
 function Row({ label, value, strong, tone }: { label: string; value: string; strong?: boolean; tone?: "good" | "muted" }) {
@@ -141,6 +143,7 @@ export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { 
               )}
               {o.alvo?.targetCents && <Row label="Preço-alvo da faixa" value={brl(o.alvo.targetCents)} />}
             </div>
+            <CompensaLinha c={o.compensa} />
 
             <div className="flex flex-wrap gap-1.5">
               {o.available === false && <Badge tone="bad">Esgotado</Badge>}
@@ -177,7 +180,7 @@ export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { 
               </section>
             )}
 
-            <ComoANota nota={o.nota} d={o.notaDetalhe} iaScore={o.ia?.score ?? null} iaConfianca={o.ia?.confidence ?? null} />
+            <ComoANota nota={o.nota} d={o.notaDetalhe} iaScore={o.ia?.score ?? null} iaConfianca={o.ia?.confidence ?? null} pecas={{ historico: o.historico != null || o.refPromobit != null, conferida: o.verifyStatus === "verificado", mercado: ready.parts?.A != null }} />
             <VotoNota offerId={o.id} nota={o.nota} pref={pref} />
             <HistoricoBloco o={o} />
 

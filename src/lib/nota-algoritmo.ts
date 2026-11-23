@@ -8,13 +8,15 @@
 // vendedor, não do preço, então a nota dessas ofertas vem só da IA.
 // Desconto real (D) e Black Fraude entram na Fase 2, com histórico.
 
-export const PESOS = { A: 0.45, C: 0.25, F: 0.2, S: 0.1 } as const;
-/** Com o D (desconto real, vindo do histórico de preço) na conta, os pesos são estes. O S toma o lugar do U do desenho original. */
-export const PESOS_COM_D = { D: 0.3, A: 0.25, C: 0.15, F: 0.1, S: 0.2 } as const;
-export type Sinal = "A" | "C" | "F" | "S" | "D";
+// O calor social (quantas fontes postaram o produto) e as curtidas NÃO entram na nota (decisão do usuário, 23/11: o app terá
+// poucos usuários, no máximo os amigos dele). Continuam só como informação no Detalhe.
+export const PESOS = { A: 0.5, C: 0.28, F: 0.22 } as const;
+/** Com o D (desconto real, vindo do histórico de preço) na conta, os pesos são estes. */
+export const PESOS_COM_D = { D: 0.38, A: 0.31, C: 0.19, F: 0.12 } as const;
+export type Sinal = "A" | "C" | "F" | "D";
 
 /** Cada sinal vai de 0 a 1; null = não se sabe (sai da conta). O D só existe quando há histórico (linhas antigas não têm). */
-export type Partes = { A: number | null; C: number | null; F: number | null; S: number | null; D?: number | null };
+export type Partes = { A: number | null; C: number | null; F: number | null; D?: number | null };
 
 export type NotaInput = {
   priceCardCents: number | null;
@@ -25,7 +27,6 @@ export type NotaInput = {
   storeTrust: number | null;
   freeShipping: boolean | null;
   shippingCents: number | null;
-  sources15: number;
 };
 
 export type Nota = {
@@ -74,10 +75,9 @@ export function notaRapida(i: NotaInput): Nota {
   let F: number | null = null; // frete desconhecido não conta nem a favor nem contra
   if (i.freeShipping) F = 1;
   else if (i.shippingCents != null && i.priceCardCents) F = i.shippingCents <= i.priceCardCents * 0.05 ? 0.5 : 0;
-  const S = clamp(i.sources15 / 4);
   const D = i.D ?? null;
-  const parts: Partes = { A, C, F, S, D };
+  const parts: Partes = { A, C, F, D };
   const { nota, base } = notaDePartes(parts);
   const alvoAtingido = i.priceCardCents != null && i.targetCents != null && i.priceCardCents <= i.targetCents;
-  return { nota, base, parts: { A: round2(A), C: round2(C), F: round2(F), S: round2(S), D: round2(D) }, alvoAtingido };
+  return { nota, base, parts: { A: round2(A), C: round2(C), F: round2(F), D: round2(D) }, alvoAtingido };
 }

@@ -4,6 +4,8 @@ import { motion } from "motion/react";
 import type { OfferDTO } from "@/lib/offers";
 import { storeCount } from "./comparar-lojas";
 import { AiLine } from "./ia";
+import { precoDe } from "@/lib/preco";
+import { usePreco } from "./preco";
 import { Badge, ago, brl } from "./shell";
 
 /** Quanto falta para o fim da oferta, em texto curto. null se já passou ou não há prazo. */
@@ -56,7 +58,8 @@ export function OfferCard({ o, index, now, flash, onOpen, onWatch, onDismiss }: 
   const delta = vsBand(o);
   const ends = endsIn(o.extra?.endsAt, now);
   const parcela = parcelaText(o);
-  const hasPix = !!(o.cashCents && o.priceCardCents && o.cashCents < o.priceCardCents);
+  const { pref } = usePreco();
+  const preco = precoDe(o, pref);
   // O mesmo produto em outras lojas: quantas e o menor preço entre elas.
   const nStores = storeCount(o.lojas);
   const minOther = Math.min(...o.lojas.filter((l) => l.available !== false && l.priceCardCents != null).map((l) => l.priceCardCents!));
@@ -109,15 +112,24 @@ export function OfferCard({ o, index, now, flash, onOpen, onWatch, onDismiss }: 
 
         <div className="flex flex-col gap-1">
           <div className={`flex items-baseline gap-x-2 overflow-hidden whitespace-nowrap ${flash === "down" ? "flash-down" : flash === "up" ? "flash-up" : ""}`}>
-            <span className="font-mono tnum text-[26px] font-semibold leading-none tracking-tight text-num">{brl(o.priceCardCents)}</span>
-            <span className="text-xs text-muted">no cartão</span>
+            <span className="font-mono tnum text-[26px] font-semibold leading-none tracking-tight text-num">{brl(preco.cents)}</span>
+            <span className="text-xs text-muted">{preco.rotulo}</span>
           </div>
           <span className="block h-[19px] truncate font-mono text-[12.5px] text-ink-3">
-            {parcela}
-            {hasPix && (
-              <span className="text-good">
-                {parcela ? " · " : ""}Pix {brl(o.cashCents)}
-              </span>
+            {preco.efetivo === "pix" ? (
+              <>
+                {preco.outro ? `cartão ${brl(preco.outro.cents)}` : ""}
+                {parcela ? `${preco.outro ? " · " : ""}${parcela}` : ""}
+              </>
+            ) : (
+              <>
+                {parcela}
+                {preco.outro && (
+                  <span className="text-good">
+                    {parcela ? " · " : ""}Pix {brl(preco.outro.cents)}
+                  </span>
+                )}
+              </>
             )}
           </span>
         </div>

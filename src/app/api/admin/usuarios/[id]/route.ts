@@ -30,6 +30,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/admin/usua
   }
 
   const cargo = await prisma.cargo.findUnique({ where: { id: parsed.data.cargoId } });
+  if (cargo?.slug === "visitante") return Response.json({ erro: "o Visitante é o cargo de quem não tem conta: não se dá a uma pessoa" }, { status: 400 });
   if (cargo && !cargo.isActive) return Response.json({ erro: "este cargo está desativado: ative antes de usar" }, { status: 400 });
   if (!cargo) return Response.json({ erro: "cargo não encontrado" }, { status: 404 });
   if (alvo.isActive && alvo.cargo?.todas && !cargo.todas && (await contarAdmins()) <= 1) {

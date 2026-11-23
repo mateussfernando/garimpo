@@ -32,6 +32,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/admin/carg
   }
   if (b.acao === "padrao") {
     if (cargo.todas) return Response.json({ erro: "quem se cadastra nunca vira administrador" }, { status: 400 });
+    if (cargo.slug === "visitante") return Response.json({ erro: "o Visitante é o cargo de quem não tem conta, não o de quem se cadastra" }, { status: 400 });
     if (!cargo.isActive) return Response.json({ erro: "ative o cargo antes de usá-lo para quem se cadastra" }, { status: 400 });
     await prisma.$transaction([
       prisma.cargo.updateMany({ where: { padrao: true }, data: { padrao: false } }),

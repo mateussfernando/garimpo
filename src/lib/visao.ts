@@ -4,7 +4,7 @@ import type { CupomDTO } from "@/lib/cupons";
 import { prisma } from "@/lib/db/prisma";
 import type { OfferDetailDTO } from "@/lib/detail";
 import type { OfferDTO, StatusDTO } from "@/lib/offers";
-import { pode, type Usuario } from "@/lib/sessao";
+import { pode, type Quem } from "@/lib/sessao";
 
 const GRUPO = "Grupo do Telegram";
 const SEM_CONFERIR = "não deu para conferir o preço na loja";
@@ -20,7 +20,7 @@ async function nomesPrivados(): Promise<Set<string>> {
 
 type Contexto = { internos: boolean; ia: boolean; privados: Set<string> };
 
-export async function contextoDe(u: Usuario): Promise<Contexto> {
+export async function contextoDe(u: Quem): Promise<Contexto> {
   const internos = pode(u, "ofertas.detalhes_internos");
   return { internos, ia: pode(u, "ia.analises.ver"), privados: internos ? new Set() : await nomesPrivados() };
 }
@@ -55,7 +55,7 @@ export function cupomVisivel(x: CupomDTO, c: Contexto): CupomDTO {
 }
 
 /** Cabeçalho: IA (custo, uso, botões) só para quem gerencia a IA; fontes, fila e máquina só para quem vê o sistema. */
-export function statusVisivel(s: StatusDTO, u: Usuario): StatusDTO {
+export function statusVisivel(s: StatusDTO, u: Quem): StatusDTO {
   const sistema = pode(u, "sistema.ver");
   return {
     ...s,

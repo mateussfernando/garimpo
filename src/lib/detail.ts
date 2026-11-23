@@ -33,7 +33,7 @@ const median = (v: number[]) => {
 };
 
 /** O detalhe de uma oferta para uma conta (com o Alvo, a nota e as marcações dela). */
-export async function getOfferDetail(id: number, userId: number): Promise<OfferDetailDTO | null> {
+export async function getOfferDetail(id: number, userId: number | null): Promise<OfferDetailDTO | null> {
   const row = await prisma.offer.findUnique({ where: { id } });
   if (!row) return null;
   const alone = (await listOffers({ userId, onlyId: id }))[0];
@@ -61,7 +61,7 @@ export async function getOfferDetail(id: number, userId: number): Promise<OfferD
   const base = tokens(row.title);
   const recent = (
     await prisma.offer.findMany({
-      where: { id: { not: id }, createdAt: { gte: atras(72 * HORA) }, ...NA_VITRINE, ofertasUsuario: { none: { userId, dismissed: true } } },
+      where: { id: { not: id }, createdAt: { gte: atras(72 * HORA) }, ...NA_VITRINE, ...(userId == null ? {} : { ofertasUsuario: { none: { userId, dismissed: true } } }) },
       include: { source: { select: { name: true, kind: true } } },
       orderBy: { createdAt: "desc" },
       take: 500,

@@ -5,6 +5,9 @@ import { useCallback, useMemo, useState } from 'react'
 import type { OfferDetailDTO } from '@/lib/detail'
 import { CompararLojas, spreadText, storeCount } from './comparar-lojas'
 import { AiAnalysis } from './ia'
+import { precoDe } from '@/lib/preco'
+import { useSeVisitante } from './conta-aviso'
+import { usePreco } from './preco'
 import { AppHeader, Badge, ago, brl, podeVer, useLive, useMe, useNow, useStatus } from './shell'
 
 const dayBR = (iso: string) => iso.slice(8, 10) + '/' + iso.slice(5, 7)
@@ -221,6 +224,8 @@ export function Detalhe({ id }: { id: number }) {
   const { status, live } = useStatus()
   const now = useNow(30_000)
   const me = useMe()
+  const { pref } = usePreco()
+  const seVisitante = useSeVisitante()
 
   const load = useCallback(async () => {
     const r = await fetch(`/api/offers/${id}`, { cache: 'no-store' })
@@ -231,6 +236,8 @@ export function Detalhe({ id }: { id: number }) {
 
   const patch = useCallback(
     async (body: { watched?: boolean; dismissed?: boolean }) => {
+      // Sem conta: a Vitrine é aberta, mas vigiar e descartar pedem conta.
+      if (seVisitante(body.dismissed !== undefined ? 'descartar' : 'vigiar')) return
       setD((p) => (p ? { ...p, offer: { ...p.offer, ...body } } : p))
       await fetch(`/api/offers/${id}`, {
         method: 'PATCH',
@@ -238,7 +245,7 @@ export function Detalhe({ id }: { id: number }) {
         body: JSON.stringify(body),
       })
     },
-    [id],
+    [id, seVisitante],
   )
 
   // Tirar da Vitrine de todos (ou devolver): a oferta, ou o produto inteiro. Só quem tem ofertas.moderar.
@@ -347,16 +354,18 @@ export function Detalhe({ id }: { id: number }) {
                 <div className="flex flex-col gap-1">
                   <div className="flex flex-wrap items-baseline gap-x-3">
                     <span className="font-mono tnum text-[48px] font-semibold leading-none tracking-tight text-num">
-                      {brl(d.offer.priceCardCents)}
+                      {brl(precoDe(d.offer, pref).cents)}
                     </span>
-                    <span className="text-sm text-muted">no cartão</span>
+                    <span className="text-sm text-muted">{precoDe(d.offer, pref).rotulo}</span>
                   </div>
                   <span className="font-mono text-sm text-ink-3">
-                    {d.offer.installments && d.offer.installmentCents
-                      ? `${d.offer.installments}x de ${brl(d.offer.installmentCents)}${d.offer.interest === false ? ' sem juros' : d.offer.interest ? ' com juros' : ''}`
-                      : d.offer.cashCents
-                        ? `${brl(d.offer.cashCents)} à vista`
-                        : 'parcelas não informadas'}
+                    {precoDe(d.offer, pref).efetivo === 'pix' && precoDe(d.offer, pref).outro
+                      ? `${brl(precoDe(d.offer, pref).outro!.cents)} no cartão${d.offer.installments && d.offer.installmentCents ? ` · ${d.offer.installments}x de ${brl(d.offer.installmentCents)}${d.offer.interest === false ? ' sem juros' : d.offer.interest ? ' com juros' : ''}` : ''}`
+                      : d.offer.installments && d.offer.installmentCents
+                        ? `${d.offer.installments}x de ${brl(d.offer.installmentCents)}${d.offer.interest === false ? ' sem juros' : d.offer.interest ? ' com juros' : ''}`
+                        : d.offer.cashCents
+                          ? `${brl(d.offer.cashCents)} à vista`
+                          : 'parcelas não informadas'}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">

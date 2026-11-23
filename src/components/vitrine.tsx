@@ -5,6 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Toaster, toast } from "sonner";
 import type { EventDTO } from "@/app/api/events/route";
 import type { OfferDTO, StatusDTO } from "@/lib/offers";
+import { precoDe } from "@/lib/preco";
+import { useSeVisitante } from "./conta-aviso";
+import { usePreco } from "./preco";
 import { Feed } from "./feed";
 import { FiltersBar, useSmartFilters } from "./filtros";
 import { OfferCard } from "./offer-card";
@@ -17,6 +20,8 @@ type Flash = Record<number, "down" | "up">;
 type PatchBody = { watched?: boolean; dismissed?: boolean };
 
 const json = <T,>(url: string): Promise<T> => fetch(url, { cache: "no-store" }).then((r) => r.json());
+/** O feed "Ao vivo" é da conta (Alvos dela): visitante recebe 401 e fica sem feed, sem erro. */
+const jsonOuVazio = <T,>(url: string, vazio: T): Promise<T> => fetch(url, { cache: "no-store" }).then((r) => (r.ok ? (r.json() as Promise<T>) : vazio));
 
 function SkeletonCard() {
   return (
@@ -36,6 +41,8 @@ export function Vitrine() {
   const [offers, setOffers] = useState<OfferDTO[] | null>(null);
   const [status, setStatus] = useState<StatusDTO | null>(null);
   const [events, setEvents] = useState<EventDTO[]>([]);
+  const { pref } = usePreco();
+  const seVisitante = useSeVisitante();
   const [version, setVersion] = useState(0);
   const [flash, setFlash] = useState<Flash>({});
   const [openId, setOpenId] = useState<number | null>(null);
@@ -60,7 +67,7 @@ export function Vitrine() {
   }, [play, flashTitle]);
 
   const load = useCallback(async () => {
-    const [o, s, e] = await Promise.all([json<OfferDTO[]>("/api/offers"), json<StatusDTO>("/api/status"), json<EventDTO[]>("/api/events")]);
+    const [o, s, e] = await Promise.all([json<OfferDTO[]>("/api/offers"), json<StatusDTO>("/api/status"), jsonOuVazio<EventDTO[]>("/api/events", [])]);
 
     // Preço que mudou pisca como cotação.
     const changed: Flash = {};
@@ -93,11 +100,13 @@ export function Vitrine() {
 
   const patch = useCallback(
     async (id: number, body: PatchBody) => {
+      // Sem conta: a Vitrine é aberta, mas vigiar e descartar pedem conta.
+      if (seVisitante(body.dismissed !== undefined ? "descartar" : "vigiar")) return;
       setOffers((prev) => (prev ?? []).flatMap((o) => (o.id !== id ? [o] : body.dismissed ? [] : [{ ...o, ...body }])));
       await fetch(`/api/offers/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (body.dismissed === false) await load();
     },
-    [load],
+    [load, seVisitante],
   );
 
   const dismiss = useCallback(
@@ -199,7 +208,7 @@ export function Vitrine() {
                     <button type="button" onClick={() => open(o.id)} className="flex min-w-0 flex-1 flex-col gap-1 text-left">
                       <span className="truncate font-medium">{o.title}</span>
                       <span className="truncate font-mono text-[13px] text-[#DADDE1]">
-                        {brl(o.priceCardCents)} <span className="text-muted">· alvo {brl(o.alvo?.targetCents)}{o.band ? ` · ${o.band.label}` : ""}</span>
+                        {brl(precoDe(o, pref).cents)} <span className="text-muted">· alvo {brl(o.alvo?.targetCents)}{o.band ? ` · ${o.band.label}` : ""}</span>
                       </span>
                     </button>
                     {o.url && (

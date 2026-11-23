@@ -7,7 +7,9 @@ import { CATEGORIES, OTHER_CATEGORY, categoryName } from "@/config/categories";
 import { STORES } from "@/config/stores";
 import { storeCount } from "./comparar-lojas";
 import type { OfferDTO } from "@/lib/offers";
+import { valorDe, type PrecoPref } from "@/lib/preco";
 import { describe, parseQuery, titleHas, type Parsed, type Sort } from "@/lib/smart-filter";
+import { usePreco } from "./preco";
 import { Kbd, brl } from "./shell";
 
 export type FilterState = {
@@ -53,7 +55,7 @@ const discountOf = (o: OfferDTO) =>
 
 type Facet = "category" | "alvo" | "store" | "price";
 
-function matcher(st: FilterState, p: Parsed) {
+function matcher(st: FilterState, p: Parsed, pref: PrecoPref) {
   const category = p.category ?? st.category;
   const store = p.store ? storeName(p.store) : st.store;
   const band = PRICES.find((b) => b.key === st.price);
@@ -68,9 +70,10 @@ function matcher(st: FilterState, p: Parsed) {
     if (skip !== "store" && store !== "all" && o.store !== store && !o.lojas.some((l) => l.store === store)) return false;
     if (st.multiStore && storeCount(o.lojas) < 2) return false;
     if (skip !== "price" && (min != null || max != null)) {
-      if (o.priceCardCents == null) return false;
-      if (min != null && o.priceCardCents < min) return false;
-      if (max != null && o.priceCardCents > max) return false;
+      const v = valorDe(o, pref);
+      if (v == null) return false;
+      if (min != null && v < min) return false;
+      if (max != null && v > max) return false;
     }
     if ((st.free || p.free) && !o.freeShipping) return false;
     if ((st.verified || p.verified) && o.verifyStatus !== "verificado") return false;
@@ -83,6 +86,7 @@ function matcher(st: FilterState, p: Parsed) {
 
 /** Estado dos filtros (lembrado neste navegador), as ofertas filtradas e as contagens de cada opção. */
 export function useSmartFilters(offers: OfferDTO[] | null) {
+  const { pref } = usePreco();
   const [st, setSt] = useState<FilterState>(DEFAULT);
   const loaded = useRef(false);
   useEffect(() => {
@@ -107,7 +111,7 @@ export function useSmartFilters(offers: OfferDTO[] | null) {
   const parsed = useMemo(() => parseQuery(st.q), [st.q]);
   const result = useMemo(() => {
     const list = offers ?? [];
-    const match = matcher(st, parsed);
+    const match = matcher(st, parsed, pref);
     const count = (skip: Facet, key: (o: OfferDTO) => string) => {
       const m = new Map<string, number>();
       for (const o of list) if (match(o, skip)) m.set(key(o), (m.get(key(o)) ?? 0) + 1);
@@ -117,15 +121,15 @@ export function useSmartFilters(offers: OfferDTO[] | null) {
     const alvos = count("alvo", (o) => o.alvo?.slug ?? NO_ALVO);
     const stores = count("store", (o) => o.store ?? "");
     const priceBase = list.filter((o) => match(o, "price"));
-    const prices = new Map(PRICES.map((b) => [b.key, priceBase.filter((o) => o.priceCardCents != null && (b.min == null || o.priceCardCents >= b.min) && (b.max == null || o.priceCardCents <= b.max)).length]));
+    const prices = new Map(PRICES.map((b) => [b.key, priceBase.filter((o) => { const v = valorDe(o, pref); return v != null && (b.min == null || v >= b.min) && (b.max == null || v <= b.max); }).length]));
     const sort = parsed.sort ?? st.sort;
     const shown = list.filter((o) => match(o));
-    if (sort === "preco") shown.sort((a, b) => (a.priceCardCents ?? Infinity) - (b.priceCardCents ?? Infinity));
+    if (sort === "preco") shown.sort((a, b) => (valorDe(a, pref) ?? Infinity) - (valorDe(b, pref) ?? Infinity));
     else if (sort === "ia") shown.sort((a, b) => (b.ia?.score ?? -1) - (a.ia?.score ?? -1) || (b.nota ?? -1) - (a.nota ?? -1));
     else if (sort === "novos") shown.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     else if (sort === "desconto") shown.sort((a, b) => discountOf(b) - discountOf(a) || (b.nota ?? -1) - (a.nota ?? -1));
     return { shown, cats, alvos, stores, prices, total: [...cats.values()].reduce((a, b) => a + b, 0), all: list.length };
-  }, [offers, st, parsed]);
+  }, [offers, st, parsed, pref]);
 
   const active =
     st.q.trim() !== "" || st.category !== "all" || st.alvo !== "all" || st.store !== "all" || st.price !== "all" || st.free || st.verified || st.noInterest || st.coupon || st.aiPick || st.multiStore;

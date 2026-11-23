@@ -43,7 +43,28 @@ export const getUser = cache(async (): Promise<Usuario | null> => {
   };
 });
 
+/** Quem ainda não entrou: o cargo "Visitante" do banco (as permissões se mudam na tela Usuários). */
+export type Visitante = Omit<Usuario, "id"> & { id: null; visitante: true };
+export type Quem = Usuario | Visitante;
+
 export const pode = (u: Pick<Usuario, "permissoes"> | null, p: Permissao) => !!u?.permissoes.includes(p);
+
+/**
+ * O visitante: sem conta, com as permissões do cargo "Visitante". Sem o cargo no banco (ou desativado), nenhuma
+ * permissão: o site fica fechado para quem não entrou. Nunca o contrário.
+ */
+const getVisitante = cache(async (): Promise<Visitante> => {
+  const cargo = await prisma.cargo.findFirst({ where: { slug: "visitante", isActive: true, todas: false }, include: { permissoes: true } });
+  return {
+    id: null,
+    visitante: true,
+    name: "Visitante",
+    email: "",
+    image: null,
+    cargo: cargo ? { id: cargo.id, slug: cargo.slug, nome: cargo.nome } : { id: 0, slug: "visitante", nome: "Visitante" },
+    permissoes: cargo ? cargo.permissoes.map((p) => p.permissaoSlug).filter(ehPermissao) : [],
+  };
+});
 
 /** Resposta padrão para quem não está logado. */
 export const semSessao = () => Response.json({ erro: "entre para continuar" }, { status: 401 });
@@ -59,6 +80,16 @@ export async function exigir(permissao?: Permissao, request?: Request): Promise<
   const u = await getUser();
   if (!u) return semSessao();
   if (permissao && !pode(u, permissao)) return proibido();
+  return u;
+}
+
+/**
+ * Para as poucas rotas de LEITURA abertas a quem não tem conta (Vitrine, Detalhe, Cupons, status e /api/me): a pessoa
+ * logada ou o visitante. Falta a permissão = 401 (visitante, para entrar) ou 403 (logado).
+ */
+export async function exigirOuVisitante(permissao: Permissao): Promise<Quem | Response> {
+  const u = (await getUser()) ?? (await getVisitante());
+  if (!pode(u, permissao)) return "visitante" in u ? semSessao() : proibido();
   return u;
 }
 

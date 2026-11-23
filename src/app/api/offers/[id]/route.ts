@@ -2,12 +2,12 @@ import { connection } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { getOfferDetail } from "@/lib/detail";
-import { exigir, pode } from "@/lib/sessao";
+import { exigir, exigirOuVisitante, pode } from "@/lib/sessao";
 import { contextoDe, detalheVisivel } from "@/lib/visao";
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/offers/[id]">) {
   await connection();
-  const eu = await exigir("ofertas.ver");
+  const eu = await exigirOuVisitante("ofertas.ver");
   if (eu instanceof Response) return eu;
   const { id } = await ctx.params;
   const offerId = Number(id);

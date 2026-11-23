@@ -336,6 +336,8 @@ model User {
   cargo          Cargo?          @relation(fields: [cargoId], references: [id])
   /// Conta ativa. Desativada (só um admin muda, na tela Usuários): não entra, não usa a API e os Alvos dela param. Nada é apagado.
   isActive       Boolean         @default(true) @map("is_active")
+  /// Preço em destaque nos cards: "cartao" (padrão do app) ou "pix". Vazio = ainda não escolheu (o app pergunta).
+  precoPreferido String?         @map("preco_preferido")
   alvos          Alvo[]
   ofertasAlvo    OfertaAlvo[]
   ofertasUsuario OfertaUsuario[]

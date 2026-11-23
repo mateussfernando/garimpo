@@ -4,6 +4,8 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import type { OfferDetailDTO } from "@/lib/detail";
+import { precoDe } from "@/lib/preco";
+import { usePreco } from "./preco";
 import { CompararLojas, spreadText, storeCount } from "./comparar-lojas";
 import { AiAnalysis } from "./ia";
 import { endsIn, parcelaText, vsBand } from "./offer-card";
@@ -32,6 +34,7 @@ function Row({ label, value, strong, tone }: { label: string; value: string; str
 export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { id: number; now: number | null; version: number; onClose: () => void; onWatch: (watched: boolean) => void; onDismiss: () => void }) {
   const [d, setD] = useState<OfferDetailDTO | null>(null);
   const [img, setImg] = useState(0);
+  const { pref } = usePreco();
 
   useEffect(() => {
     let alive = true;
@@ -117,8 +120,13 @@ export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { 
             <h2 className="text-lg font-semibold leading-snug tracking-tight">{o.title}</h2>
 
             <div className="rounded-xl bg-deep px-4 py-2">
-              <Row label={`No cartão${o.installments && o.installments > 1 ? `, ${parcelaText(o)}` : o.installments === 1 ? ", em 1x" : ""}`} value={brl(o.priceCardCents)} strong />
-              {o.cashCents && o.priceCardCents && o.cashCents < o.priceCardCents && <Row label="No Pix" value={brl(o.cashCents)} tone="good" />}
+              {precoDe(o, pref).efetivo === "pix" && <Row label="No Pix" value={brl(o.cashCents)} strong />}
+              <Row
+                label={`No cartão${o.installments && o.installments > 1 ? `, ${parcelaText(o)}` : o.installments === 1 ? ", em 1x" : ""}`}
+                value={brl(o.priceCardCents)}
+                strong={precoDe(o, pref).efetivo === "cartao"}
+              />
+              {precoDe(o, pref).efetivo === "cartao" && o.cashCents && o.priceCardCents && o.cashCents < o.priceCardCents && <Row label="No Pix" value={brl(o.cashCents)} tone="good" />}
               {o.listPriceCents && o.priceCardCents && o.listPriceCents > o.priceCardCents && <Row label={'Preço "de" da loja'} value={brl(o.listPriceCents)} tone="muted" />}
               {o.band && (
                 <Row

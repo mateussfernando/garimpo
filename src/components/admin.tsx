@@ -169,7 +169,7 @@ export function Admin() {
                     className="h-9 w-full rounded-[10px] border border-control bg-bg px-2 text-[13px] text-ink outline-none"
                   >
                     {(data?.cargos ?? [])
-                      .filter((c) => c.isActive || c.id === (u.cargoId ?? data?.padraoId))
+                      .filter((c) => c.slug !== "visitante" && (c.isActive || c.id === (u.cargoId ?? data?.padraoId)))
                       .map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.nome}
@@ -247,7 +247,7 @@ export function Admin() {
                       Ativo
                     </label>
                     <Btn onClick={() => setEditando(c.id)}>Editar</Btn>
-                    {!c.padrao && !c.todas && c.isActive && <Btn onClick={() => void acaoCargo(`/api/admin/cargos/${c.id}`, "PATCH", { acao: "padrao" })}>Usar para quem se cadastra</Btn>}
+                    {!c.padrao && !c.todas && c.isActive && c.slug !== "visitante" && <Btn onClick={() => void acaoCargo(`/api/admin/cargos/${c.id}`, "PATCH", { acao: "padrao" })}>Usar para quem se cadastra</Btn>}
                     {!c.sistema && (
                       <Btn danger onClick={() => void acaoCargo(`/api/admin/cargos/${c.id}`, "DELETE")}>
                         Apagar

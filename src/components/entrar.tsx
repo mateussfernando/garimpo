@@ -6,6 +6,13 @@ import { authClient } from "@/lib/auth-client";
 
 type Modo = "entrar" | "criar";
 
+/** Por que a pessoa veio (só estes textos fixos: nada do endereço é mostrado na tela). */
+const MOTIVOS: Record<string, string> = {
+  vigiar: "Para vigiar o preço das ofertas, entre ou crie uma conta.",
+  descartar: "Para descartar ofertas, entre ou crie uma conta.",
+  alvos: "Para criar os seus Alvos, entre ou crie uma conta.",
+};
+
 /** Só volta para um caminho do próprio site (nada de //outro-site.com). */
 function destinoSeguro(de: string | null): string {
   return de && de.startsWith("/") && !de.startsWith("//") && !de.startsWith("/entrar") ? de : "/";
@@ -39,7 +46,8 @@ export function Entrar({ google }: { google: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const destino = destinoSeguro(params.get("de"));
-  const [modo, setModo] = useState<Modo>("entrar");
+  const [modo, setModo] = useState<Modo>(params.get("modo") === "criar" ? "criar" : "entrar");
+  const motivo = MOTIVOS[params.get("motivo") ?? ""] ?? (destino !== "/" ? "Entre ou crie uma conta para continuar." : null);
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -90,6 +98,12 @@ export function Entrar({ google }: { google: boolean }) {
             </button>
           ))}
         </div>
+
+        {motivo && (
+          <p role="status" className="rounded-[10px] border border-control bg-deep px-3 py-2 text-[13px] text-ink-2">
+            {motivo}
+          </p>
+        )}
 
         <form onSubmit={enviar} className="flex flex-col gap-4">
           {modo === "criar" && (

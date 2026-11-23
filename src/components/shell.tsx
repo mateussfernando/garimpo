@@ -6,6 +6,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Permissao } from "@/config/permissoes";
 import { authClient } from "@/lib/auth-client";
 import type { StatusDTO } from "@/lib/offers";
+import { obterMe, podeVer, useMe } from "./me";
+import { PrecoToggle } from "./preco";
 
 export const brl = (cents: number | null | undefined) =>
   cents == null ? "—" : (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -72,21 +74,35 @@ export function useLive(load: () => Promise<void>) {
   }, [load]);
   useEffect(() => {
     const first = setTimeout(() => void loadRef.current(), 0);
-    const es = new EventSource("/api/stream");
-    // A cada (re)conexão, recarrega: pode ter perdido avisos enquanto caiu.
-    es.addEventListener("ready", () => {
-      setLive(true);
-      void loadRef.current();
+    let es: EventSource | null = null;
+    let poll: ReturnType<typeof setInterval> | null = null;
+    let fechou = false;
+    void obterMe().then((me) => {
+      if (fechou) return;
+      if (me?.visitante) {
+        // Visitante (sem conta): sem conexão ao vivo; confere de novo a cada 30 s.
+        setLive(true);
+        poll = setInterval(() => void loadRef.current(), 30_000);
+        return;
+      }
+      es = new EventSource("/api/stream");
+      // A cada (re)conexão, recarrega: pode ter perdido avisos enquanto caiu.
+      es.addEventListener("ready", () => {
+        setLive(true);
+        void loadRef.current();
+      });
+      es.onmessage = () => {
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = setTimeout(() => void loadRef.current(), 400);
+      };
+      es.onerror = () => setLive(false);
     });
-    es.onmessage = () => {
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => void loadRef.current(), 400);
-    };
-    es.onerror = () => setLive(false);
     return () => {
+      fechou = true;
       clearTimeout(first);
       if (timer.current) clearTimeout(timer.current);
-      es.close();
+      if (poll) clearInterval(poll);
+      es?.close();
     };
   }, []);
   return live;
@@ -115,29 +131,8 @@ const NAV = [
 ] as const satisfies readonly { key: string; href: string; label: string; perm: Permissao }[];
 export type NavKey = (typeof NAV)[number]["key"];
 
-export type Me = { id: number; name: string; email: string; image: string | null; cargo: { id: number; slug: string; nome: string }; permissoes: Permissao[] };
-
-let mePromise: Promise<Me | null> | null = null;
-/** Quem está logado e o que pode (de /api/me). Uma busca por carregamento de página. */
-export function useMe(): Me | null {
-  const [me, setMe] = useState<Me | null>(null);
-  useEffect(() => {
-    mePromise ??= fetch("/api/me", { cache: "no-store" })
-      .then((r) => {
-        // Sessão que acabou ou conta desativada: volta para a tela de entrar.
-        if (r.status === 401) location.replace("/entrar");
-        return r.ok ? (r.json() as Promise<Me>) : null;
-      })
-      .catch(() => null);
-    let vivo = true;
-    void mePromise.then((m) => vivo && setMe(m));
-    return () => {
-      vivo = false;
-    };
-  }, []);
-  return me;
-}
-export const podeVer = (me: Me | null, p: Permissao) => !!me?.permissoes.includes(p);
+// Quem sou e o que posso (src/components/me.ts); reexportado aqui porque as telas já importam daqui.
+export { podeVer, useMe, type Me } from "./me";
 
 function Metric({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -243,14 +238,27 @@ agy: gemini-3.8-flash-low · ${agyToday} chamadas hoje, pela conta do Antigravit
 
 /** Quem está logado e o botão Sair. */
 function UserMenu() {
-  const { data } = authClient.useSession();
+  const { data, isPending } = authClient.useSession();
   const router = useRouter();
   const [saindo, setSaindo] = useState(false);
-  if (!data) return null;
+  if (isPending) return null;
+  if (!data) {
+    // Sem conta: a Vitrine está aberta; entrar ou criar conta fica à mão.
+    return (
+      <span className="flex items-center gap-2 text-[13px]">
+        <Link href="/entrar" className="flex h-9 items-center rounded-[10px] border border-control px-3 text-xs font-medium text-ink-2 hover:text-ink">
+          Entrar
+        </Link>
+        <Link href="/entrar?modo=criar" className="flex h-9 items-center rounded-[10px] bg-ink px-3 text-xs font-semibold text-bg">
+          Criar conta
+        </Link>
+      </span>
+    );
+  }
   const sair = async () => {
     setSaindo(true);
     await authClient.signOut();
-    router.replace("/entrar");
+    router.replace("/");
     router.refresh();
   };
   return (
@@ -279,7 +287,7 @@ export function AppHeader({ active, status, live }: { active: NavKey | null; sta
             Garimpo
           </Link>
           <nav aria-label="Seções do app" className="ml-3 flex flex-wrap gap-1 text-sm font-medium">
-            {NAV.filter((n) => podeVer(me, n.perm)).map((n) => (
+            {NAV.filter((n) => podeVer(me, n.perm) || (me?.visitante && n.key === "alvos")).map((n) => (
               <Link
                 key={n.key}
                 href={n.href}
@@ -296,6 +304,7 @@ export function AppHeader({ active, status, live }: { active: NavKey | null; sta
             <span className={`h-2 w-2 rounded-full ${live ? "bg-good-dot" : "bg-pause"}`} />
             {live ? "Ao vivo" : "Reconectando"}
           </span>
+          <PrecoToggle />
           <UserMenu />
         </span>
       </div>

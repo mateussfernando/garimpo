@@ -68,6 +68,18 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 23/11/2026, 02:30 · Vitrine aberta a visitantes e preço preferido (cartão ou Pix)
+
+- **Pedido do usuário:** destacar o preço no Pix, se a pessoa preferir (popup na primeira abertura); e deixar quem não tem conta ver a Vitrine, pedindo conta só para vigiar, Alvos e o que é pessoal. Plano aprovado em `C:\Users\Jogga\.claude\plans\splendid-exploring-fern.md`; o usuário decidiu que a escolha de preço fica **no banco para quem tem conta e no navegador para o visitante**.
+- **Feito:**
+  - Migração `visitante_e_preco` (só acrescenta; sem dump novo, o último é o `…-0043-antes-de-id-numerico`): cargo de sistema **Visitante** (`ofertas.ver` e `ia.analises.ver`) e `usuarios.preco_preferido`;
+  - Visitante: só **leitura** de `/`, `/cupons`, `/oferta/*`, `/api/offers*`, `/api/cupons`, `/api/status` e `/api/me` passa sem conta (`src/proxy.ts`, `exigirOuVisitante` em `src/lib/sessao.ts`, falha fechada); recebe nota geral, sem Alvo, sem marcações, sem nomes de grupo nem link de post. Desmarcar `ofertas.ver` do Visitante fecha o site de novo. Sem SSE nem eventos (consulta a cada 30 s). O cargo não se dá a uma pessoa nem é o de quem se cadastra;
+  - Cabeçalho do visitante: Entrar e Criar conta; menu com Alvos (leva a criar conta). Vigiar e descartar abrem o aviso "crie uma conta" (`conta-aviso.tsx`); `/entrar` aceita `?modo=criar` e mostra o motivo;
+  - Preço: `src/lib/preco.ts` (`precoDe`, testada), botão "Preço: Cartão | Pix" no cabeçalho e popup na primeira visita (`preco.tsx`, `globais.tsx`). O destaque muda no card, no Detalhe, no painel de foco, na War Room, na linha de Alvo atingido e nos filtros e na ordenação de preço; Pix preferido em oferta sem Pix cai no cartão. Ao entrar com conta sem escolha, a do navegador vai para a conta; conta com escolha manda.
+- **Testado:** 151 testes (inclui `precoDe` e os caminhos abertos do `proxy`), `tsc` e `eslint`. Por HTTP: visitante vê 979 cards, 401 em vigiar, Alvos e criar Alvo; `PATCH /api/me` grava o Pix no banco, valor inválido e campo a mais dão 400, sem `Origin` 403; tirar `ofertas.ver` do Visitante dá 401 em tudo (a conta logada continua), tirar só `ia.analises.ver` zera as análises, e tudo foi restaurado. No navegador (como visitante): popup abre, escolher Pix grava no navegador e 114 cards passam a destacar o Pix (ex.: "R$ 130,15 no Pix · cartão R$ 137,00 · 4x de R$ 34,25"), Vigiar abre o aviso com os links certos, `/entrar` mostra o motivo.
+- **Achado:** depois de `prisma generate` o `pnpm dev` precisa reiniciar (cliente do banco antigo dá 500 em `/api/me`).
+- **Atenção:** a Vitrine aberta faz a consulta pesada de `/api/offers` para cada visitante; o cache curto de ~15 s citado no plano não foi feito (fica como melhoria se vier muito acesso). O arquivo de senhas das contas de teste sumiu do projeto; as senhas das 3 contas de teste foram trocadas e ficaram só na pasta temporária.
+
 ### 23/11/2026, 01:30 · Ids numéricos (1, 2, 3...) nos usuários
 
 - **Antes:** dump `garimpoi-20261123-0043-antes-de-id-numerico.dump`. A migração foi testada primeiro numa cópia restaurada desse dump (`garimpoi_idtest`) e só depois aplicada no banco de verdade.

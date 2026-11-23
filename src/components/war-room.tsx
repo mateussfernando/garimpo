@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { OfferDTO } from "@/lib/offers";
+import { precoDe } from "@/lib/preco";
+import { usePreco } from "./preco";
 import { Badge, Kbd, brl, useLive, useStatus } from "./shell";
 
 type Action = "comprar" | "vigiar" | "soneca" | "descartar";
@@ -23,6 +25,7 @@ function eligible(o: OfferDTO, nowMs: number) {
 }
 
 export function WarRoom() {
+  const { pref } = usePreco();
   const [queue, setQueue] = useState<OfferDTO[]>([]);
   const [decisions, setDecisionsState] = useState<Record<number, Action>>({});
   // O ref segue o estado (atualizado no mesmo lugar) para o load ao vivo saber o que já foi decidido.
@@ -207,8 +210,8 @@ export function WarRoom() {
                   <h2 className="text-[22px] font-semibold leading-snug tracking-tight">{cur.title}</h2>
                   <div className="flex flex-col gap-1">
                     <div className="flex flex-wrap items-baseline gap-x-3">
-                      <span className="font-mono tnum text-[56px] font-semibold leading-none tracking-tight text-num lg:text-[76px]">{brl(cur.priceCardCents)}</span>
-                      <span className="text-sm text-muted">no cartão</span>
+                      <span className="font-mono tnum text-[56px] font-semibold leading-none tracking-tight text-num lg:text-[76px]">{brl(precoDe(cur, pref).cents)}</span>
+                      <span className="text-sm text-muted">{precoDe(cur, pref).rotulo}</span>
                     </div>
                     <span className="font-mono text-sm text-ink-3">
                       {cur.installments && cur.installmentCents ? `${cur.installments}x de ${brl(cur.installmentCents)}${cur.interest === false ? " sem juros" : cur.interest ? " com juros" : ""}` : "parcelas não informadas"}

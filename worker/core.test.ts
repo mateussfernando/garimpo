@@ -12,7 +12,7 @@ import { COMMUNITIES } from "./collect/communities-config";
 import { ldProduct } from "./http/html";
 import { __test } from "./http/polite";
 import { matchAlvo, targetsFrom } from "./match/alvos";
-import { notaRapida } from "./score/nota";
+import { notaDePartes, notaRapida } from "./score/nota";
 import { plausibleCardPrice } from "./verify/verify";
 
 const alvos = ALVOS_V0.map((a, i) => ({ id: i + 1, ...a }));
@@ -41,10 +41,26 @@ describe("Nota rápida", () => {
     expect(n.nota).toBe(100);
     expect(n.alvoAtingido).toBe(true);
   });
-  it("sem referência usa A = 0,5 e loja desconhecida C = 0,2", () => {
+  it("sem referência de preço o algoritmo não opina, e o que não se sabe fica fora (nada de nota por padrão)", () => {
     const n = notaRapida({ priceCardCents: 10000, targetCents: null, ceilingCents: null, storeTrust: null, freeShipping: null, shippingCents: null, sources15: 1 });
-    expect(n.parts).toEqual({ A: 0.5, C: 0.2, F: 0.3, S: 0.25 });
-    expect(n.nota).toBe(36);
+    expect(n.parts).toEqual({ A: null, C: null, F: null, S: 0.25 });
+    expect(n.nota).toBeNull();
+    expect(n.base).toBe(0.1);
+  });
+  it("com o A conhecido, o que falta (loja, frete) sai da conta e os pesos se renormalizam", () => {
+    // A = 1 (no alvo), C e F desconhecidos, S = 0: só A (0,45) e S (0,10) contam => 100 x 0,45 / 0,55
+    const n = notaRapida({ priceCardCents: 8500, targetCents: 8500, ceilingCents: 11500, storeTrust: null, freeShipping: null, shippingCents: null, sources15: 0 });
+    expect(n.nota).toBe(82);
+    expect(n.base).toBe(0.55);
+    // O mesmo preço com loja própria e frete grátis não pode ficar abaixo de quem não se sabe nada da loja.
+    const cheia = notaRapida({ priceCardCents: 8500, targetCents: 8500, ceilingCents: 11500, storeTrust: 1, freeShipping: true, shippingCents: 0, sources15: 0 });
+    expect(cheia.nota).toBe(90);
+  });
+  it("refaz a nota com outro A (o do Pix) sem mexer nos demais sinais", () => {
+    const base = { A: 0.6, C: 1, F: 1, S: 0 } as const; // S = 0 é "sei que ninguém mais postou": conta, com peso 0,10
+    expect(notaDePartes(base).nota).toBe(72); // 100 x (0,45 x 0,6 + 0,25 + 0,20)
+    expect(notaDePartes({ ...base, A: 1 }).nota).toBe(90);
+    expect(notaDePartes({ ...base, A: null }).nota).toBeNull();
   });
 });
 
@@ -57,6 +73,15 @@ describe("Lojas", () => {
     expect(cleanUrl("https://www.pichau.com.br/teclado-mecanico-x?rb_clickid=abc&afiliado=9")).toBe("https://www.pichau.com.br/teclado-mecanico-x");
     const amz = storeForUrl("https://www.amazon.com.br/dp/B0ABCDEFGH")!;
     expect(amz.productId!(new URL("https://www.amazon.com.br/Mouse/dp/b0abcdefgh/ref=x"))).toBe("B0ABCDEFGH");
+  });
+  it("o encurtador da própria loja já diz qual é a loja (sem abrir o link)", () => {
+    expect(storeForUrl("https://meli.la/1AbCdEf")?.slug).toBe("mercadolivre");
+    expect(storeForUrl("https://link.amazon/abc")?.slug).toBe("amazon");
+    expect(storeForUrl("https://amzlink.to/az-xyz")?.slug).toBe("amazon");
+    expect(storeForUrl("https://magazineluiza.onelink.me/abcd/xyz")?.slug).toBe("magalu");
+    // Encurtador genérico continua sem loja: só se sabe depois de seguir o link.
+    expect(storeForUrl("https://cupom.cc/abc")).toBeNull();
+    expect(storeForUrl("https://tidd.ly/abc")).toBeNull();
   });
 });
 

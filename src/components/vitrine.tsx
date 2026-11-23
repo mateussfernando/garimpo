@@ -7,6 +7,7 @@ import type { EventDTO } from "@/app/api/events/route";
 import type { OfferDTO, StatusDTO } from "@/lib/offers";
 import { precoDe } from "@/lib/preco";
 import { useSeVisitante } from "./conta-aviso";
+import { registrarClique } from "./gabarito";
 import { usePreco } from "./preco";
 import { Feed } from "./feed";
 import { FiltersBar, useSmartFilters } from "./filtros";
@@ -67,7 +68,8 @@ export function Vitrine() {
   }, [play, flashTitle]);
 
   const load = useCallback(async () => {
-    const [o, s, e] = await Promise.all([json<OfferDTO[]>("/api/offers"), json<StatusDTO>("/api/status"), jsonOuVazio<EventDTO[]>("/api/events", [])]);
+    // O preço em destaque vai no pedido: a nota e a comparação entre lojas saem do servidor já nesse preço.
+    const [o, s, e] = await Promise.all([json<OfferDTO[]>(`/api/offers?preco=${pref}`), json<StatusDTO>("/api/status"), jsonOuVazio<EventDTO[]>("/api/events", [])]);
 
     // Preço que mudou pisca como cotação.
     const changed: Flash = {};
@@ -95,7 +97,7 @@ export function Vitrine() {
       lastEventId.current = Math.max(since, newest);
       for (const hit of e.filter((x) => x.type === "alvo" && x.id > since).slice(0, 3)) onHit.current(hit);
     }
-  }, []);
+  }, [pref]);
   const live = useLive(load);
 
   const patch = useCallback(
@@ -212,7 +214,7 @@ export function Vitrine() {
                       </span>
                     </button>
                     {o.url && (
-                      <a href={o.url} target="_blank" rel="noopener noreferrer" className="flex h-11 flex-none items-center rounded-[10px] bg-gold px-[18px] text-sm font-semibold text-on-gold">
+                      <a href={o.url} target="_blank" rel="noopener noreferrer" onClick={() => registrarClique(o.id)} className="flex h-11 flex-none items-center rounded-[10px] bg-gold px-[18px] text-sm font-semibold text-on-gold">
                         Comprar
                       </a>
                     )}

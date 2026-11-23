@@ -28,6 +28,7 @@ export type FilterState = {
   sort: Sort;
 };
 
+const VEREDITO_ORDEM = { excelente: 0, boa: 1, ok: 2, fraca: 3, evitar: 4 } as const;
 const DEFAULT: FilterState = { q: "", category: "all", alvo: "all", store: "all", price: "all", free: false, verified: false, noInterest: false, coupon: false, aiPick: false, multiStore: false, sort: "nota" };
 /** Ofertas que a IA ainda vai classificar. */
 const PENDING = "__classificando";
@@ -125,7 +126,8 @@ export function useSmartFilters(offers: OfferDTO[] | null) {
     const sort = parsed.sort ?? st.sort;
     const shown = list.filter((o) => match(o));
     if (sort === "preco") shown.sort((a, b) => (valorDe(a, pref) ?? Infinity) - (valorDe(b, pref) ?? Infinity));
-    else if (sort === "ia") shown.sort((a, b) => (b.ia?.score ?? -1) - (a.ia?.score ?? -1) || (b.nota ?? -1) - (a.nota ?? -1));
+    // "IA": o veredito dela primeiro (a nota dela já faz parte da nota única), e dentro de cada veredito a nota.
+    else if (sort === "ia") shown.sort((a, b) => (a.ia ? VEREDITO_ORDEM[a.ia.verdict] : 9) - (b.ia ? VEREDITO_ORDEM[b.ia.verdict] : 9) || (b.nota ?? -1) - (a.nota ?? -1));
     else if (sort === "novos") shown.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     else if (sort === "desconto") shown.sort((a, b) => discountOf(b) - discountOf(a) || (b.nota ?? -1) - (a.nota ?? -1));
     return { shown, cats, alvos, stores, prices, total: [...cats.values()].reduce((a, b) => a + b, 0), all: list.length };

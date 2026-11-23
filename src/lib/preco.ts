@@ -1,8 +1,15 @@
-// Preço em destaque: cartão (o padrão do app) ou Pix. Só exibição: a nota, o "Alvo atingido" e a comparação entre lojas
-// continuam pelo preço no cartão. Sem acesso a banco nem a navegador (testável).
+// Preço em destaque: cartão (o padrão do app) ou Pix. Vale para o que se vê, para a nota (o A é refeito pelo Pix), para o
+// "Alvo atingido" exibido e para a comparação entre lojas. Os avisos "Alvo atingido" que o worker grava seguem o cartão.
+// Sem acesso a banco nem a navegador (testável).
 
 export type PrecoPref = "cartao" | "pix";
 export const ehPrecoPref = (v: unknown): v is PrecoPref => v === "cartao" || v === "pix";
+
+/** A escolha que o cliente manda no pedido (`?preco=pix`); qualquer outra coisa vale cartão, o padrão. */
+export function precoDoPedido(request: Request): PrecoPref {
+  const v = new URL(request.url).searchParams.get("preco");
+  return ehPrecoPref(v) ? v : "cartao";
+}
 
 type OfertaPreco = { priceCardCents: number | null; cashCents: number | null };
 

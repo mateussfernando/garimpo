@@ -1,8 +1,10 @@
 "use client";
 
 import { motion } from "motion/react";
+import { fmtNota, notaDica } from "@/lib/nota";
 import type { OfferDTO } from "@/lib/offers";
 import { storeCount } from "./comparar-lojas";
+import { registrarClique } from "./gabarito";
 import { AiLine } from "./ia";
 import { precoDe } from "@/lib/preco";
 import { usePreco } from "./preco";
@@ -91,8 +93,8 @@ export function OfferCard({ o, index, now, flash, onOpen, onWatch, onDismiss }: 
         ) : (
           <Placeholder />
         )}
-        <span className="absolute left-3 top-3 flex items-baseline gap-1.5 rounded-full border border-control bg-pill px-2.5 py-1.5">
-          <span className="font-mono text-[15px] font-semibold text-num">{o.nota ?? "—"}</span>
+        <span className="absolute left-3 top-3 flex items-baseline gap-1.5 rounded-full border border-control bg-pill px-2.5 py-1.5" title={notaDica(o.nota, o.notaDetalhe)}>
+          <span className="font-mono text-[15px] font-semibold text-num">{fmtNota(o.nota)}</span>
           <span className="text-[11px] uppercase tracking-[0.06em] text-muted">nota</span>
         </span>
         {o.store && (
@@ -177,7 +179,7 @@ export function OfferCard({ o, index, now, flash, onOpen, onWatch, onDismiss }: 
 
         <div className="mt-auto flex gap-2">
           {o.url ? (
-            <a href={o.url} target="_blank" rel="noopener noreferrer" className={`flex h-11 flex-1 items-center justify-center rounded-[10px] text-sm font-semibold ${o.alvoAtingido ? "bg-gold text-on-gold" : "bg-ink text-bg"}`}>
+            <a href={o.url} target="_blank" rel="noopener noreferrer" onClick={() => registrarClique(o.id)} className={`flex h-11 flex-1 items-center justify-center rounded-[10px] text-sm font-semibold ${o.alvoAtingido ? "bg-gold text-on-gold" : "bg-ink text-bg"}`}>
               Comprar
             </a>
           ) : (

@@ -20,7 +20,7 @@ const Spark = () => (
   </svg>
 );
 
-/** Linha curta no card: nota da IA, veredito e o resumo. */
+/** Linha curta no card: veredito da IA e o resumo. A nota dela já está na nota única do card (src/lib/nota.ts). */
 export function AiLine({ ia }: { ia: OfferAiDTO | null }) {
   // Altura fixa, com ou sem análise: todos os cards da grade ficam do mesmo tamanho.
   const box = "flex h-[78px] flex-none flex-col gap-1.5 overflow-hidden rounded-[10px] border border-line bg-deep px-3 py-2";
@@ -40,7 +40,6 @@ export function AiLine({ ia }: { ia: OfferAiDTO | null }) {
         <span className="flex items-center gap-1 font-medium text-ink-2">
           <Spark /> IA
         </span>
-        <span className="font-mono tnum font-semibold text-num">{ia.score}</span>
         <Badge tone={v.tone} title={`${CONF[ia.confidence]}`}>
           {v.label}
         </Badge>

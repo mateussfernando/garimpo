@@ -2,28 +2,38 @@
 
 import Link from 'next/link'
 import type { StoreQuoteDTO } from '@/lib/offers'
+import { valorDe, type PrecoPref } from '@/lib/preco'
+import { registrarClique } from './gabarito'
+import { usePreco } from './preco'
 import { Badge, ago, brl } from './shell'
 
 /** Lojas diferentes no grupo (a "loja não identificada" não conta). */
 export const storeCount = (lojas: StoreQuoteDTO[]) =>
   new Set(lojas.map((l) => l.store).filter(Boolean)).size
 
-/** Total pago de verdade: no cartão + frete (quando a loja cobra e sabemos quanto). */
-const totalOf = (l: StoreQuoteDTO) =>
-  l.priceCardCents == null
-    ? null
-    : l.priceCardCents + (l.freeShipping ? 0 : (l.shippingCents ?? 0))
+/**
+ * Total pago de verdade, no preço em destaque (cartão ou Pix) + frete (quando a loja cobra e sabemos quanto).
+ * Com o Pix escolhido, a loja sem preço no Pix entra pelo cartão: é o que se paga lá.
+ */
+const totalOf = (l: StoreQuoteDTO, pref: PrecoPref) => {
+  const v = valorDe(l, pref)
+  return v == null ? null : v + (l.freeShipping ? 0 : (l.shippingCents ?? 0))
+}
 
-function condition(l: StoreQuoteDTO): string {
+function condition(l: StoreQuoteDTO, pref: PrecoPref): string {
   const parts: string[] = []
+  // O outro preço (o que não está em destaque) vai na linha de baixo.
+  const pix = l.cashCents != null && l.cashCents > 0 ? l.cashCents : null
+  const pixEmDestaque = pref === 'pix' && pix != null
+  if (pixEmDestaque && l.priceCardCents != null) parts.push(`cartão ${brl(l.priceCardCents)}`)
   if (l.installments && l.installmentCents)
     parts.push(
       l.installments === 1
         ? '1x'
         : `${l.installments}x de ${brl(l.installmentCents)}${l.interest ? ' com juros' : l.interest === false ? ' sem juros' : ''}`,
     )
-  if (l.cashCents && l.priceCardCents && l.cashCents < l.priceCardCents)
-    parts.push(`Pix ${brl(l.cashCents)}`)
+  if (!pixEmDestaque && pix != null && l.priceCardCents && pix < l.priceCardCents)
+    parts.push(`Pix ${brl(pix)}`)
   parts.push(
     l.freeShipping
       ? 'frete grátis'
@@ -36,7 +46,7 @@ function condition(l: StoreQuoteDTO): string {
 }
 
 /**
- * O mesmo produto em lojas diferentes, da mais barata para a mais cara (esgotada por último).
+ * O mesmo produto em lojas diferentes, da mais barata para a mais cara (esgotada por último), no preço em destaque.
  * A mais barata ganha o selo; as outras mostram quanto custam a mais. `currentId` marca a oferta aberta.
  */
 export function CompararLojas({
@@ -50,18 +60,25 @@ export function CompararLojas({
   now: number | null
   compact?: boolean
 }) {
-  const priced = lojas.filter(
-    (l) => l.available !== false && totalOf(l) != null,
+  const { pref } = usePreco()
+  // O servidor já manda na ordem do preço escolhido; refaz aqui para a tela não depender da resposta mais recente.
+  const ordenadas = [...lojas].sort(
+    (a, b) =>
+      (a.available === false ? 1 : 0) - (b.available === false ? 1 : 0) ||
+      (totalOf(a, pref) ?? Infinity) - (totalOf(b, pref) ?? Infinity),
+  )
+  const priced = ordenadas.filter(
+    (l) => l.available !== false && totalOf(l, pref) != null,
   )
   const cheapest = priced.length
-    ? Math.min(...priced.map((l) => totalOf(l)!))
+    ? Math.min(...priced.map((l) => totalOf(l, pref)!))
     : null
-  const shown = compact ? lojas.slice(0, 6) : lojas
+  const shown = compact ? ordenadas.slice(0, 6) : ordenadas
 
   return (
     <ol className="flex flex-col gap-2">
       {shown.map((l) => {
-        const total = totalOf(l)
+        const total = totalOf(l, pref)
         const diff =
           total != null && cheapest != null && l.available !== false
             ? total - cheapest
@@ -85,9 +102,9 @@ export function CompararLojas({
               </span>
               <span
                 className="truncate font-mono text-[12px] text-ink-3"
-                title={condition(l)}
+                title={condition(l, pref)}
               >
-                {condition(l)}
+                {condition(l, pref)}
               </span>
               {!compact && (
                 <span
@@ -106,7 +123,7 @@ export function CompararLojas({
             </span>
             <span className="flex flex-none flex-col items-end gap-0.5">
               <span className="font-mono tnum text-[16px] font-semibold text-num">
-                {brl(l.priceCardCents)}
+                {brl(valorDe(l, pref))}
               </span>
               <span
                 className={`font-mono tnum text-[11.5px] ${best ? 'text-good' : 'text-muted'}`}
@@ -128,6 +145,7 @@ export function CompararLojas({
                   href={l.url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => registrarClique(l.id)}
                   className={`flex h-9 items-center justify-center rounded-[10px] px-3.5 text-[13px] font-semibold ${best ? 'bg-ink text-bg' : 'border border-control text-ink-2 hover:text-ink'}`}
                 >
                   Comprar
@@ -158,11 +176,11 @@ export function CompararLojas({
   )
 }
 
-/** Uma frase sobre a diferença entre a loja mais barata e a mais cara. */
-export function spreadText(lojas: StoreQuoteDTO[]): string | null {
+/** Uma frase sobre a diferença entre a loja mais barata e a mais cara, no preço em destaque. */
+export function spreadText(lojas: StoreQuoteDTO[], pref: PrecoPref = 'cartao'): string | null {
   const totals = lojas
     .filter((l) => l.available !== false && l.store)
-    .map(totalOf)
+    .map((l) => totalOf(l, pref))
     .filter((x): x is number => x != null)
   if (totals.length < 2) return null
   const lo = Math.min(...totals)

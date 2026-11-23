@@ -2,6 +2,10 @@ import { STORES } from "@/config/stores";
 import { prisma } from "@/lib/db/prisma";
 import { NA_VITRINE, asJson, type OfferExtra, type OfferSpecs } from "@/lib/db/types";
 import { getAiStatus, type AiStatus } from "@/lib/ai-usage";
+import { montarNota, type NotaDetalheDTO } from "@/lib/nota";
+import { mercadoDe, notaDePartes, pontoA, type Partes } from "@/lib/nota-algoritmo";
+import { reguaDePosicao } from "@/lib/nota-posicao";
+import { valorDe, type PrecoPref } from "@/lib/preco";
 import { clusterSameProduct } from "@/lib/same-product";
 import { getSetting } from "@/lib/settings";
 import { HORA, atras, inicioDoDia } from "@/lib/tempo";
@@ -68,8 +72,12 @@ export type OfferDTO = {
   verifyStatus: string;
   verifyNote: string | null;
   verifiedAt: string | null;
+  /** Nota única, de 0,0 a 10,0 (uma casa): a mistura do algoritmo com a IA (src/lib/nota.ts). null = nada opinou ainda. */
   nota: number | null;
-  notaParts: { A: number; C: number; F: number; S: number } | null;
+  /** Como a nota saiu: de quem, com que peso, se divergem (src/lib/nota.ts). */
+  notaDetalhe: NotaDetalheDTO | null;
+  /** Os sinais do algoritmo (0 a 1); null = não se sabe, e o sinal ficou fora da conta. */
+  notaParts: Partes | null;
   watched: boolean;
   snoozedUntil: string | null;
   /** O Alvo e o preço-alvo da faixa do produto (null = faixa ainda sem referência). */
@@ -100,8 +108,9 @@ export type OfferDTO = {
  * A Vitrine de uma conta: as ofertas de produto de 48 h, menos as que ela descartou, com o Alvo, a nota, o preço-alvo
  * e o "Alvo atingido" dela (oferta_alvo) e as marcações dela (oferta_usuario). Sem Alvo dela na oferta, vale a nota geral.
  */
-export async function listOffers(opts: { userId: number | null; onlyId?: number }): Promise<OfferDTO[]> {
+export async function listOffers(opts: { userId: number | null; onlyId?: number; pref?: PrecoPref }): Promise<OfferDTO[]> {
   const { userId } = opts; // null = visitante: sem Alvo, sem marcações, com a nota geral
+  const pref: PrecoPref = opts.pref ?? "cartao"; // o preço em destaque: a nota, o ouro e a comparação entre lojas seguem ele
   const since = atras(48 * HORA);
   const include = {
     analysis: true,
@@ -117,8 +126,9 @@ export async function listOffers(opts: { userId: number | null; onlyId?: number 
         ? []
         : (await prisma.ofertaUsuario.findMany({ where: { userId, dismissed: true, offer: { createdAt: { gte: since } } }, select: { offerId: true } })).map((r) => r.offerId);
     const where = { kind: "produto", createdAt: { gte: since }, ...NA_VITRINE, ...(descartadas.length ? { id: { notIn: descartadas } } : {}) };
-    found = await prisma.offer.findMany({ where, include, orderBy: [{ nota: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }], take: 2000 });
-    // As ofertas nos Alvos da conta entram sempre, mesmo fora das 2000 de nota geral mais alta.
+    // 3000, como a IA analisa (worker/ai/analises.ts): sem o A do algoritmo muita oferta fica sem nota dele e só a IA a ordena.
+    found = await prisma.offer.findMany({ where, include, orderBy: [{ nota: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }], take: 3000 });
+    // As ofertas nos Alvos da conta entram sempre, mesmo fora das 3000 de nota geral mais alta.
     const got = new Set(found.map((o) => o.id));
     const nosAlvos =
       userId == null
@@ -141,7 +151,10 @@ export async function listOffers(opts: { userId: number | null; onlyId?: number 
   const meuAlvo = new Map(pessoais.filter((p) => p.alvo?.isActive && !p.alvo.deletedAt).map((p) => [p.offerId, p]));
   const marcaDe = new Map(marcas.map((m) => [m.offerId, m]));
   // A referência da faixa (alvo + faixa) não é uma relação do Prisma: vem numa consulta só e é ligada aqui.
-  const alvoIds = [...new Set([...meuAlvo.values()].map((p) => p.alvoId!))];
+  // Com o Pix em destaque, o A da nota geral também é refeito: precisa do mercado da faixa do sistema.
+  const alvoIds = [
+    ...new Set([...meuAlvo.values()].map((p) => p.alvoId!).concat(pref === "pix" ? found.map((o) => o.alvoId).filter((x): x is number => x != null) : [])),
+  ];
   const refRows = alvoIds.length ? await prisma.alvoRef.findMany({ where: { alvoId: { in: alvoIds } } }) : [];
   const refBy = new Map(refRows.map((r) => [`${r.alvoId}:${r.bandKey}`, r]));
   const rows = found.map((o) => {
@@ -151,6 +164,7 @@ export async function listOffers(opts: { userId: number | null; onlyId?: number 
       p,
       alvo: p?.alvo ?? null,
       ref: p?.bandKey ? refBy.get(`${p.alvoId}:${p.bandKey}`) : undefined,
+      refGeral: o.alvoId != null && o.bandKey ? refBy.get(`${o.alvoId}:${o.bandKey}`) : undefined,
       marca: marcaDe.get(o.id),
       source: o.source.name,
       sourceKind: o.source.kind,
@@ -158,7 +172,10 @@ export async function listOffers(opts: { userId: number | null; onlyId?: number 
       ia: o.analysis,
     };
   });
-  const all = rows.map(({ o, p, alvo, ref, marca, source, sourceKind, productImage, ia }) => ({
+  const all = rows.map(({ o, p, alvo, ref, refGeral, marca, source, sourceKind, productImage, ia }) => {
+    const algo = algoritmoDoModo(o, p, ref, refGeral, pref);
+    const precoDoModo = valorDe(o, pref);
+    return {
     productId: o.productId,
     sources: [source],
     groupIds: [o.id],
@@ -195,19 +212,22 @@ export async function listOffers(opts: { userId: number | null; onlyId?: number 
     verifyStatus: o.verifyStatus,
     verifyNote: o.verifyNote,
     verifiedAt: o.verifiedAt?.toISOString() ?? null,
-    nota: p ? p.nota : o.nota,
-    notaParts: asJson<OfferDTO["notaParts"]>(p ? p.notaParts : o.notaParts) ?? null,
+    // Por enquanto a nota do algoritmo (0 a 100); vira a nota única (0 a 10) em `aplicarNota`, depois de agrupar.
+    nota: algo.valor,
+    notaDetalhe: null as NotaDetalheDTO | null,
+    notaParts: algo.partes,
     watched: marca?.watched ?? false,
     snoozedUntil: marca?.snoozedUntil?.toISOString() ?? null,
     alvo: alvo?.slug ? { slug: alvo.slug, name: alvo.name, targetCents: ref?.targetCents ?? null } : null,
     band: alvo?.slug && p?.bandKey && ref?.label ? { key: p.bandKey, label: ref.label, medianCents: ref.medianCents, n: ref.n ?? 0 } : null,
     alvoTetoCents: ref?.ceilingCents ?? null,
     // Só vale com o preço conferido na loja e o produto à venda: preço de post e item esgotado não disparam ouro.
+    // Compara o preço em destaque (cartão ou Pix); os avisos que o worker grava continuam pelo cartão.
     alvoAtingido: !!(
       alvo?.slug &&
       ref?.targetCents &&
-      o.priceCardCents &&
-      o.priceCardCents <= ref.targetCents &&
+      precoDoModo &&
+      precoDoModo <= ref.targetCents &&
       o.available !== false &&
       o.verifyStatus === "verificado"
     ),
@@ -219,9 +239,43 @@ export async function listOffers(opts: { userId: number | null; onlyId?: number 
     isActive: o.isActive,
     productActive: o.product ? o.product.isActive : null,
     createdAt: o.createdAt.toISOString(),
-  }));
-  return opts.onlyId != null ? all.map((o) => strip({ ...o, lojas: storeQuotes([o]) })) : groupByProduct(all).map(strip);
+    };
+  });
+  const cards = opts.onlyId != null ? all.map((o) => strip({ ...o, lojas: storeQuotes([o], pref) })) : groupByProduct(all, pref).map(strip);
+  const regua = await reguaDePosicao();
+  return cards.map((c) => aplicarNota(c, regua)).sort(porNota);
 }
+
+/** A nota do algoritmo (0 a 100) e os sinais do modo: com o Pix em destaque e Pix menor que o cartão, o A é refeito pelo Pix. */
+function algoritmoDoModo(
+  o: { priceCardCents: number | null; cashCents: number | null; nota: number | null; notaParts: Parameters<typeof asJson>[0] },
+  p: { nota: number | null; notaParts: Parameters<typeof asJson>[0] } | undefined,
+  refAlvo: { targetCents: number | null; ceilingCents: number | null } | undefined,
+  refGeral: { medianCents: number | null; n: number } | undefined,
+  pref: PrecoPref,
+): { valor: number | null; partes: Partes | null } {
+  const partes = asJson<Partes>(p ? p.notaParts : o.notaParts) ?? null;
+  const guardada = p ? p.nota : o.nota;
+  const pix = o.cashCents != null && o.priceCardCents != null && o.cashCents > 0 && o.cashCents < o.priceCardCents ? o.cashCents : null;
+  if (pref !== "pix" || pix == null || !partes || partes.A == null) return { valor: guardada, partes };
+  // O número do usuário vale para a conta dele; para a nota geral vale o mercado da faixa, nunca o de alguém.
+  const ref = p ? { targetCents: refAlvo?.targetCents ?? null, ceilingCents: refAlvo?.ceilingCents ?? null } : mercadoDe(refGeral ?? null);
+  const A = pontoA(pix, ref.targetCents, ref.ceilingCents);
+  if (A == null) return { valor: guardada, partes };
+  const novas: Partes = { ...partes, A: Math.round(A * 100) / 100 };
+  return { valor: notaDePartes(novas).nota, partes: novas };
+}
+
+/** Troca a nota do algoritmo (0 a 100) do card pela nota única (0 a 10), com o detalhe de como saiu. */
+function aplicarNota(c: OfferDTO, regua: Awaited<ReturnType<typeof reguaDePosicao>>): OfferDTO {
+  const base = c.notaParts ? notaDePartes(c.notaParts).base : 0;
+  const { nota, detalhe } = montarNota({ valor: c.nota, base }, c.ia ? { score: c.ia.score, confidence: c.ia.confidence, verdict: c.ia.verdict } : null, regua);
+  return { ...c, nota, notaDetalhe: detalhe };
+}
+
+/** Da maior nota para a menor; sem nota por último, os mais novos primeiro. */
+export const porNota = (a: { nota: number | null; createdAt: string }, b: { nota: number | null; createdAt: string }) =>
+  (b.nota ?? -1) - (a.nota ?? -1) || b.createdAt.localeCompare(a.createdAt);
 
 type Row = OfferDTO & { productId: number | null };
 const strip = ({ productId: _p, ...dto }: Row): OfferDTO => {
@@ -231,15 +285,18 @@ const strip = ({ productId: _p, ...dto }: Row): OfferDTO => {
 
 const rank = (o: { verifyStatus: string }) => (o.verifyStatus === "verificado" ? 0 : o.verifyStatus === "pendente" ? 1 : 2);
 
-/** A melhor oferta de cada loja do grupo (conferida primeiro, depois a mais barata), da mais barata para a mais cara. */
-export function storeQuotes(g: OfferDTO[]): StoreQuoteDTO[] {
+/**
+ * A melhor oferta de cada loja do grupo (conferida primeiro, depois a mais barata), da mais barata para a mais cara.
+ * "Mais barata" é no preço em destaque: com o Pix escolhido, vale o Pix (cai no cartão onde a oferta não tem Pix).
+ */
+export function storeQuotes(g: OfferDTO[], pref: PrecoPref = "cartao"): StoreQuoteDTO[] {
   const byStore = new Map<string, OfferDTO[]>();
   for (const o of g) byStore.set(o.store ?? "", [...(byStore.get(o.store ?? "") ?? []), o]);
   // O mesmo post por um encurtador que não abriu vira "loja não identificada": só entra se não houver loja conhecida.
   if (byStore.size > 1) byStore.delete("");
   return [...byStore.values()]
     .map((list) => {
-      const b = [...list].sort((x, y) => (x.available === false ? 1 : 0) - (y.available === false ? 1 : 0) || rank(x) - rank(y) || (x.priceCardCents ?? Infinity) - (y.priceCardCents ?? Infinity))[0];
+      const b = [...list].sort((x, y) => (x.available === false ? 1 : 0) - (y.available === false ? 1 : 0) || rank(x) - rank(y) || (valorDe(x, pref) ?? Infinity) - (valorDe(y, pref) ?? Infinity))[0];
       return {
         id: b.id,
         store: b.store,
@@ -260,7 +317,7 @@ export function storeQuotes(g: OfferDTO[]): StoreQuoteDTO[] {
         createdAt: list.reduce((mx, o) => (o.createdAt > mx ? o.createdAt : mx), b.createdAt),
       };
     })
-    .sort((a, b) => (a.available === false ? 1 : 0) - (b.available === false ? 1 : 0) || (a.priceCardCents ?? Infinity) - (b.priceCardCents ?? Infinity));
+    .sort((a, b) => (a.available === false ? 1 : 0) - (b.available === false ? 1 : 0) || (valorDe(a, pref) ?? Infinity) - (valorDe(b, pref) ?? Infinity));
 }
 
 /**
@@ -280,16 +337,16 @@ export function modelCode(title: string): string | null {
  * viram uma só: fica a de preço conferido mais baixo, com as fontes que postaram, a data da mais recente e
  * a lista de lojas para comparar.
  */
-export function groupByProduct(list: Row[]): Row[] {
+export function groupByProduct(list: Row[], pref: PrecoPref = "cartao"): Row[] {
   return clusterSameProduct(list)
     .map((idx) => {
       const g = idx.map((i) => list[i]);
-      const best = [...g].sort((a, b) => (a.available === false ? 1 : 0) - (b.available === false ? 1 : 0) || rank(a) - rank(b) || (a.priceCardCents ?? Infinity) - (b.priceCardCents ?? Infinity))[0];
+      const best = [...g].sort((a, b) => (a.available === false ? 1 : 0) - (b.available === false ? 1 : 0) || rank(a) - rank(b) || (valorDe(a, pref) ?? Infinity) - (valorDe(b, pref) ?? Infinity))[0];
       return {
         ...best,
         sources: [...new Set(g.map((o) => o.source))],
         groupIds: g.map((o) => o.id),
-        lojas: storeQuotes(g),
+        lojas: storeQuotes(g, pref),
         watched: g.some((o) => o.watched),
         // A análise de qualquer cópia do produto vale para o card.
         ia: best.ia ?? g.find((o) => o.ia)?.ia ?? null,

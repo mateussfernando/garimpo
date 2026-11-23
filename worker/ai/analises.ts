@@ -14,7 +14,8 @@ import { STORES } from "@/config/stores";
 import { AGY_PARALLEL, AI_PARALLEL } from "@/config/pricing";
 import { AI_AUTO_STOP_PCT } from "@/lib/ai-usage";
 import { prisma } from "@/lib/db/prisma";
-import { NA_VITRINE } from "@/lib/db/types";
+import { NA_VITRINE, asJson } from "@/lib/db/types";
+import { notaDePartes, type Partes } from "@/lib/nota-algoritmo";
 import { DIA, HORA, atras } from "@/lib/tempo";
 import { normalize } from "@/lib/money";
 import { median, mercadoDe } from "../match/alvos";
@@ -53,7 +54,7 @@ const SYSTEM = [
 ].join(" ");
 
 type Metrics = Record<string, unknown> & { id: number };
-type Candidate = { m: Metrics; hash: string; key: string; createdAt: Date; nota: number | null };
+type Candidate = { m: Metrics; hash: string; key: string; createdAt: Date; nota: number | null; base: number | null; productId: number | null };
 
 const pct = (a: number | null, b: number | null) => (a && b ? Math.round(((a - b) / b) * 1000) / 10 : null);
 
@@ -64,7 +65,7 @@ async function candidates(): Promise<Candidate[]> {
     select: {
       id: true, title: true, category: true, store: true, priceCardCents: true, installments: true, interest: true, cashCents: true,
       listPriceCents: true, freeShipping: true, coupon: true, verifyStatus: true, available: true, productId: true, alvoId: true,
-      bandKey: true, nota: true, createdAt: true,
+      bandKey: true, nota: true, notaParts: true, createdAt: true,
     },
     orderBy: { createdAt: "desc" },
     take: 3000,
@@ -88,7 +89,9 @@ async function candidates(): Promise<Candidate[]> {
   return rows.map(({ o, ref }) => {
     const h = o.productId ? (hist.get(o.productId) ?? []) : [];
     const med = median(h);
-    // O que muda o julgamento. A nota Garimpo e a fonte ficam de fora do hash: mudam toda hora sem mudar a oferta.
+    // O que muda o julgamento. A nota do algoritmo e a fonte ficam de fora do hash: mudam toda hora sem mudar a oferta.
+    // E a nota do algoritmo também NÃO vai no prompt (desde 23/11): a IA é a segunda opinião da nota única, e uma opinião
+    // que já viu a primeira conta o mesmo sinal duas vezes.
     const core = {
       produto: o.title.slice(0, 160),
       categoria: categoryName(o.category),
@@ -112,12 +115,14 @@ async function candidates(): Promise<Candidate[]> {
       historico30d: h.length ? { pontos: h.length, minimoCents: Math.min(...h), medianaCents: med } : null,
     };
     return {
-      m: { id: o.id, ...core, notaGarimpo: o.nota },
+      m: { id: o.id, ...core },
       hash: createHash("sha1").update(JSON.stringify(core)).digest("hex").slice(0, 16),
       // Mesmo produto em vários grupos: mesmo título (sem acento e pontuação) e mesmo preço.
       key: `${normalize(o.title).replace(/[^a-z0-9]+/g, "")}|${o.priceCardCents ?? "?"}`,
       createdAt: o.createdAt,
       nota: o.nota,
+      base: o.notaParts ? notaDePartes(asJson<Partes>(o.notaParts)).base : null,
+      productId: o.productId,
     };
   });
 }
@@ -173,6 +178,23 @@ async function analyzeChunk(provider: AiProvider, chunk: Candidate[][]): Promise
       await prisma.offerAnalysis.upsert({ where: { offerId: c.m.id }, create: { offerId: c.m.id, ...values }, update: values });
       n++;
     }
+    // Retrato para calibrar a nota depois (um por produto e análise): o que o algoritmo e a IA disseram e os preços da hora.
+    const c0 = group[0];
+    await prisma.notaRegistro
+      .create({
+        data: {
+          offerId: c0.m.id,
+          productId: c0.productId,
+          notaAlgoritmo: c0.nota,
+          baseAlgoritmo: c0.base,
+          notaIa: a.nota,
+          confiancaIa: a.confianca,
+          vereditoIa: a.veredito,
+          precoCartaoCents: (c0.m.precoCartaoCents as number | null) ?? null,
+          precoPixCents: (c0.m.precoPixCents as number | null) ?? null,
+        },
+      })
+      .catch((err) => console.warn("[ia] retrato da nota não gravado:", (err as Error).message.slice(0, 120)));
   }
   await notify({ type: "offer" });
   return n;

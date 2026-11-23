@@ -4,10 +4,14 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import type { OfferDetailDTO } from "@/lib/detail";
-import { precoDe } from "@/lib/preco";
+import { fmtNota, notaDica } from "@/lib/nota";
+import { precoDe, valorDe } from "@/lib/preco";
 import { usePreco } from "./preco";
 import { CompararLojas, spreadText, storeCount } from "./comparar-lojas";
+import { ComoANota } from "./como-a-nota";
+import { registrarClique } from "./gabarito";
 import { AiAnalysis } from "./ia";
+import { VotoNota } from "./voto-nota";
 import { endsIn, parcelaText, vsBand } from "./offer-card";
 import { Badge, ago, brl } from "./shell";
 
@@ -38,7 +42,7 @@ export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { 
 
   useEffect(() => {
     let alive = true;
-    fetch(`/api/offers/${id}`, { cache: "no-store" })
+    fetch(`/api/offers/${id}?preco=${pref}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (alive) setD(j);
@@ -46,7 +50,7 @@ export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { 
     return () => {
       alive = false;
     };
-  }, [id, version]);
+  }, [id, version, pref]);
 
   const ready = d?.offer.id === id ? d : null;
   const o = ready?.offer;
@@ -115,7 +119,7 @@ export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { 
             <div className="flex flex-wrap items-center gap-2 text-xs text-ink-2">
               {o.store && <span className="rounded-full border border-control bg-pill px-2.5 py-1">{o.store}</span>}
               <span className="rounded-full border border-control bg-pill px-2.5 py-1">via {o.source}</span>
-              <span className="rounded-full border border-control bg-pill px-2.5 py-1 font-mono">nota {o.nota ?? "—"}</span>
+              <span className="rounded-full border border-control bg-pill px-2.5 py-1 font-mono" title={notaDica(o.nota, o.notaDetalhe)}>nota {fmtNota(o.nota)}</span>
             </div>
             <h2 className="text-lg font-semibold leading-snug tracking-tight">{o.title}</h2>
 
@@ -153,7 +157,7 @@ export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { 
               <section aria-label="Comparar lojas" className="flex flex-col gap-2">
                 <span className="flex items-baseline justify-between gap-2">
                   <span className="text-[11px] uppercase tracking-[0.06em] text-label">Em {storeCount(o.lojas)} lojas</span>
-                  <span className="truncate text-[11.5px] text-muted">{spreadText(o.lojas)}</span>
+                  <span className="truncate text-[11.5px] text-muted">{spreadText(o.lojas, pref)}</span>
                 </span>
                 <CompararLojas lojas={o.lojas} currentId={o.id} now={now} compact />
               </section>
@@ -172,22 +176,26 @@ export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { 
               </section>
             )}
 
+            <ComoANota nota={o.nota} d={o.notaDetalhe} iaScore={o.ia?.score ?? null} iaConfianca={o.ia?.confidence ?? null} />
+            <VotoNota offerId={o.id} nota={o.nota} pref={pref} />
+
             {ready.parts && (
-              <section aria-label={`Por que nota ${o.nota}`} className="flex flex-col gap-3">
-                <span className="text-[11px] uppercase tracking-[0.06em] text-label">Por que nota {o.nota}</span>
+              <section aria-label={`Sinais do algoritmo, nota ${fmtNota(o.nota)}`} className="flex flex-col gap-3">
+                <span className="text-[11px] uppercase tracking-[0.06em] text-label">Sinais do algoritmo</span>
                 {PARTS.map(([k, label, max]) => {
-                  const v = Math.round(ready.parts![k] * max);
+                  const parte = ready.parts![k];
+                  const v = parte == null ? null : Math.round(parte * max);
                   return (
                     <div key={k} className="flex flex-col gap-1">
                       <div className="flex justify-between text-[13px]">
                         <span>{label}</span>
                         <span className="font-mono tnum">
-                          {v}
-                          <span className="text-muted"> / {max}</span>
+                          {v ?? <span className="text-muted">sem dado</span>}
+                          {v != null && <span className="text-muted"> / {max}</span>}
                         </span>
                       </div>
                       <div className="h-1.5 overflow-hidden rounded-full bg-active">
-                        <div className="h-full rounded-full bg-ink-3" style={{ width: `${(v / max) * 100}%` }} />
+                        <div className="h-full rounded-full bg-ink-3" style={{ width: `${v == null ? 0 : (v / max) * 100}%` }} />
                       </div>
                     </div>
                   );
@@ -211,7 +219,7 @@ export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { 
                 {ready.ladder.slice(0, 4).map((l) => (
                   <div key={l.id} className="flex justify-between gap-3 py-1 text-[13px]">
                     <span className="truncate">{l.store}</span>
-                    <span className="flex-none font-mono tnum">{brl(l.priceCardCents)}</span>
+                    <span className="flex-none font-mono tnum">{brl(valorDe(l, pref))}</span>
                   </div>
                 ))}
               </section>
@@ -223,7 +231,7 @@ export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { 
       {o && (
         <div className="flex gap-2 border-t border-line p-4">
           {o.url ? (
-            <a href={o.url} target="_blank" rel="noopener noreferrer" className={`flex h-12 flex-1 items-center justify-center gap-2 rounded-xl text-[15px] font-semibold ${o.alvoAtingido ? "bg-gold text-on-gold" : "bg-ink text-bg"}`}>
+            <a href={o.url} target="_blank" rel="noopener noreferrer" onClick={() => registrarClique(o.id)} className={`flex h-12 flex-1 items-center justify-center gap-2 rounded-xl text-[15px] font-semibold ${o.alvoAtingido ? "bg-gold text-on-gold" : "bg-ink text-bg"}`}>
               Comprar{o.store ? ` na ${o.store}` : ""}
             </a>
           ) : (

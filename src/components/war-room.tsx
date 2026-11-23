@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { fmtNota, notaDica } from "@/lib/nota";
 import type { OfferDTO } from "@/lib/offers";
 import { precoDe } from "@/lib/preco";
+import { registrarClique } from "./gabarito";
 import { usePreco } from "./preco";
 import { Badge, Kbd, brl, useLive, useStatus } from "./shell";
 
@@ -41,7 +43,7 @@ export function WarRoom() {
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
-    const all: OfferDTO[] = await fetch("/api/offers", { cache: "no-store" }).then((r) => r.json());
+    const all: OfferDTO[] = await fetch(`/api/offers?preco=${pref}`, { cache: "no-store" }).then((r) => r.json());
     const nowMs = Date.now();
     const fresh = all.filter((o) => eligible(o, nowMs));
     setQueue((prev) => {
@@ -53,7 +55,7 @@ export function WarRoom() {
       return [...kept, ...added].sort((a, b) => (b.nota ?? 0) - (a.nota ?? 0));
     });
     setLoaded(true);
-  }, []);
+  }, [pref]);
   useLive(load);
 
   const pending = queue.filter((o) => !decisions[o.id]);
@@ -75,6 +77,7 @@ export function WarRoom() {
     const short = cur.title.length > 40 ? cur.title.slice(0, 40) + "…" : cur.title;
     if (action === "comprar") {
       if (cur.url) window.open(cur.url, "_blank", "noopener,noreferrer");
+      registrarClique(cur.id);
       void call(cur.id, { snoozeMinutes: 24 * 60 }); // decidida: some da fila por hoje
       say(`Abrindo a página da ${cur.store ?? "loja"} numa aba nova`);
     } else if (action === "vigiar") {
@@ -197,8 +200,8 @@ export function WarRoom() {
                 </div>
                 <div className="flex min-w-0 flex-col gap-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="flex items-baseline gap-1.5 rounded-full border border-control bg-pill px-2.5 py-1.5">
-                      <span className="font-mono text-[15px] font-semibold text-num">{cur.nota ?? "—"}</span>
+                    <span className="flex items-baseline gap-1.5 rounded-full border border-control bg-pill px-2.5 py-1.5" title={notaDica(cur.nota, cur.notaDetalhe)}>
+                      <span className="font-mono text-[15px] font-semibold text-num">{fmtNota(cur.nota)}</span>
                       <span className="text-[11px] uppercase tracking-[0.06em] text-muted">nota</span>
                     </span>
                     {cur.store && <span className="rounded-full border border-control bg-pill px-2.5 py-1.5 text-xs text-ink-2">{cur.store}</span>}
@@ -219,7 +222,7 @@ export function WarRoom() {
                   </div>
                   {cur.alvo && (
                     <span className="text-[13px] text-muted">
-                      {cur.alvo.targetCents ? (cur.alvoAtingido ? `Alvo ${cur.alvo.name}: no preço-alvo de ${brl(cur.alvo.targetCents)}.` : `Alvo ${cur.alvo.name}: faltam ${brl((cur.priceCardCents ?? 0) - cur.alvo.targetCents)} para o alvo de ${brl(cur.alvo.targetCents)}.`) : `Alvo ${cur.alvo.name}: ainda sem preço de referência.`}
+                      {cur.alvo.targetCents ? (cur.alvoAtingido ? `Alvo ${cur.alvo.name}: no preço-alvo de ${brl(cur.alvo.targetCents)}.` : `Alvo ${cur.alvo.name}: faltam ${brl((precoDe(cur, pref).cents ?? 0) - cur.alvo.targetCents)} para o alvo de ${brl(cur.alvo.targetCents)}.`) : `Alvo ${cur.alvo.name}: ainda sem preço de referência.`}
                     </span>
                   )}
                 </div>
@@ -228,16 +231,17 @@ export function WarRoom() {
               {cur.notaParts && (
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                   {WEIGHTS.map(([k, label, max]) => {
-                    const v = Math.round(cur.notaParts![k] * max);
+                    const parte = cur.notaParts![k];
+                    const v = parte == null ? null : Math.round(parte * max);
                     return (
                       <div key={k} className="flex flex-col gap-1.5 rounded-xl bg-deep px-3 py-2.5">
                         <span className="text-[11px] uppercase tracking-[0.06em] text-label">{label}</span>
                         <span className="font-mono tnum text-sm">
-                          {v}
-                          <span className="text-muted"> / {max}</span>
+                          {v ?? "sem dado"}
+                          {v != null && <span className="text-muted"> / {max}</span>}
                         </span>
                         <span className="h-1 overflow-hidden rounded-full bg-active" aria-hidden="true">
-                          <span className="block h-full bg-ink-3" style={{ width: `${(v / max) * 100}%` }} />
+                          <span className="block h-full bg-ink-3" style={{ width: `${v == null ? 0 : (v / max) * 100}%` }} />
                         </span>
                       </div>
                     );
@@ -292,7 +296,7 @@ export function WarRoom() {
                   onClick={() => setCurId(q.id)}
                   className={`flex min-h-14 items-center gap-3 rounded-xl border px-3 py-2 text-left ${isCur ? "border-ink bg-active" : "border-line"} ${d ? "opacity-50" : ""}`}
                 >
-                  <span className="font-mono tnum w-8 text-center text-[15px] font-semibold text-num">{q.nota ?? "—"}</span>
+                  <span className="font-mono tnum w-8 text-center text-[15px] font-semibold text-num">{fmtNota(q.nota)}</span>
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-[13px]">{q.title}</span>
                     <span className="truncate font-mono text-xs text-muted">

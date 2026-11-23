@@ -41,14 +41,16 @@ export const STORES: Store[] = [
   {
     slug: "amazon",
     name: "Amazon",
-    domains: ["amazon.com.br", "amzn.to", "a.co"],
+    // amzlink.to e link.amazon são os encurtadores da própria Amazon: o domínio já diz a loja, sem abrir o link.
+    domains: ["amazon.com.br", "amzn.to", "a.co", "amzlink.to", "link.amazon"],
     trust: 0.8,
     productId: (u) => u.pathname.match(/\/(?:dp|gp\/product|gp\/aw\/d)\/([A-Z0-9]{10})/i)?.[1]?.toUpperCase() ?? null,
   },
   {
     slug: "mercadolivre",
     name: "Mercado Livre",
-    domains: ["mercadolivre.com.br", "mercadolivre.com", "mercadolibre.com"],
+    // meli.la é o encurtador do Mercado Livre (444 das 893 ofertas sem loja em 23/11): o domínio já diz a loja.
+    domains: ["mercadolivre.com.br", "mercadolivre.com", "mercadolibre.com", "meli.la"],
     trust: 0.6,
     productId: (u) => (u.pathname + u.search).match(/MLB-?(\d{6,})/i)?.[1] ? `MLB${(u.pathname + u.search).match(/MLB-?(\d{6,})/i)![1]}` : null,
   },
@@ -56,7 +58,7 @@ export const STORES: Store[] = [
     slug: "magalu",
     name: "Magalu",
     // influenciadormagalu.com.br: link de parceiro do Magalu (é por onde a Pechinchou manda as ofertas da loja).
-    domains: ["magazineluiza.com.br", "magalu.com", "influenciadormagalu.com.br"],
+    domains: ["magazineluiza.com.br", "magalu.com", "influenciadormagalu.com.br", "magazineluiza.onelink.me"],
     trust: 0.8,
     productId: (u) => u.pathname.match(/\/p\/([a-z0-9]+)\//i)?.[1] ?? null,
   },

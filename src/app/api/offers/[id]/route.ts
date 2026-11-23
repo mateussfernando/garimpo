@@ -2,17 +2,18 @@ import { connection } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { getOfferDetail } from "@/lib/detail";
+import { precoDoPedido } from "@/lib/preco";
 import { exigir, exigirOuVisitante, pode } from "@/lib/sessao";
 import { contextoDe, detalheVisivel } from "@/lib/visao";
 
-export async function GET(_request: Request, ctx: RouteContext<"/api/offers/[id]">) {
+export async function GET(request: Request, ctx: RouteContext<"/api/offers/[id]">) {
   await connection();
   const eu = await exigirOuVisitante("ofertas.ver");
   if (eu instanceof Response) return eu;
   const { id } = await ctx.params;
   const offerId = Number(id);
   if (!Number.isInteger(offerId)) return Response.json({ erro: "id inválido" }, { status: 400 });
-  const detail = await getOfferDetail(offerId, eu.id);
+  const detail = await getOfferDetail(offerId, eu.id, precoDoPedido(request));
   if (!detail) return Response.json({ erro: "oferta não encontrada" }, { status: 404 });
   // Tirada da Vitrine: só quem modera ainda abre (para devolver).
   const fora = !detail.offer.isActive || detail.offer.productActive === false;

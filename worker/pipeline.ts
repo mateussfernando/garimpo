@@ -329,10 +329,10 @@ export async function rematchOffers(): Promise<{ total: number; changed: number;
         category: true,
         createdAt: true,
         source: { select: { kind: true } },
-        rawMessage: { select: { text: true, url: true } },
+        rawMessage: { select: { text: true, url: true, outboundUrl: true } },
       },
     })
-  ).map(({ source, rawMessage, ...o }) => ({ ...o, kind: source.kind, text: rawMessage.text, postUrl: rawMessage.url }));
+  ).map(({ source, rawMessage, ...o }) => ({ ...o, kind: source.kind, text: rawMessage.text, postUrl: rawMessage.url, outboundUrl: rawMessage.outboundUrl }));
   const bands = new Map<string, { alvoId: number; band: Band }>();
   let changed = 0;
   for (const r of rows) {
@@ -342,6 +342,14 @@ export async function rematchOffers(): Promise<{ total: number; changed: number;
       const v = offerFromMessage(r.text, list);
       title = v.kind === "oferta" ? v.title : "";
       if (title && title !== r.title) await prisma.offer.update({ where: { id: r.id }, data: { title: title.slice(0, 300) } });
+    }
+    // Loja pelo domínio do link (mesmo curto, como meli.la): ofertas de antes da regra ficam sem loja até aqui.
+    if (!r.store) {
+      const s = storeForUrl(r.outboundUrl ?? r.url ?? "");
+      if (s) {
+        await prisma.offer.update({ where: { id: r.id }, data: { store: s.slug } });
+        r.store = s.slug;
+      }
     }
     const c = title ? classify(title, list) : { alvo: null, specs: null, band: null };
     const alvoId = c.alvo?.id ?? null;

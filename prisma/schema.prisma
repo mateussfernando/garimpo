@@ -482,3 +482,54 @@ model OfertaUsuario {
   @@index([offerId])
   @@map("oferta_usuario")
 }
+
+/// Retrato da nota quando a IA analisa uma oferta: o que o algoritmo e a IA disseram e os preços da hora. Hoje esses
+/// valores se sobrescrevem e se perdem; com o retrato dá para ver depois quem acertou (pnpm notas:calibrar). Só acrescenta.
+model NotaRegistro {
+  id               Int      @id @default(autoincrement())
+  offerId          Int      @map("offer_id")
+  productId        Int?     @map("product_id")
+  registradoEm     DateTime @default(now()) @map("registrado_em") @db.Timestamptz(6)
+  /// Nota do algoritmo (0 a 100); vazio = não opinou (sem preço de referência).
+  notaAlgoritmo    Int?     @map("nota_algoritmo")
+  /// Fração do peso dos sinais do algoritmo que era conhecida (0 a 1).
+  baseAlgoritmo    Float?   @map("base_algoritmo")
+  notaIa           Int      @map("nota_ia")
+  confiancaIa      String   @map("confianca_ia")
+  vereditoIa       String   @map("veredito_ia")
+  precoCartaoCents Int?     @map("preco_cartao_cents")
+  precoPixCents    Int?     @map("preco_pix_cents")
+
+  @@index([offerId])
+  @@index([productId, registradoEm])
+  @@map("nota_registro")
+}
+
+/// "Essa nota fez sentido?": o 👍 (1) ou 👎 (-1) de cada conta numa oferta, com a nota e o preço que estavam na tela.
+/// É o gabarito mais direto da nota. Um voto por conta e oferta (trocável).
+model NotaFeedback {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  offerId      Int      @map("offer_id")
+  voto         Int
+  notaMostrada Float?   @map("nota_mostrada")
+  preco        String
+  criadoEm     DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
+  atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+
+  @@unique([userId, offerId], map: "nota_feedback_conta_oferta")
+  @@index([offerId])
+  @@map("nota_feedback")
+}
+
+/// Quando uma conta clica em Comprar (só conta, nunca visitante): sinal de que a oferta valeu a pena para a pessoa.
+model CliqueComprar {
+  id       Int      @id @default(autoincrement())
+  userId   Int      @map("user_id")
+  offerId  Int      @map("offer_id")
+  criadoEm DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
+
+  @@index([userId, criadoEm])
+  @@index([offerId])
+  @@map("cliques_comprar")
+}

@@ -125,11 +125,9 @@ export function targetsFrom(prices: number[]): { targetCents: number | null; cei
   return { targetCents: Math.round(m * 0.85), ceilingCents: Math.round(m * 1.15) };
 }
 
-/** Preço-alvo e teto de mercado de uma faixa: 85% e 115% da mediana (com 5 preços ou mais). Nunca o número de alguém. */
-export function mercadoDe(ref: { medianCents: number | null; n: number } | null) {
-  if (!ref || ref.medianCents == null || ref.n < 5) return { targetCents: null, ceilingCents: null };
-  return { targetCents: Math.round(ref.medianCents * 0.85), ceilingCents: Math.round(ref.medianCents * 1.15) };
-}
+// Preço-alvo e teto de mercado de uma faixa (85% e 115% da mediana, com 5 preços ou mais; nunca o número de alguém)
+// moram em src/lib/nota-algoritmo.ts: o site também os usa, para refazer o A quando o preço em destaque é o Pix.
+export { mercadoDe } from "@/lib/nota-algoritmo";
 
 /** Preço-alvo e teto valendo: o do usuário, se houver; senão, o calculado. Teto sem número do usuário fica 35% acima do alvo dele. */
 export function effectiveTargets(

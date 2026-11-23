@@ -3,6 +3,7 @@
 import type { CupomDTO } from "@/lib/cupons";
 import { prisma } from "@/lib/db/prisma";
 import type { OfferDetailDTO } from "@/lib/detail";
+import { notaParaQuem } from "@/lib/nota";
 import type { OfferDTO, StatusDTO } from "@/lib/offers";
 import { pode, type Quem } from "@/lib/sessao";
 
@@ -29,6 +30,11 @@ const nomeVisivel = (c: Contexto, nome: string) => (c.internos || !c.privados.ha
 
 export function ofertaVisivel<T extends OfferDTO>(o: T, c: Contexto): T {
   const out = { ...o };
+  // A nota única mistura a IA: quem não pode ver a IA recebe só a do algoritmo, e a posição da IA nem sai daqui.
+  // (Refeita antes de apagar a análise, que guarda a confiança e o veredito.)
+  const nota = notaParaQuem(o.notaDetalhe, o.ia ? { confidence: o.ia.confidence, verdict: o.ia.verdict } : null, c.ia);
+  out.nota = nota.nota;
+  out.notaDetalhe = nota.detalhe;
   if (!c.ia) out.ia = null;
   if (!c.internos) {
     out.source = nomeVisivel(c, o.source);

@@ -3,9 +3,13 @@
 import Link from 'next/link'
 import { useCallback, useMemo, useState } from 'react'
 import type { OfferDetailDTO } from '@/lib/detail'
+import { fmtNota, notaDica } from '@/lib/nota'
 import { CompararLojas, spreadText, storeCount } from './comparar-lojas'
+import { ComoANota } from './como-a-nota'
+import { registrarClique } from './gabarito'
 import { AiAnalysis } from './ia'
-import { precoDe } from '@/lib/preco'
+import { VotoNota } from './voto-nota'
+import { precoDe, valorDe } from '@/lib/preco'
 import { useSeVisitante } from './conta-aviso'
 import { usePreco } from './preco'
 import { AppHeader, Badge, ago, brl, podeVer, useLive, useMe, useNow, useStatus } from './shell'
@@ -196,24 +200,27 @@ const PART_INFO: Record<
 
 function partWhy(k: 'A' | 'C' | 'F' | 'S', d: OfferDetailDTO): string {
   const o = d.offer
+  // Sinal que não se sabe não ganha nota por padrão: sai da conta e os outros pesam mais.
+  const fora = d.parts?.[k] == null
   if (k === 'A') {
-    if (!o.alvo) return 'Esta oferta não toca nenhum Alvo: nota neutra'
-    if (!d.stats.alvoCents)
-      return 'O Alvo ainda não tem referência (precisa de 5 ofertas vistas): nota neutra'
+    if (fora)
+      return 'Sem preço de referência (a oferta não cai numa faixa com 5 preços vistos): este sinal fica fora da conta e o algoritmo não opina'
+    if (!o.alvo || !d.stats.alvoCents)
+      return 'Preço contra o mercado da faixa do produto'
     return o.alvoAtingido
       ? `No ou abaixo do preço-alvo de ${brl(d.stats.alvoCents)}`
       : `Alvo de ${brl(d.stats.alvoCents)}, teto de ${brl(d.stats.tetoCents)}`
   }
   if (k === 'C')
-    return o.store
-      ? `${o.store}: a confiança vem da lista de lojas do app`
-      : 'Loja fora da lista: confiança baixa'
+    return fora
+      ? 'Loja não identificada: este sinal fica fora da conta'
+      : `${o.store}: a confiança vem da lista de lojas do app`
   if (k === 'F')
     return o.freeShipping
       ? 'Frete grátis'
       : o.shippingCents != null
         ? `Frete de ${brl(o.shippingCents)}`
-        : 'Frete não informado'
+        : 'Frete não informado: fica fora da conta'
   return `${d.heat.length} ${d.heat.length === 1 ? 'fonte' : 'fontes'} com este produto; nota cheia com 4`
 }
 
@@ -228,10 +235,10 @@ export function Detalhe({ id }: { id: number }) {
   const seVisitante = useSeVisitante()
 
   const load = useCallback(async () => {
-    const r = await fetch(`/api/offers/${id}`, { cache: 'no-store' })
+    const r = await fetch(`/api/offers/${id}?preco=${pref}`, { cache: 'no-store' })
     if (r.status === 404) return setMissing(true)
     setD(await r.json())
-  }, [id])
+  }, [id, pref])
   useLive(load)
 
   const patch = useCallback(
@@ -339,9 +346,12 @@ export function Detalhe({ id }: { id: number }) {
                   <span className="rounded-full border border-control bg-pill px-2.5 py-1.5 text-xs text-ink-2">
                     via {d.offer.source}
                   </span>
-                  <span className="flex items-baseline gap-1.5 rounded-full border border-control bg-pill px-2.5 py-1.5">
+                  <span
+                    className="flex items-baseline gap-1.5 rounded-full border border-control bg-pill px-2.5 py-1.5"
+                    title={notaDica(d.offer.nota, d.offer.notaDetalhe)}
+                  >
                     <span className="font-mono text-[15px] font-semibold text-num">
-                      {d.offer.nota ?? '—'}
+                      {fmtNota(d.offer.nota)}
                     </span>
                     <span className="text-[11px] uppercase tracking-[0.06em] text-muted">
                       nota
@@ -464,6 +474,7 @@ export function Detalhe({ id }: { id: number }) {
                       href={d.offer.url}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => registrarClique(d.offer.id)}
                       className={`flex h-11 flex-1 items-center justify-center rounded-[10px] px-5 text-sm font-semibold ${d.offer.alvoAtingido ? 'bg-gold text-on-gold' : 'bg-ink text-bg'}`}
                     >
                       Comprar{d.offer.store ? ` na ${d.offer.store}` : ''}
@@ -643,50 +654,69 @@ export function Detalhe({ id }: { id: number }) {
 
               <Section
                 id="por-que-nota"
-                title={`Por que nota ${d.offer.nota ?? '—'}`}
-                sub="Quatro sinais somam até 100. O desconto real e o Black Fraude entram depois do 11.11, com histórico."
+                title={`Por que nota ${fmtNota(d.offer.nota)}`}
+                sub="A nota é a mistura do algoritmo com a IA. Os quatro sinais do algoritmo valem pelo que se sabe: o que não se sabe fica fora da conta, sem nota por padrão. O desconto real e o Black Fraude entram com histórico."
               >
-                {d.parts ? (
-                  <div className="flex flex-col gap-4">
-                    {(['A', 'C', 'F', 'S'] as const).map((k) => {
-                      const info = PART_INFO[k]
-                      const value = Math.round(d.parts![k] * info.weight)
-                      return (
-                        <div key={k} className="flex flex-col gap-1.5">
-                          <div className="flex items-baseline justify-between text-sm">
-                            <span>{info.label}</span>
-                            <span className="font-mono tnum">
-                              {value}
-                              <span className="text-muted">
-                                {' '}
-                                / {info.weight}
+                <div className="flex flex-col gap-5">
+                  <ComoANota
+                    nota={d.offer.nota}
+                    d={d.offer.notaDetalhe}
+                    iaScore={d.offer.ia?.score ?? null}
+                    iaConfianca={d.offer.ia?.confidence ?? null}
+                  />
+                  <VotoNota offerId={d.offer.id} nota={d.offer.nota} pref={pref} />
+                  {d.parts ? (
+                    <div className="flex flex-col gap-4">
+                      {(['A', 'C', 'F', 'S'] as const).map((k) => {
+                        const info = PART_INFO[k]
+                        const parte = d.parts![k]
+                        const value =
+                          parte == null ? null : Math.round(parte * info.weight)
+                        return (
+                          <div key={k} className="flex flex-col gap-1.5">
+                            <div className="flex items-baseline justify-between text-sm">
+                              <span>{info.label}</span>
+                              <span className="font-mono tnum">
+                                {value ?? (
+                                  <span className="text-muted">sem dado</span>
+                                )}
+                                {value != null && (
+                                  <span className="text-muted">
+                                    {' '}
+                                    / {info.weight}
+                                  </span>
+                                )}
                               </span>
+                            </div>
+                            <div
+                              className="h-1.5 overflow-hidden rounded-full bg-active"
+                              role="img"
+                              aria-label={
+                                value == null
+                                  ? 'sem dado'
+                                  : `${value} de ${info.weight}`
+                              }
+                            >
+                              <div
+                                className="h-full rounded-full bg-ink-3"
+                                style={{
+                                  width: `${value == null ? 0 : (value / info.weight) * 100}%`,
+                                }}
+                              />
+                            </div>
+                            <span className="text-xs text-muted">
+                              {partWhy(k, d)}
                             </span>
                           </div>
-                          <div
-                            className="h-1.5 overflow-hidden rounded-full bg-active"
-                            role="img"
-                            aria-label={`${value} de ${info.weight}`}
-                          >
-                            <div
-                              className="h-full rounded-full bg-ink-3"
-                              style={{
-                                width: `${(value / info.weight) * 100}%`,
-                              }}
-                            />
-                          </div>
-                          <span className="text-xs text-muted">
-                            {partWhy(k, d)}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted">
-                    A nota ainda não foi calculada.
-                  </p>
-                )}
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted">
+                      O algoritmo ainda não calculou os sinais desta oferta.
+                    </p>
+                  )}
+                </div>
               </Section>
             </div>
 
@@ -694,7 +724,7 @@ export function Detalhe({ id }: { id: number }) {
               <Section
                 id="comparar"
                 title={`Comparar lojas (${storeCount(d.offer.lojas)})`}
-                sub={`O mesmo produto em lojas diferentes, do menor para o maior total no cartão com frete. ${spreadText(d.offer.lojas) ?? ''}`}
+                sub={`O mesmo produto em lojas diferentes, do menor para o maior total ${pref === 'pix' ? 'no Pix (no cartão onde a loja não tem Pix)' : 'no cartão'} com frete. ${spreadText(d.offer.lojas, pref) ?? ''}`}
               >
                 <CompararLojas
                   lojas={d.offer.lojas}
@@ -712,7 +742,7 @@ export function Detalhe({ id }: { id: number }) {
                     ? 'Parecidas em outras lojas'
                     : 'Escada de preços'
                 }
-                sub="Ofertas parecidas em outras lojas nas últimas 72 h (podem não ser o mesmo modelo): total no cartão"
+                sub={`Ofertas parecidas em outras lojas nas últimas 72 h (podem não ser o mesmo modelo): total ${pref === 'pix' ? 'no Pix (cartão onde não há Pix)' : 'no cartão'}`}
               >
                 {d.ladder.length === 0 ? (
                   <p className="text-[13px] text-muted">
@@ -739,11 +769,10 @@ export function Detalhe({ id }: { id: number }) {
                       </thead>
                       <tbody>
                         {d.ladder.map((l) => {
+                          const minha = valorDe(d.offer, pref)
+                          const dela = valorDe(l, pref)
                           const diff =
-                            l.priceCardCents != null &&
-                            d.offer.priceCardCents != null
-                              ? l.priceCardCents - d.offer.priceCardCents
-                              : null
+                            dela != null && minha != null ? dela - minha : null
                           return (
                             <tr key={l.id} className="border-t border-line">
                               <td className="py-2.5 pr-3">
@@ -761,7 +790,7 @@ export function Detalhe({ id }: { id: number }) {
                                 {l.freeShipping ? ' · frete grátis' : ''}
                               </td>
                               <td className="py-2.5 pr-3 font-mono tnum">
-                                {brl(l.priceCardCents)}
+                                {brl(dela)}
                               </td>
                               <td
                                 className={`py-2.5 font-mono tnum ${diff != null && diff < 0 ? 'text-good' : 'text-muted'}`}

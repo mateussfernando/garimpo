@@ -72,6 +72,15 @@ export function useLive(load: () => Promise<void>) {
   useEffect(() => {
     loadRef.current = load;
   }, [load]);
+  // Quando o que a tela pede muda (o preço em destaque, o id), busca de novo na hora; a primeira busca é a de baixo.
+  const primeiraBusca = useRef(true);
+  useEffect(() => {
+    if (primeiraBusca.current) {
+      primeiraBusca.current = false;
+      return;
+    }
+    void load();
+  }, [load]);
   useEffect(() => {
     const first = setTimeout(() => void loadRef.current(), 0);
     let es: EventSource | null = null;

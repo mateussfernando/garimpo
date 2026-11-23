@@ -18,7 +18,7 @@ import { CMD_CHANNEL, pgConfig } from "@/lib/db";
 import { prisma } from "@/lib/db/prisma";
 import { asJson, json } from "@/lib/db/types";
 import type { SourceStats } from "@/lib/db/types";
-import { activeAlvos, ingestRaw, notify } from "../pipeline";
+import { alvosDoSistema, ingestRaw, notify } from "../pipeline";
 import { verifyNow } from "../verify/verify";
 import { offerFromMessage } from "./message";
 
@@ -108,8 +108,8 @@ export async function startTelegram() {
   const chats = new Map<string, Chat>();
   // Entra qualquer produto com link de loja: quem escolhe são os grupos em que o usuário está.
   // Os Alvos só servem para classificar a oferta e escolher o título.
-  let alvos = await activeAlvos();
-  setInterval(() => activeAlvos().then((a) => (alvos = a)).catch(() => undefined), REFRESH_EVERY);
+  let alvos = await alvosDoSistema();
+  setInterval(() => alvosDoSistema().then((a) => (alvos = a)).catch(() => undefined), REFRESH_EVERY);
 
   /** Uma mensagem por vez em cada chat, na ordem, para o contador e o `lastId` nunca se atropelarem. */
   const enqueue = (chat: Chat, job: () => Promise<void>) => {

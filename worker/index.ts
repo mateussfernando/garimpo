@@ -15,8 +15,8 @@ import { collectVitrines } from "./collect/vitrines";
 import { collectConfiguradas, testFonte } from "./collect/genericas";
 import { FONTES_CMD_CHANNEL, FONTE_TESTE_KEY, type FontesCmd } from "@/lib/fontes";
 import { startTelegram } from "./ingest/telegram";
-import { ALVOS_CMD_CHANNEL, type AlvosCmd } from "@/lib/alvos";
-import { ensureSeed, notify, rematchOffers, rescoreBand } from "./pipeline";
+import { ALVOS_CMD_CHANNEL, AlvosCmdSchema } from "@/lib/alvos";
+import { ehDoSistema, ensureSeed, notify, rematchOffers, rematchPessoal, rescoreBand } from "./pipeline";
 import { verifyTick } from "./verify/verify";
 
 // Plano acelerado: nada de agendamento. A coleta roda só enquanto o worker
@@ -36,7 +36,9 @@ async function main() {
   }
   await ensureSeed();
   const rm = await rematchOffers();
-  console.log(`[alvos] ${rm.total} ofertas reclassificadas (${rm.changed} mudaram de Alvo ou faixa), ${rm.bands} faixas com referência recalculada`);
+  console.log(
+    `[alvos] ${rm.total} ofertas reclassificadas (${rm.changed} mudaram de Alvo ou faixa no sistema, ${rm.pessoais} nos Alvos das contas), ${rm.bands} faixas com referência recalculada`,
+  );
   await listenAlvos();
   await listenFontes();
   // Pausas pedidas pelos sites antes deste reinício continuam valendo.
@@ -153,31 +155,51 @@ async function main() {
   console.log(`worker ok · papéis: ${roles.join(", ")}`);
 }
 
+/** Entre duas reclassificações da mesma conta: muitas mudanças seguidas na tela Alvos viram uma rodada a cada 10 s. */
+const REMATCH_GAP = 10_000;
+
 /**
- * A tela Alvos avisa quando o usuário cria, edita, liga, desliga ou apaga um Alvo (reclassifica as ofertas de 7 dias)
- * ou muda o preço-alvo de uma faixa (refaz as notas dela). Um pedido por vez; vários seguidos viram uma rodada só.
+ * A tela Alvos avisa quando uma conta cria, edita, liga, desliga ou apaga um Alvo (reclassifica as ofertas de 7 dias
+ * nos Alvos dela) ou muda o preço-alvo de uma faixa (refaz as notas dela). Um pedido por vez; vários seguidos da mesma
+ * conta viram uma rodada só. Se a conta é das que decidem a coleta (admin), o sistema também é refeito.
  */
 async function listenAlvos() {
   let busy = false;
-  let rematch = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const contas = new Set<string>();
+  const ultima = new Map<string, number>();
   const bands = new Map<string, { alvoId: number; bandKey: string }>();
+  const later = (ms: number) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => void drain(), ms);
+  };
   const drain = async () => {
-    if (busy) return;
+    if (busy) return later(1500);
     busy = true;
     try {
-      while (rematch || bands.size) {
-        if (rematch) {
-          rematch = false;
-          bands.clear(); // a reclassificação já refaz todas as faixas e notas
+      let wait = 0;
+      for (const uid of [...contas]) {
+        const falta = (ultima.get(uid) ?? 0) + REMATCH_GAP - Date.now();
+        if (falta > 0) {
+          wait = Math.max(wait, falta);
+          continue;
+        }
+        contas.delete(uid);
+        ultima.set(uid, Date.now());
+        if (await ehDoSistema(uid)) {
           const r = await rematchOffers();
-          console.log(`[alvos] Alvos mudaram na tela: ${r.total} ofertas reclassificadas (${r.changed} mudaram)`);
+          console.log(`[alvos] Alvos de um admin mudaram: ${r.total} ofertas reclassificadas (${r.changed} no sistema, ${r.pessoais} nas contas)`);
         } else {
-          const [k, b] = bands.entries().next().value!;
-          bands.delete(k);
-          await rescoreBand(b.alvoId, b.bandKey);
-          console.log(`[alvos] preço-alvo da faixa ${b.bandKey} mudou: notas refeitas`);
+          const r = await rematchPessoal(uid);
+          console.log(`[alvos] Alvos de uma conta mudaram: ${r.changed} ofertas mudaram de Alvo ou faixa para ela`);
         }
       }
+      for (const [k, b] of [...bands]) {
+        bands.delete(k);
+        await rescoreBand(b.alvoId, b.bandKey);
+        console.log(`[alvos] preço-alvo da faixa ${b.bandKey} mudou: notas refeitas`);
+      }
+      if (contas.size) later(Math.max(wait, 500));
     } catch (e) {
       console.error("[alvos] erro ao aplicar mudança da tela Alvos:", e);
     } finally {
@@ -189,14 +211,18 @@ async function listenAlvos() {
   await cmd.connect();
   await cmd.query(`LISTEN ${ALVOS_CMD_CHANNEL}`);
   cmd.on("notification", (n) => {
+    let raw: unknown;
     try {
-      const c = JSON.parse(n.payload ?? "{}") as AlvosCmd;
-      if (c.acao === "rematch") rematch = true;
-      else if (c.acao === "faixa") bands.set(`${c.alvoId}:${c.bandKey}`, { alvoId: c.alvoId, bandKey: c.bandKey });
+      raw = JSON.parse(n.payload ?? "");
     } catch {
-      return;
+      raw = null;
     }
-    setTimeout(() => void drain(), 1500);
+    // Só o formato que a tela Alvos manda; o resto é ignorado (e registrado).
+    const c = AlvosCmdSchema.safeParse(raw);
+    if (!c.success) return console.warn("[alvos] comando ignorado: formato inválido");
+    if (c.data.acao === "rematch") contas.add(c.data.userId);
+    else bands.set(`${c.data.alvoId}:${c.data.bandKey}`, { alvoId: c.data.alvoId, bandKey: c.data.bandKey });
+    later(1500);
   });
   cmd.on("error", (e) => console.error("[alvos] canal de comandos caiu:", e.message));
 }

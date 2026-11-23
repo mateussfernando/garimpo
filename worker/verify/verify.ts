@@ -5,7 +5,7 @@ import { jsonOrNull, type OfferExtra } from "@/lib/db/types";
 import { ldProduct, meta, stripTags } from "../http/html";
 import { PausedError, RobotsError, politeFetch, unshorten } from "../http/polite";
 import { parseOfferText } from "../parse/parser";
-import { afterPriceChange, logEvent, notify, pendingOffers } from "../pipeline";
+import { afterPriceChange, logEventParaDonos, notify, pendingOffers } from "../pipeline";
 import { adapterFor } from "./adapters";
 
 
@@ -229,11 +229,12 @@ async function verifyInner(o: Offer) {
         verifiedAt: new Date(),
       },
     });
-    // Faixa "Ao vivo": preço que mudou de verdade (1% ou mais) depois de uma conferência anterior, e produto que acabou.
-    if (o.alvoId && o.verifiedAt && o.priceCardCents && v.priceCard && Math.abs(v.priceCard - o.priceCardCents) >= o.priceCardCents * 0.01) {
-      await logEvent("preco", o.id, o.title, { from: o.priceCardCents, to: v.priceCard, store: store.slug });
+    // Faixa "Ao vivo" de quem tem a oferta num Alvo: preço que mudou de verdade (1% ou mais) depois de uma conferência
+    // anterior, e produto que acabou.
+    if (o.verifiedAt && o.priceCardCents && v.priceCard && Math.abs(v.priceCard - o.priceCardCents) >= o.priceCardCents * 0.01) {
+      await logEventParaDonos("preco", o.id, o.title, { from: o.priceCardCents, to: v.priceCard, store: store.slug });
     }
-    if (o.alvoId && v.available === false && o.available !== false) await logEvent("esgotou", o.id, o.title, { store: store.slug });
+    if (v.available === false && o.available !== false) await logEventParaDonos("esgotou", o.id, o.title, { store: store.slug });
     await afterPriceChange(o.id);
     noteRobots(store.slug, true);
   } catch (err) {

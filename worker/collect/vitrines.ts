@@ -10,7 +10,7 @@ import { parseBRL } from "@/lib/money";
 import { prisma } from "@/lib/db/prisma";
 import { nextData } from "../http/html";
 import { PausedError, RobotsError, politeFetch } from "../http/polite";
-import { activeAlvos, classify, ingestRaw, refreshRef, setSourceStatus } from "../pipeline";
+import { alvosDoSistema, classify, ingestRaw, refreshRef, setSourceStatus } from "../pipeline";
 import { VITRINES } from "./vitrines-config";
 
 export type VitrineProduct = {
@@ -99,7 +99,7 @@ async function sourceOf(slug: string) {
   return s?.enabled ? s : null;
 }
 
-type Alvos = Awaited<ReturnType<typeof activeAlvos>>;
+type Alvos = Awaited<ReturnType<typeof alvosDoSistema>>;
 export type TouchedBands = Map<string, { alvoId: number; key: string; label: string }>;
 
 /**
@@ -184,7 +184,7 @@ export async function collectVitrines(): Promise<void> {
     let added = 0;
     let market = 0;
     try {
-      const alvos = await activeAlvos();
+      const alvos = await alvosDoSistema();
       const storeSlug = v.slug.replace(/-vitrine$/, "");
       const touched: TouchedBands = new Map();
       for (const page of v.pages) {

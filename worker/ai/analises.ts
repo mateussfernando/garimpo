@@ -16,7 +16,7 @@ import { AI_AUTO_STOP_PCT } from "@/lib/ai-usage";
 import { prisma } from "@/lib/db/prisma";
 import { DIA, HORA, atras } from "@/lib/tempo";
 import { normalize } from "@/lib/money";
-import { median } from "../match/alvos";
+import { median, mercadoDe } from "../match/alvos";
 import { notify } from "../pipeline";
 import { aiPaused, guardedCall } from "./budget";
 import { activeProviders, claudeBraked, claudeFiveHourPct } from "./index";
@@ -60,7 +60,11 @@ const pct = (a: number | null, b: number | null) => (a && b ? Math.round(((a - b
 async function candidates(): Promise<Candidate[]> {
   const found = await prisma.offer.findMany({
     where: { kind: "produto", dismissed: false, createdAt: { gte: atras(48 * HORA) } },
-    include: { source: { select: { name: true } }, alvo: { select: { name: true } } },
+    select: {
+      id: true, title: true, category: true, store: true, priceCardCents: true, installments: true, interest: true, cashCents: true,
+      listPriceCents: true, freeShipping: true, coupon: true, verifyStatus: true, available: true, productId: true, alvoId: true,
+      bandKey: true, nota: true, createdAt: true,
+    },
     orderBy: { createdAt: "desc" },
     take: 3000,
   });
@@ -68,13 +72,9 @@ async function candidates(): Promise<Candidate[]> {
   const alvoIds = [...new Set(found.map((o) => o.alvoId).filter((x): x is number => x != null))];
   const refRows = alvoIds.length ? await prisma.alvoRef.findMany({ where: { alvoId: { in: alvoIds } } }) : [];
   const refBy = new Map(refRows.map((r) => [`${r.alvoId}:${r.bandKey}`, r]));
-  const rows = found.map((o) => ({
-    o,
-    // Mesmo valor de antes (o nome do Alvo, ligado ou não): faz parte do hash que decide se a análise está em dia.
-    alvo: o.alvo?.name ?? null,
-    ref: o.alvoId != null && o.bandKey ? refBy.get(`${o.alvoId}:${o.bandKey}`) : undefined,
-    fonte: o.source.name,
-  }));
+  // A análise é a mesma para todo mundo: entra o mercado da faixa (dos Alvos do sistema), nunca o nome do Alvo nem o
+  // preço-alvo de alguém, e nunca o nome do grupo que postou.
+  const rows = found.map((o) => ({ o, ref: o.alvoId != null && o.bandKey ? refBy.get(`${o.alvoId}:${o.bandKey}`) : undefined }));
   const productIds = [...new Set(rows.map((r) => r.o.productId).filter((x): x is number => x != null))];
   const hist = new Map<number, number[]>();
   if (productIds.length) {
@@ -84,7 +84,7 @@ async function candidates(): Promise<Candidate[]> {
     });
     for (const x of pts) if (x.priceCardCents != null) hist.set(x.productId, [...(hist.get(x.productId) ?? []), x.priceCardCents]);
   }
-  return rows.map(({ o, alvo, ref, fonte }) => {
+  return rows.map(({ o, ref }) => {
     const h = o.productId ? (hist.get(o.productId) ?? []) : [];
     const med = median(h);
     // O que muda o julgamento. A nota Garimpo e a fonte ficam de fora do hash: mudam toda hora sem mudar a oferta.
@@ -102,15 +102,16 @@ async function candidates(): Promise<Candidate[]> {
       cupom: o.coupon,
       conferidoNaLoja: o.verifyStatus === "verificado",
       esgotado: o.available === false,
-      alvo,
+      // Fica no hash, sempre vazio: o nome do Alvo é de cada pessoa. (Tirar a chave mudaria o hash e refaria todas.)
+      alvo: null,
       faixa: ref?.label ?? null,
       medianaDaFaixaCents: ref?.medianCents ?? null,
-      precoAlvoCents: ref?.targetCents ?? null,
+      precoAlvoCents: mercadoDe(ref ?? null).targetCents,
       diferencaVsMedianaFaixaPct: pct(o.priceCardCents, ref?.medianCents ?? null),
       historico30d: h.length ? { pontos: h.length, minimoCents: Math.min(...h), medianaCents: med } : null,
     };
     return {
-      m: { id: o.id, ...core, fonte, notaGarimpo: o.nota },
+      m: { id: o.id, ...core, notaGarimpo: o.nota },
       hash: createHash("sha1").update(JSON.stringify(core)).digest("hex").slice(0, 16),
       // Mesmo produto em vários grupos: mesmo título (sem acento e pontuação) e mesmo preço.
       key: `${normalize(o.title).replace(/[^a-z0-9]+/g, "")}|${o.priceCardCents ?? "?"}`,

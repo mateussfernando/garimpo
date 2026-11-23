@@ -6,7 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { asJson, json, type OfferExtra } from "@/lib/db/types";
 import { DIA, HORA, atras } from "@/lib/tempo";
-import { median } from "../match/alvos";
+import { median, mercadoDe } from "../match/alvos";
 import { notify } from "../pipeline";
 import { pickProvider } from "./index";
 import { guardedCall } from "./budget";
@@ -64,12 +64,14 @@ export async function metricsFor(productId: number): Promise<Metrics | null> {
   const o = await prisma.offer.findFirst({ where: { productId }, orderBy: { createdAt: "desc" } });
   if (!o) return null;
   const extra = asJson<OfferExtra | null>(o.extra);
-  const alvo = o.alvoId ? await prisma.alvo.findUnique({ where: { id: o.alvoId } }) : null;
+  // O insight é o mesmo para todo mundo: o mercado da faixa (Alvos do sistema), nunca o nome do Alvo nem o preço-alvo
+  // de alguém. As chaves "alvo", "precoAlvoCents" e "tetoCents" ficam (o hash não muda): o Alvo vazio e o mercado.
   const ref = o.alvoId && o.bandKey ? await prisma.alvoRef.findUnique({ where: { alvoId_bandKey: { alvoId: o.alvoId, bandKey: o.bandKey } } }) : null;
   const pts = await prisma.pricePoint.findMany({ where: { productId, observedAt: { gte: atras(30 * DIA) } }, select: { priceCardCents: true } });
   const prices = pts.map((r) => r.priceCardCents).filter((p): p is number => p != null);
   const med = median(prices);
   const current = o.priceCardCents ?? prices.at(-1) ?? null;
+  const mercado = mercadoDe(ref);
   const n = (await prisma.offer.findMany({ where: { productId, createdAt: { gte: atras(48 * HORA) } }, distinct: ["sourceId"], select: { sourceId: true } })).length;
   return {
     produto: (prod.title ?? o.title).slice(0, 160),
@@ -80,13 +82,13 @@ export async function metricsFor(productId: number): Promise<Metrics | null> {
     minimoCents: prices.length ? Math.min(...prices) : null,
     diferencaVsMedianaPct: med && current ? Math.round(((current - med) / med) * 1000) / 10 : null,
     nota: o.nota,
-    alvo: alvo?.name ?? null,
+    alvo: null,
     faixa: ref?.label ?? null,
     medianaDaFaixaCents: ref?.medianCents ?? null,
     precosNaFaixa: ref?.n ?? 0,
-    precoAlvoCents: ref?.targetCents ?? null,
-    tetoCents: ref?.ceilingCents ?? null,
-    alvoAtingido: !!(ref?.targetCents && current && current <= ref.targetCents),
+    precoAlvoCents: mercado.targetCents,
+    tetoCents: mercado.ceilingCents,
+    alvoAtingido: !!(mercado.targetCents && current && current <= mercado.targetCents),
     precoPixCents: o.cashCents,
     precoDeLojaCents: o.listPriceCents,
     esgotado: o.available === false,

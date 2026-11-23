@@ -3,7 +3,9 @@
 // e é guardada só como hash bcrypt (o mesmo caminho do cadastro do site).
 import "dotenv/config";
 import { createInterface } from "node:readline";
+import { tellWorker } from "@/lib/alvos";
 import { auth } from "@/lib/auth";
+import { assumirDadosAntigos, temDadosAntigos } from "@/lib/dados-antigos";
 import { pool } from "@/lib/db";
 import { prisma } from "@/lib/db/prisma";
 
@@ -35,6 +37,17 @@ async function perguntar(texto: string, oculto = false): Promise<string> {
   return linha.trim();
 }
 
+/** Os Alvos, marcações e eventos de antes das contas passam para o admin (uma vez, e só se ele quiser). */
+async function oferecerDadosAntigos(userId: string) {
+  if (!(await temDadosAntigos())) return;
+  const ok = await perguntar("Esta conta fica com os Alvos, as marcações (vigiar, descartar, soneca) e os eventos de antes das contas? (s/n) ");
+  if (!/^s/i.test(ok)) return console.log("Os dados de antes continuam sem dono (dá para rodar de novo depois).");
+  const r = await assumirDadosAntigos(userId);
+  if (!r) return console.log("Outra conta já ficou com os dados de antes.");
+  await tellWorker({ acao: "rematch", userId });
+  console.log(`Dados de antes: ${r.alvos} Alvos, ${r.faixas} faixas, ${r.marcacoes} marcações, ${r.ofertasNoAlvo} ofertas nos Alvos e ${r.eventos} eventos agora são desta conta.`);
+}
+
 async function main() {
   const admin = await prisma.cargo.findFirst({ where: { todas: true } });
   if (!admin) throw new Error("O cargo de administrador não existe: rode `pnpm db:deploy` antes.");
@@ -47,7 +60,8 @@ async function main() {
     const ok = await perguntar(`Já existe a conta de ${existente.name}. Tornar administrador? (s/n) `);
     if (!/^s/i.test(ok)) return console.log("Nada mudou.");
     await prisma.user.update({ where: { id: existente.id }, data: { cargoId: admin.id } });
-    return console.log(`Pronto: ${existente.name} (${email}) agora é ${admin.nome}.`);
+    console.log(`Pronto: ${existente.name} (${email}) agora é ${admin.nome}.`);
+    return oferecerDadosAntigos(existente.id);
   }
 
   const name = await perguntar("Nome: ");
@@ -60,6 +74,7 @@ async function main() {
   const res = await auth.api.signUpEmail({ body: { name, email, password } });
   await prisma.user.update({ where: { id: res.user.id }, data: { cargoId: admin.id } });
   console.log(`Pronto: conta de ${name} (${email}) criada como ${admin.nome}. Entre em /entrar com esse e-mail e senha.`);
+  await oferecerDadosAntigos(res.user.id);
 }
 
 main()

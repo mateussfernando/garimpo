@@ -6,6 +6,8 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { prisma } from "@/lib/db/prisma";
+import { tellWorker } from "@/lib/alvos";
+import { darAlvosIniciais } from "@/lib/alvos-iniciais";
 
 /** O botão "Entrar com Google" só existe com as duas chaves no .env. */
 export const googleEnabled = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
@@ -44,6 +46,21 @@ export const auth = betterAuth({
     },
   },
   telemetry: { enabled: false },
+  // Conta nova (e-mail ou Google) começa com a cópia dos Alvos iniciais, e o worker classifica as ofertas de 7 dias neles.
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          try {
+            if (await darAlvosIniciais(user.id)) await tellWorker({ acao: "rematch", userId: user.id });
+          } catch (e) {
+            // Sem os Alvos a conta funciona do mesmo jeito; o worker dá a cópia quando subir de novo (ensureSeed).
+            console.error("[contas] não deu para criar os Alvos iniciais:", (e as Error).message);
+          }
+        },
+      },
+    },
+  },
   plugins: [nextCookies()],
 });
 

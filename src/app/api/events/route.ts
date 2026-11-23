@@ -23,10 +23,16 @@ export async function GET() {
   await connection();
   const eu = await exigir("ofertas.ver");
   if (eu instanceof Response) return eu;
-  const rows = (await prisma.event.findMany({ orderBy: { id: "desc" }, take: 60 })).map((e) => ({ ...e, detail: asJson<EventDetail | null>(e.detail) }));
-  // "Canal novo" (grupo do Telegram achado) é do sistema: só para quem vê o sistema.
+  // Os acontecimentos da conta (Alvos dela) e, para quem vê o sistema, o "canal novo" (grupo do Telegram achado).
   const sistema = pode(eu, "sistema.ver");
-  const out: EventDTO[] = rows.filter((e) => sistema || e.type !== "canal").map((e) => ({
+  const rows = (
+    await prisma.event.findMany({
+      where: { OR: [{ userId: eu.id }, ...(sistema ? [{ userId: null, type: "canal" }] : [])] },
+      orderBy: { id: "desc" },
+      take: 60,
+    })
+  ).map((e) => ({ ...e, detail: asJson<EventDetail | null>(e.detail) }));
+  const out: EventDTO[] = rows.map((e) => ({
     id: e.id,
     type: e.type as EventDTO["type"],
     offerId: e.offerId,

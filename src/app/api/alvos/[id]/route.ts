@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ALVOS_V0 } from "@/config/alvos";
 import { prisma } from "@/lib/db/prisma";
-import { AlvoInput, FaixaInput, tellWorker } from "@/lib/alvos";
+import { AlvoInput, FaixaInput, alvoDaConta, tellWorker } from "@/lib/alvos";
 import { effectiveTargets } from "../../../../../worker/match/alvos";
 import { exigir } from "@/lib/sessao";
 
@@ -11,17 +11,11 @@ const Body = z.discriminatedUnion("acao", [
   FaixaInput.extend({ acao: z.literal("faixa") }),
 ]);
 
-async function find(idText: string) {
-  const id = Number(idText);
-  if (!Number.isInteger(id)) return null;
-  const row = await prisma.alvo.findFirst({ where: { id, deletedAt: null } });
-  return row ?? null;
-}
-
 export async function PATCH(request: Request, ctx: RouteContext<"/api/alvos/[id]">) {
   const eu = await exigir("alvos.proprios", request);
   if (eu instanceof Response) return eu;
-  const alvo = await find((await ctx.params).id);
+  // Só os Alvos da própria conta: o de outra pessoa é "não encontrado".
+  const alvo = await alvoDaConta((await ctx.params).id, eu.id);
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!alvo) return Response.json({ erro: "Alvo não encontrado" }, { status: 404 });
   if (!parsed.success) return Response.json({ erro: parsed.error.issues[0]?.message ?? "pedido inválido" }, { status: 400 });
@@ -57,7 +51,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/alvos/[id]
   } else {
     await prisma.alvo.update({ where: { id: alvo.id }, data: { active: b.acao === "ligar" } });
   }
-  await tellWorker({ acao: "rematch" });
+  await tellWorker({ acao: "rematch", userId: eu.id });
   return Response.json({ ok: true });
 }
 
@@ -65,9 +59,9 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/alvos/[id]
 export async function DELETE(request: Request, ctx: RouteContext<"/api/alvos/[id]">) {
   const eu = await exigir("alvos.proprios", request);
   if (eu instanceof Response) return eu;
-  const alvo = await find((await ctx.params).id);
+  const alvo = await alvoDaConta((await ctx.params).id, eu.id);
   if (!alvo) return Response.json({ erro: "Alvo não encontrado" }, { status: 404 });
   await prisma.alvo.update({ where: { id: alvo.id }, data: { active: false, deletedAt: new Date() } });
-  await tellWorker({ acao: "rematch" });
+  await tellWorker({ acao: "rematch", userId: eu.id });
   return Response.json({ ok: true });
 }

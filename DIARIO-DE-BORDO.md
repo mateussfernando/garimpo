@@ -47,6 +47,7 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 | IA: modelo | `claude-haiku-5-5` em toda chamada do Claude. Nada de Sonnet ou Opus no app. No agy, que não tem Haiku, vale o mais simples dele: `gemini-3.8-flash-low` (`AGY_MODEL`). |
 | deploy-v2 (22/11) | Branch `deploy-v2` com o plano aprovado em `C:\Users\Jogga\.claude\plans\splendid-exploring-fern.md`: Prisma no lugar do Drizzle; contas com nome, e-mail e senha (bcrypt via `bcryptjs`) e Google (`better-auth`); tabela de cargos e permissões (admin e usuário, extensível); tudo de admin escondido do usuário comum na API, nas telas e no tempo real; Alvos e marcações (vigiar, descartar, soneca) de cada usuário; cadastro aberto. Dependências aprovadas pelo usuário: `prisma`, `@prisma/client`, `@prisma/adapter-pg`, `better-auth`, `bcryptjs`. |
 | IA para usuário comum (22/11) | Por enquanto o usuário comum vê as análises da IA, pela permissão `ia.analises.ver` do cargo "usuário". O usuário vai tirar antes de abrir o app: é desmarcar a permissão. |
+| Alvos de cada conta (22/11) | Cada conta tem os seus Alvos (cópia de `config/alvos.ts` quando nasce), com nota, preço-alvo, "Alvo atingido" e marcações (vigiar, descartar, soneca) só dela. Os Alvos de quem gerencia as fontes (admin) são os "do sistema": decidem a coleta (vitrines, buscas, título das mensagens) e o mercado da faixa, que entra na nota geral e na IA. A análise e o insight são iguais para todos: sem nome de Alvo, sem preço-alvo de ninguém e sem nome de grupo. Alvo de usuário comum nunca chega na IA nem muda a coleta. |
 | Nada do banco é apagado (22/11) | Pedido do usuário: dump completo (`pg_dump -Fc`) antes de cada fase que mexe no banco, guardado em `C:\Users\Jogga\garimpo-backups` (fora do projeto) e nunca apagado. Migrações só acrescentam; os dados são copiados para as estruturas novas e as colunas e tabelas antigas ficam sem uso até o usuário pedir para tirar. Nada de `DROP`, `TRUNCATE` ou `DELETE` em massa. |
 | IA: `claude-cli` | Token de `claude setup-token` no `.env` (CLAUDE_CODE_OAUTH_TOKEN), sem `ANTHROPIC_API_KEY` no ambiente do filho, sem `--bare`, rodando numa pasta vazia com `CLAUDE_CONFIG_DIR` próprio. |
 | IA: insights | Job agendado com as métricas calculadas no código. Chama a IA só se o hash mudar e grava na tabela `insights`. O site só lê do banco. |
@@ -65,6 +66,31 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 - Design (canvas clicável): https://claude.ai/artifact/KpCmQB2sKdW9GvHR9Z7MD2
 
 ## Registro (mais recente primeiro)
+
+### 23/11/2026, 00:05 · deploy-v2, Fase 6: Alvos e marcações de cada conta
+
+- **Antes:** dump `garimpoi-20261122-2252-antes-da-fase-6.dump` (6,0 MB) em `C:\Users\Jogga\garimpo-backups`.
+- **Feito:**
+  - Migração `alvos_por_usuario` (só acrescenta): `alvos.owner_id`, `events.user_id`, tabelas `oferta_alvo` (oferta, conta, Alvo, faixa, nota, "Alvo atingido") e `oferta_usuario` (vigiar, descartar, soneca). A única coisa que sai é a regra "nome de Alvo único no app todo", que vira "único por dono" (nenhum dado muda). As colunas antigas de `offers` (`watched`, `dismissed`, `snoozed_until`, `hit_at`) ficam como estavam;
+  - Cada conta nova (e-mail ou Google) ganha a cópia dos 10 Alvos iniciais (gancho do better-auth) e o worker classifica as ofertas de 7 dias para ela; conta antiga sem Alvos ganha a cópia quando o worker sobe;
+  - Worker: duas camadas. **Sistema** = Alvos ligados de quem tem `fontes.gerenciar` (o admin): coleta, título das mensagens, mercado da faixa e nota geral (contra 85% e 115% da mediana, nunca o número de alguém). **Pessoal** = cada oferta nova é classificada nos Alvos de cada conta, com nota e "Alvo atingido" do preço-alvo dela; "oferta nova", "preço mudou", "esgotou" e "Alvo atingido" vão só para o dono (evento com `user_id` e aviso do tempo real só para ele);
+  - Tela Alvos e APIs: cada conta só lê e muda os próprios Alvos (o de outra conta dá 404). Mudança na tela reclassifica só aquela conta, no máximo uma rodada a cada 10 s por conta; se a conta é admin, refaz também o sistema. O comando para o worker é conferido com zod (formato errado é ignorado);
+  - Vitrine, Detalhe, War Room e cabeçalho: nota, Alvo, preço-alvo, "Alvo atingido" e marcações da conta; descartar some só para quem descartou;
+  - IA: a análise e o insight não usam mais o nome do Alvo nem o preço-alvo de alguém (fica o mercado da faixa) e a análise não recebe mais o nome do grupo que postou. As chaves do hash ficaram iguais: **nenhuma oferta foi reanalisada** por causa da mudança;
+  - `pnpm admin:criar` agora pergunta se a sua conta fica com os dados de antes das contas: os Alvos (com o estado que tinham), o preço-alvo e o teto de cada faixa, as marcações e os eventos. É cópia, uma vez só; as linhas de antes ficam iguais.
+- **Testado:**
+  - Worker subindo: 10.266 ofertas, **0 mudaram no sistema** (sem reanálise), 1.201 entraram nos Alvos da conta comum;
+  - Duas contas comuns (a segunda criada pelo cadastro e com o Mouse desligado): o mesmo headset conferido na loja (R$ 144,90) é "Alvo atingido" com nota 81 para quem pôs preço-alvo alto, e sem ouro com nota 36 para a outra (alvo automático de R$ 100,30). Descartar numa some só nela; vigiar numa não aparece na outra. A segunda conta não vê os Alvos da primeira, e editar, mudar faixa, desligar e apagar o Alvo dela dá 404 (o Alvo continua igual). Eventos: cada uma vê só os seus, nenhum em comum;
+  - Dados de antes, num banco de cópia (`garimpoi_f6teste`, restaurado do dump): a conta admin ficou com os 10 Alvos como estavam (todos apagados em 13/11, o Braço articulado com os seus termos), 40 faixas, 24 marcações e 1.237 eventos; as linhas de antes ficaram idênticas; rodar de novo não faz nada. A migração também passou num banco vazio (o caso do Supabase);
+  - De novo o teste da Fase 5 (403, nomes de grupo, tempo real): tudo igual. 122 testes, `tsc` e `eslint`.
+- **Achados:**
+  - No banco que veio do Drizzle a regra antiga era uma *restrição*, não um índice: a primeira tentativa da migração parou no meio. Terminei os comandos que faltavam numa transação, marquei como aplicada e deixei a migração valendo para os dois casos (`IF EXISTS`);
+  - A conta de admin de teste é admin: com Alvos ligados ela passaria a decidir a coleta. Por isso os Alvos dela estão desligados;
+  - A subida do worker leva uns 3 min (a reclassificação de 7 dias). Cresce com o número de contas.
+- **Para você:**
+  - Rode `pnpm admin:criar` com o seu e-mail e responda **s** para ficar com os dados de antes. Os seus Alvos voltam como estavam: todos apagados (você apagou em 13/11). Para ter Alvos de novo, crie na tela Alvos;
+  - Os bancos de teste `garimpoi_f6teste` e `garimpo_vazio_f6` ficaram no seu Postgres (não apaguei nada). Pode apagar quando quiser.
+- **Próximo passo:** Fase 7, blindagem do worker (bloqueio de rede interna, comandos do `pg_notify` com zod, travas do `claude -p` e do `agy`, cabeçalhos de segurança).
 
 ### 22/11/2026, 22:55 · deploy-v2, Fase 5: admin e usuário comum separados (API, telas e tempo real)
 

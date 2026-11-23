@@ -92,32 +92,65 @@ export type OfferDTO = {
   createdAt: string;
 };
 
-export async function listOffers(opts: { onlyId?: number } = {}): Promise<OfferDTO[]> {
-  const found = await prisma.offer.findMany({
-    where: opts.onlyId != null ? { id: opts.onlyId } : { dismissed: false, kind: "produto", createdAt: { gte: atras(48 * HORA) } },
-    include: {
-      analysis: true,
-      alvo: { select: { slug: true, name: true, active: true } },
-      source: { select: { name: true, kind: true } },
-      product: { select: { imageUrl: true } },
-    },
-    orderBy: [{ nota: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
-    take: 2000,
-  });
+/**
+ * A Vitrine de uma conta: as ofertas de produto de 48 h, menos as que ela descartou, com o Alvo, a nota, o preço-alvo
+ * e o "Alvo atingido" dela (oferta_alvo) e as marcações dela (oferta_usuario). Sem Alvo dela na oferta, vale a nota geral.
+ */
+export async function listOffers(opts: { userId: string; onlyId?: number }): Promise<OfferDTO[]> {
+  const { userId } = opts;
+  const since = atras(48 * HORA);
+  const include = {
+    analysis: true,
+    source: { select: { name: true, kind: true } },
+    product: { select: { imageUrl: true } },
+  } as const;
+  let found;
+  if (opts.onlyId != null) {
+    found = await prisma.offer.findMany({ where: { id: opts.onlyId }, include });
+  } else {
+    const descartadas = (
+      await prisma.ofertaUsuario.findMany({ where: { userId, dismissed: true, offer: { createdAt: { gte: since } } }, select: { offerId: true } })
+    ).map((r) => r.offerId);
+    const where = { kind: "produto", createdAt: { gte: since }, ...(descartadas.length ? { id: { notIn: descartadas } } : {}) };
+    found = await prisma.offer.findMany({ where, include, orderBy: [{ nota: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }], take: 2000 });
+    // As ofertas nos Alvos da conta entram sempre, mesmo fora das 2000 de nota geral mais alta.
+    const got = new Set(found.map((o) => o.id));
+    const nosAlvos = (await prisma.ofertaAlvo.findMany({ where: { userId, alvoId: { not: null }, offer: where }, select: { offerId: true } }))
+      .map((r) => r.offerId)
+      .filter((id) => !got.has(id));
+    if (nosAlvos.length) found = [...found, ...(await prisma.offer.findMany({ where: { id: { in: nosAlvos } }, include }))];
+  }
+  const ids = found.map((o) => o.id);
+  const [pessoais, marcas] = ids.length
+    ? await Promise.all([
+        prisma.ofertaAlvo.findMany({
+          where: { userId, offerId: { in: ids }, alvoId: { not: null } },
+          include: { alvo: { select: { slug: true, name: true, active: true, deletedAt: true } } },
+        }),
+        prisma.ofertaUsuario.findMany({ where: { userId, offerId: { in: ids } } }),
+      ])
+    : [[], []];
+  const meuAlvo = new Map(pessoais.filter((p) => p.alvo?.active && !p.alvo.deletedAt).map((p) => [p.offerId, p]));
+  const marcaDe = new Map(marcas.map((m) => [m.offerId, m]));
   // A referência da faixa (alvo + faixa) não é uma relação do Prisma: vem numa consulta só e é ligada aqui.
-  const alvoIds = [...new Set(found.map((o) => o.alvoId).filter((x): x is number => x != null))];
+  const alvoIds = [...new Set([...meuAlvo.values()].map((p) => p.alvoId!))];
   const refRows = alvoIds.length ? await prisma.alvoRef.findMany({ where: { alvoId: { in: alvoIds } } }) : [];
   const refBy = new Map(refRows.map((r) => [`${r.alvoId}:${r.bandKey}`, r]));
-  const rows = found.map((o) => ({
-    o,
-    alvo: o.alvo?.active ? o.alvo : null,
-    ref: o.alvoId != null && o.bandKey ? refBy.get(`${o.alvoId}:${o.bandKey}`) : undefined,
-    source: o.source.name,
-    sourceKind: o.source.kind,
-    productImage: o.product?.imageUrl ?? null,
-    ia: o.analysis,
-  }));
-  const all = rows.map(({ o, alvo, ref, source, sourceKind, productImage, ia }) => ({
+  const rows = found.map((o) => {
+    const p = meuAlvo.get(o.id);
+    return {
+      o,
+      p,
+      alvo: p?.alvo ?? null,
+      ref: p?.bandKey ? refBy.get(`${p.alvoId}:${p.bandKey}`) : undefined,
+      marca: marcaDe.get(o.id),
+      source: o.source.name,
+      sourceKind: o.source.kind,
+      productImage: o.product?.imageUrl ?? null,
+      ia: o.analysis,
+    };
+  });
+  const all = rows.map(({ o, p, alvo, ref, marca, source, sourceKind, productImage, ia }) => ({
     productId: o.productId,
     sources: [source],
     groupIds: [o.id],
@@ -154,12 +187,12 @@ export async function listOffers(opts: { onlyId?: number } = {}): Promise<OfferD
     verifyStatus: o.verifyStatus,
     verifyNote: o.verifyNote,
     verifiedAt: o.verifiedAt?.toISOString() ?? null,
-    nota: o.nota,
-    notaParts: asJson<OfferDTO["notaParts"]>(o.notaParts) ?? null,
-    watched: o.watched,
-    snoozedUntil: o.snoozedUntil?.toISOString() ?? null,
+    nota: p ? p.nota : o.nota,
+    notaParts: asJson<OfferDTO["notaParts"]>(p ? p.notaParts : o.notaParts) ?? null,
+    watched: marca?.watched ?? false,
+    snoozedUntil: marca?.snoozedUntil?.toISOString() ?? null,
     alvo: alvo?.slug ? { slug: alvo.slug, name: alvo.name, targetCents: ref?.targetCents ?? null } : null,
-    band: alvo?.slug && o.bandKey && ref?.label ? { key: o.bandKey, label: ref.label, medianCents: ref.medianCents, n: ref.n ?? 0 } : null,
+    band: alvo?.slug && p?.bandKey && ref?.label ? { key: p.bandKey, label: ref.label, medianCents: ref.medianCents, n: ref.n ?? 0 } : null,
     alvoTetoCents: ref?.ceilingCents ?? null,
     // Só vale com o preço conferido na loja e o produto à venda: preço de post e item esgotado não disparam ouro.
     alvoAtingido: !!(
@@ -280,13 +313,13 @@ export type RadarDTO = {
   at: string;
 };
 
-export async function getStatus(): Promise<StatusDTO> {
+export async function getStatus(userId: string): Promise<StatusDTO> {
   const all = await prisma.source.findMany({ orderBy: { id: "asc" } });
   const tg = all.filter((s) => s.kind === "telegram");
   const src = all.filter((s) => s.kind !== "telegram");
   const pending = await prisma.offer.count({ where: { verifyStatus: "pendente" } });
   const today = await prisma.offer.count({ where: { createdAt: { gte: inicioDoDia() } } });
-  const al = await prisma.alvo.findMany({ where: { active: true }, orderBy: { id: "asc" } });
+  const al = await prisma.alvo.findMany({ where: { ownerId: userId, active: true, deletedAt: null }, orderBy: { id: "asc" } });
   const radar = await getRadar();
   return {
     telegram: tg.length ? { on: tg.filter((s) => s.enabled).length, total: tg.length } : null,

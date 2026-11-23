@@ -7,5 +7,5 @@ export async function GET() {
   await connection();
   const eu = await exigir("ofertas.ver");
   if (eu instanceof Response) return eu;
-  return Response.json(statusVisivel(await getStatus(), eu), { headers: { "Cache-Control": "no-store" } });
+  return Response.json(statusVisivel(await getStatus(eu.id), eu), { headers: { "Cache-Control": "no-store" } });
 }

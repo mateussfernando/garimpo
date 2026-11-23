@@ -4,11 +4,13 @@ import { Prisma } from "@/generated/prisma/client";
 import { NOTIFY_CHANNEL, pool } from "@/lib/db";
 import { prisma } from "@/lib/db/prisma";
 import { alvoFromDb, json, jsonOrNull, type EventDetail } from "@/lib/db/types";
+import { contasSemAlvos, darAlvosIniciais } from "@/lib/alvos-iniciais";
+import { DADOS_ANTIGOS_KEY } from "@/lib/dados-antigos";
 import { DIA, HORA, MIN, atras } from "@/lib/tempo";
 import { COMMUNITIES } from "./collect/communities-config";
 import { VITRINES } from "./collect/vitrines-config";
 import { offerFromMessage } from "./ingest/message";
-import { effectiveTargets, matchAlvo, median, targetsFrom, type AlvoLite } from "./match/alvos";
+import { effectiveTargets, matchAlvo, median, mercadoDe, targetsFrom, type AlvoLite } from "./match/alvos";
 import { categorize } from "./match/category";
 import { couponFromPost, couponKey, couponsFromPost, isCouponMessage, type CouponInfo } from "./parse/coupons";
 import { bandOf, extractSpecs, type Band } from "./match/specs";
@@ -27,18 +29,71 @@ export async function ensureSeed() {
   for (const v of VITRINES) {
     await prisma.source.upsert({ where: { slug: v.slug }, create: { slug: v.slug, kind: "loja", name: v.name, url: v.url }, update: { name: v.name, url: v.url } });
   }
-  // Os Alvos de config/alvos.ts entram uma vez. Depois, quem manda é a tela Alvos: um Alvo que o usuário editou
-  // ou apagou não é mais sobrescrito, e ligar/desligar é sempre dele.
+  // Cada conta tem os seus Alvos, que começam como cópia dos de config/alvos.ts (src/lib/alvos-iniciais.ts). Depois,
+  // quem manda é a tela Alvos: a cópia que o dono editou ou apagou não é mais sobrescrita, e ligar/desligar é dele.
   for (const a of ALVOS_V0) {
-    await prisma.alvo.createMany({ data: [{ slug: a.slug, name: a.name, terms: a.terms, exclusions: a.exclusions }], skipDuplicates: true });
-    await prisma.alvo.updateMany({ where: { slug: a.slug, editedAt: null, deletedAt: null }, data: { name: a.name, terms: a.terms, exclusions: a.exclusions } });
+    await prisma.alvo.updateMany({ where: { slug: a.slug, origin: "seed", editedAt: null, deletedAt: null }, data: { name: a.name, terms: a.terms, exclusions: a.exclusions } });
   }
   // Alvo do código que saiu da lista (o antigo "Acessórios") fica desligado. Nada é apagado.
   await prisma.alvo.updateMany({ where: { origin: "seed", editedAt: null, slug: { notIn: ALVOS_V0.map((a) => a.slug) } }, data: { active: false } });
+  // Conta criada antes de cada um ter os seus Alvos ganha a cópia agora.
+  for (const id of await contasSemAlvos()) await darAlvosIniciais(id);
 }
 
-export async function activeAlvos() {
-  return (await prisma.alvo.findMany({ where: { active: true, deletedAt: null } })).map(alvoFromDb);
+/**
+ * Alvos do sistema: os ligados de quem gerencia as fontes (cargo com todas as permissões ou com `fontes.gerenciar`),
+ * e os de antes das contas enquanto nenhum admin os assumiu. Decidem a coleta (vitrines, buscas nas lojas, título das
+ * mensagens do Telegram) e o mercado (mediana da faixa, nota geral, análise da IA). O que um usuário comum põe nos
+ * Alvos dele só classifica as ofertas para ele: nunca muda a coleta, a IA nem o que os outros veem.
+ */
+export async function alvosDoSistema() {
+  const ids = await prisma.$queryRaw<{ id: number }[]>`
+    select a.id from alvos a
+    left join usuarios u on u.id = a.owner_id
+    left join cargos c on c.id = coalesce(u.cargo_id, (select id from cargos where padrao order by id limit 1))
+    where a.active and a.deleted_at is null and (
+      (a.owner_id is null and not exists (select 1 from app_settings where key = ${DADOS_ANTIGOS_KEY}))
+      or (a.owner_id is not null and (c.todas or exists (select 1 from cargo_permissoes cp where cp.cargo_id = c.id and cp.permissao_slug = 'fontes.gerenciar')))
+    )`;
+  if (!ids.length) return [];
+  return (await prisma.alvo.findMany({ where: { id: { in: ids.map((r) => r.id) } }, orderBy: { id: "asc" } })).map(alvoFromDb);
+}
+
+/** O usuário é dos que decidem a coleta (os Alvos dele entram nos do sistema)? */
+export async function ehDoSistema(userId: string): Promise<boolean> {
+  const [r] = await prisma.$queryRaw<{ ok: boolean }[]>`
+    select coalesce(c.todas or exists (select 1 from cargo_permissoes cp where cp.cargo_id = c.id and cp.permissao_slug = 'fontes.gerenciar'), false) as ok
+    from usuarios u
+    left join cargos c on c.id = coalesce(u.cargo_id, (select id from cargos where padrao order by id limit 1))
+    where u.id = ${userId}`;
+  return !!r?.ok;
+}
+
+type AlvoDb = Awaited<ReturnType<typeof alvosDoSistema>>[number];
+
+/** Alvos ligados de cada conta (os pessoais), por dono. Com `userId`, só os dele. */
+export async function alvosPorDono(userId?: string): Promise<Map<string, AlvoDb[]>> {
+  const rows = (
+    await prisma.alvo.findMany({ where: { ownerId: userId ?? { not: null }, active: true, deletedAt: null }, orderBy: { id: "asc" } })
+  ).map(alvoFromDb);
+  const by = new Map<string, AlvoDb[]>();
+  for (const a of rows) by.set(a.ownerId!, [...(by.get(a.ownerId!) ?? []), a]);
+  if (userId && !by.has(userId)) by.set(userId, []);
+  return by;
+}
+
+/** Classifica uma oferta nos Alvos de cada conta e grava em oferta_alvo. Devolve quem tem a oferta num Alvo. */
+async function classificarParaDonos(offerId: number, title: string) {
+  const out: { userId: string; band: Band | null }[] = [];
+  for (const [userId, list] of await alvosPorDono()) {
+    const c = classify(title, list);
+    if (!c.alvo) continue;
+    const v = { alvoId: c.alvo.id, bandKey: c.band?.key ?? null };
+    await prisma.ofertaAlvo.upsert({ where: { offerId_userId: { offerId, userId } }, create: { offerId, userId, ...v }, update: v });
+    if (c.band) await refreshRef(c.alvo.id, c.band.key, c.band.label);
+    out.push({ userId, band: c.band });
+  }
+  return out;
 }
 
 /** Alvo, especificações e faixa de um título. Tudo sem IA. */
@@ -76,7 +131,7 @@ export async function ingestRaw(input: RawInput): Promise<number | null> {
 async function createOffer(rawId: number, input0: RawInput): Promise<number> {
   const input = { ...input0, outboundUrl: input0.outboundUrl ? decodeTrackingUrl(input0.outboundUrl) : null };
   const parsed = parseOfferText(input.text);
-  const { alvo, specs, band } = classify(input.title, await activeAlvos());
+  const { alvo, specs, band } = classify(input.title, await alvosDoSistema());
   const store =
     (input.outboundUrl && storeForUrl(input.outboundUrl)) || (input.storeName ? storeByName(input.storeName) : null);
   const buyUrl = input.outboundUrl ? cleanUrl(input.outboundUrl) : input.url;
@@ -124,22 +179,30 @@ async function createOffer(rawId: number, input0: RawInput): Promise<number> {
     sourceId: input.sourceId,
   });
   if (alvo && band) await refreshRef(alvo.id, band.key, band.label);
+  // Cupom não entra nos Alvos de ninguém.
+  const donos = isCoupon ? [] : await classificarParaDonos(row.id, input.title);
   await scoreOffer(row.id);
-  if (alvo) await logEvent("nova", row.id, input.title, { to: parsed.priceCardCents ?? undefined, store: store?.slug ?? null, band: band?.label });
+  // "Oferta nova" na faixa Ao vivo de quem tem a oferta num Alvo.
+  for (const d of donos) {
+    await logEvent("nova", row.id, input.title, { to: parsed.priceCardCents ?? undefined, store: store?.slug ?? null, band: d.band?.label }, d.userId);
+  }
   return row.id;
 }
 
 /**
- * Recalcula a referência de uma faixa: mediana, preço-alvo (85%) e teto (115%) dos preços vistos em 7 dias.
- * Entram as ofertas da faixa e os preços de mercado das vitrines; cada produto conta uma vez só.
+ * Recalcula a referência de uma faixa de um Alvo: mediana, preço-alvo (85%) e teto (115%) dos preços vistos em 7 dias.
+ * Entram as ofertas da faixa (as que o sistema pôs neste Alvo e as que o dono tem nele) e os preços de mercado das
+ * vitrines, que valem para todo Alvo com o mesmo nome (o "monitor" de cada conta); cada produto conta uma vez só.
  * Devolve true se o preço-alvo mudou.
  */
 export async function refreshRef(alvoId: number, bandKey: string, label?: string): Promise<boolean> {
   const week = atras(7 * DIA);
-  const obs = await prisma.marketObs.findMany({ where: { alvoId, bandKey, seenAt: { gte: week } } });
+  const alvo = await prisma.alvo.findUnique({ where: { id: alvoId }, select: { slug: true } });
+  if (!alvo) return false;
+  const obs = await prisma.marketObs.findMany({ where: { bandKey, seenAt: { gte: week }, alvo: { slug: alvo.slug } } });
   const rows = (
     await prisma.offer.findMany({
-      where: { alvoId, bandKey, priceCardCents: { not: null }, createdAt: { gte: week } },
+      where: { priceCardCents: { not: null }, createdAt: { gte: week }, ...inBand(alvoId, bandKey) },
       select: { id: true, priceCardCents: true, product: { select: { store: true, storeProductId: true } } },
     })
   ).map((o) => ({ id: o.id, p: o.priceCardCents, store: o.product?.store ?? null, code: o.product?.storeProductId ?? null }));
@@ -168,55 +231,87 @@ export async function refreshRef(alvoId: number, bandKey: string, label?: string
   return (prev?.targetCents ?? null) !== t.targetCents;
 }
 
-/** Reescreve o preço-alvo de uma faixa (o usuário mexeu nele) e refaz as notas das ofertas da faixa. */
+/** Ofertas numa faixa de um Alvo: as que o sistema pôs nele e as que o dono tem nele. */
+function inBand(alvoId: number, bandKey: string): Prisma.OfferWhereInput {
+  return { OR: [{ alvoId, bandKey }, { ofertasAlvo: { some: { alvoId, bandKey } } }] };
+}
+
+/** Reescreve o preço-alvo de uma faixa (o dono mexeu nele) e refaz as notas das ofertas da faixa. */
 export async function rescoreBand(alvoId: number, bandKey: string) {
   await refreshRef(alvoId, bandKey);
-  const peers = await prisma.offer.findMany({ where: { alvoId, bandKey, createdAt: { gte: atras(7 * DIA) } }, select: { id: true } });
+  const peers = await prisma.offer.findMany({ where: { ...inBand(alvoId, bandKey), createdAt: { gte: atras(7 * DIA) } }, select: { id: true } });
   for (const p of peers) await scoreOffer(p.id, { silent: true });
   await notify({ type: "offer" });
 }
 
-export async function scoreOffer(offerId: number, opts: { silent?: boolean } = {}) {
+/**
+ * Notas de uma oferta. A geral (de quem não tem a oferta num Alvo) compara o preço com o mercado da faixa do sistema,
+ * sem o preço-alvo de ninguém. A de cada conta que tem a oferta num Alvo usa o preço-alvo dela, e o "Alvo atingido"
+ * (com evento e aviso) vale só para ela. Com `so`, refaz só a nota daquela conta.
+ */
+export async function scoreOffer(offerId: number, opts: { silent?: boolean; so?: string } = {}) {
   const o = await prisma.offer.findUnique({ where: { id: offerId } });
   if (!o) return;
-  const ref = o.alvoId && o.bandKey ? await prisma.alvoRef.findUnique({ where: { alvoId_bandKey: { alvoId: o.alvoId, bandKey: o.bandKey } } }) : null;
   const store = o.store ? STORES.find((s) => s.slug === o.store) : null;
   // Calor social: fontes distintas com o mesmo produto (ou título igual) em 15 min.
   const since = new Date(o.createdAt.getTime() - 15 * MIN);
   const same = o.productId ? Prisma.sql`product_id = ${o.productId}` : Prisma.sql`lower(title) = lower(${o.title})`;
   const [{ n }] = await prisma.$queryRaw<{ n: number }[]>`select count(distinct source_id)::int as n from offers where ${same} and created_at >= ${since}`;
-  const r = notaRapida({
+  const base = {
     priceCardCents: o.priceCardCents,
-    targetCents: ref?.targetCents ?? null,
-    ceilingCents: ref?.ceilingCents ?? null,
     storeTrust: store?.trust ?? null,
     freeShipping: o.freeShipping,
     shippingCents: o.shippingCents,
     sources15: n,
-  });
-  // Alvo atingido de verdade: preço conferido na loja, dentro de uma faixa com referência, e ainda à venda.
-  const hit = r.alvoAtingido && !!o.alvoId && o.verifyStatus === "verificado" && o.available !== false;
-  const firstHit = hit && !o.hitAt;
-  await prisma.offer.update({ where: { id: offerId }, data: { nota: r.nota, notaParts: json(r.parts), ...(firstHit ? { hitAt: new Date() } : {}) } });
-  // Na reclassificação silenciosa (subida do worker) marca sem avisar, para o alerta não tocar por oferta antiga.
-  if (firstHit && !opts.silent) {
-    await logEvent("alvo", offerId, o.title, { to: o.priceCardCents ?? undefined, target: ref?.targetCents ?? undefined, band: ref?.label, store: o.store });
+  };
+  if (!opts.so) {
+    const ref = o.alvoId && o.bandKey ? await prisma.alvoRef.findUnique({ where: { alvoId_bandKey: { alvoId: o.alvoId, bandKey: o.bandKey } } }) : null;
+    const r = notaRapida({ ...base, ...mercadoDe(ref) });
+    await prisma.offer.update({ where: { id: offerId }, data: { nota: r.nota, notaParts: json(r.parts) } });
   }
-  if (!opts.silent) await notify({ type: "offer", id: offerId, alvoAtingido: hit });
+  const mine = await prisma.ofertaAlvo.findMany({ where: { offerId, alvoId: { not: null }, ...(opts.so ? { userId: opts.so } : {}) } });
+  for (const p of mine) {
+    const ref = p.bandKey ? await prisma.alvoRef.findUnique({ where: { alvoId_bandKey: { alvoId: p.alvoId!, bandKey: p.bandKey } } }) : null;
+    const r = notaRapida({ ...base, targetCents: ref?.targetCents ?? null, ceilingCents: ref?.ceilingCents ?? null });
+    // Alvo atingido de verdade: preço conferido na loja, dentro de uma faixa com referência, e ainda à venda.
+    const hit = r.alvoAtingido && o.verifyStatus === "verificado" && o.available !== false;
+    const firstHit = hit && !p.hitAt;
+    await prisma.ofertaAlvo.update({
+      where: { offerId_userId: { offerId, userId: p.userId } },
+      data: { nota: r.nota, notaParts: json(r.parts), ...(firstHit ? { hitAt: new Date() } : {}) },
+    });
+    // Na reclassificação silenciosa (subida do worker) marca sem avisar, para o alerta não tocar por oferta antiga.
+    if (firstHit && !opts.silent) {
+      await logEvent("alvo", offerId, o.title, { to: o.priceCardCents ?? undefined, target: ref?.targetCents ?? undefined, band: ref?.label, store: o.store }, p.userId);
+    }
+  }
+  if (!opts.silent) await notify({ type: "offer", id: offerId });
 }
 
-/** Registra um acontecimento na faixa "Ao vivo" e avisa as telas. */
-export async function logEvent(type: "nova" | "preco" | "esgotou" | "alvo" | "canal", offerId: number | null, title: string, detail: EventDetail = {}) {
-  const row = await prisma.event.create({ data: { type, offerId, title: title.slice(0, 200), detail: json(detail) }, select: { id: true } });
-  await notify({ type: "event", id: row.id, kind: type, offerId });
+/** Registra um acontecimento na faixa "Ao vivo" (de uma conta, ou do sistema sem `userId`) e avisa as telas. */
+export async function logEvent(
+  type: "nova" | "preco" | "esgotou" | "alvo" | "canal",
+  offerId: number | null,
+  title: string,
+  detail: EventDetail = {},
+  userId: string | null = null,
+) {
+  const row = await prisma.event.create({ data: { type, offerId, title: title.slice(0, 200), detail: json(detail), userId }, select: { id: true } });
+  await notify({ type: "event", id: row.id, kind: type, offerId, ...(userId ? { userId } : {}) });
+}
+
+/** O mesmo acontecimento para cada conta que tem a oferta num Alvo (preço mudou, esgotou). */
+export async function logEventParaDonos(type: "preco" | "esgotou", offerId: number, title: string, detail: EventDetail = {}) {
+  const donos = await prisma.ofertaAlvo.findMany({ where: { offerId, alvoId: { not: null } }, select: { userId: true } });
+  for (const d of donos) await logEvent(type, offerId, title, detail, d.userId);
 }
 
 /**
  * Reclassifica as ofertas dos últimos 7 dias com as regras atuais de Alvo e faixa, recalcula as referências
  * e as notas. Roda quando o worker sobe: é barato e mantém as ofertas antigas coerentes com as regras novas.
  */
-export async function rematchOffers(): Promise<{ total: number; changed: number; bands: number }> {
-  const list = await activeAlvos();
+export async function rematchOffers(): Promise<{ total: number; changed: number; bands: number; pessoais: number }> {
+  const list = await alvosDoSistema();
   const rows = (
     await prisma.offer.findMany({
       where: { createdAt: { gte: atras(7 * DIA) } },
@@ -287,22 +382,71 @@ export async function rematchOffers(): Promise<{ total: number; changed: number;
   for (const b of bands.values()) await refreshRef(b.alvoId, b.band.key, b.band.label);
   for (const b of obsBands) if (!bands.has(`${b.alvoId}:${b.bandKey}`)) await refreshRef(b.alvoId, b.bandKey);
   for (const r of rows) await scoreOffer(r.id, { silent: true });
+  // Os Alvos de cada conta, depois do sistema (que pode ter trocado o título das mensagens de canal).
+  const p = await rematchPessoal();
   await notify({ type: "offer" });
-  return { total: rows.length, changed, bands: bands.size };
+  return { total: rows.length, changed, bands: bands.size, pessoais: p.changed };
 }
 
-/** Depois que o preço de uma oferta muda: atualiza a referência da faixa e, se o alvo mexeu, as notas da faixa. */
-export async function afterPriceChange(offerId: number) {
-  const o = await prisma.offer.findUnique({ where: { id: offerId }, select: { alvoId: true, bandKey: true } });
-  if (o?.alvoId && o.bandKey) {
-    const moved = await refreshRef(o.alvoId, o.bandKey);
-    if (moved) {
-      const peers = await prisma.offer.findMany({
-        where: { alvoId: o.alvoId, bandKey: o.bandKey, id: { not: offerId }, createdAt: { gte: atras(48 * HORA) } },
-        select: { id: true },
-      });
-      for (const p of peers) await scoreOffer(p.id, { silent: true });
+/**
+ * Reclassifica as ofertas de 7 dias nos Alvos de cada conta (ou só de uma, quando ela muda os Alvos na tela) e refaz
+ * as referências e as notas dela. Oferta que deixou de bater fica sem Alvo na linha da conta, com o histórico do ouro.
+ */
+export async function rematchPessoal(userId?: string): Promise<{ users: number; changed: number }> {
+  const week = atras(7 * DIA);
+  const donos = await alvosPorDono(userId);
+  const rows = await prisma.offer.findMany({ where: { createdAt: { gte: week }, kind: "produto" }, select: { id: true, title: true } });
+  const have = new Map(
+    (
+      await prisma.ofertaAlvo.findMany({
+        where: { offer: { createdAt: { gte: week } }, ...(userId ? { userId } : {}) },
+        select: { offerId: true, userId: true, alvoId: true, bandKey: true },
+      })
+    ).map((r) => [`${r.offerId}:${r.userId}`, r]),
+  );
+  // Quem tem linhas mas não tem mais Alvo ligado também entra (as linhas dele ficam sem Alvo).
+  const users = new Set([...donos.keys(), ...[...have.values()].map((r) => r.userId)]);
+  const touched = new Map<string, { alvoId: number; band: Band }>();
+  const rescore = new Map<string, Set<number>>();
+  let changed = 0;
+  for (const uid of users) {
+    const list = donos.get(uid) ?? [];
+    const mine = new Set<number>();
+    for (const r of rows) {
+      const c = list.length ? classify(r.title, list) : null;
+      const want = c?.alvo ? { alvoId: c.alvo.id, bandKey: c.band?.key ?? null } : { alvoId: null, bandKey: null };
+      const cur = have.get(`${r.id}:${uid}`);
+      if (c?.alvo && c.band) touched.set(`${c.alvo.id}:${c.band.key}`, { alvoId: c.alvo.id, band: c.band });
+      if (want.alvoId != null) mine.add(r.id);
+      if (!cur && want.alvoId == null) continue;
+      if (cur && cur.alvoId === want.alvoId && cur.bandKey === want.bandKey) continue;
+      changed++;
+      if (cur) await prisma.ofertaAlvo.update({ where: { offerId_userId: { offerId: r.id, userId: uid } }, data: want });
+      else await prisma.ofertaAlvo.create({ data: { offerId: r.id, userId: uid, ...want } });
     }
+    rescore.set(uid, mine);
+  }
+  for (const b of touched.values()) await refreshRef(b.alvoId, b.band.key, b.band.label);
+  for (const [uid, ids] of rescore) for (const id of ids) await scoreOffer(id, { silent: true, so: uid });
+  return { users: users.size, changed };
+}
+
+/** Depois que o preço de uma oferta muda: atualiza as referências das faixas dela e, se um alvo mexeu, as notas da faixa. */
+export async function afterPriceChange(offerId: number) {
+  const o = await prisma.offer.findUnique({
+    where: { id: offerId },
+    select: { alvoId: true, bandKey: true, ofertasAlvo: { where: { alvoId: { not: null }, bandKey: { not: null } }, select: { alvoId: true, bandKey: true } } },
+  });
+  const pairs = new Map<string, { alvoId: number; bandKey: string }>();
+  if (o?.alvoId && o.bandKey) pairs.set(`${o.alvoId}:${o.bandKey}`, { alvoId: o.alvoId, bandKey: o.bandKey });
+  for (const p of o?.ofertasAlvo ?? []) pairs.set(`${p.alvoId}:${p.bandKey}`, { alvoId: p.alvoId!, bandKey: p.bandKey! });
+  for (const b of pairs.values()) {
+    if (!(await refreshRef(b.alvoId, b.bandKey))) continue;
+    const peers = await prisma.offer.findMany({
+      where: { ...inBand(b.alvoId, b.bandKey), id: { not: offerId }, createdAt: { gte: atras(48 * HORA) } },
+      select: { id: true },
+    });
+    for (const p of peers) await scoreOffer(p.id, { silent: true });
   }
   await scoreOffer(offerId);
 }

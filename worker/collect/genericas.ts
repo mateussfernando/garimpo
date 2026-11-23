@@ -6,7 +6,7 @@ import type { Source } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { PausedError, RobotsError, politeFetch } from "../http/polite";
 import { parseDataPage, parseFeed, parseVtex, type DealItem } from "./genericas-parse";
-import { activeAlvos, ingestRaw, setSourceStatus } from "../pipeline";
+import { alvosDoSistema, ingestRaw, setSourceStatus } from "../pipeline";
 import { ingestStoreProducts, refreshTouched, type TouchedBands } from "./vitrines";
 
 const vtexSearch = (cfg: VtexConfig, term: string) => `${cfg.url.replace(/\/+$/, "")}/api/catalog_system/pub/products/search?ft=${encodeURIComponent(term)}&_from=0&_to=23`;
@@ -14,7 +14,7 @@ const vtexSearch = (cfg: VtexConfig, term: string) => `${cfg.url.replace(/\/+$/,
 /** Termos da busca: os da fonte; se vazio, o primeiro termo de cada Alvo ligado. */
 async function vtexTerms(cfg: VtexConfig): Promise<string[]> {
   if (cfg.terms.length) return cfg.terms;
-  return (await activeAlvos()).map((a) => a.terms[0]).filter(Boolean);
+  return (await alvosDoSistema()).map((a) => a.terms[0]).filter(Boolean);
 }
 
 // ---------- Coleta ----------
@@ -74,7 +74,7 @@ export async function collectOne(src: Source): Promise<void> {
       const cfg = configOf(src) as VtexConfig;
       const store = storeForUrl(cfg.url);
       if (!store) return void (await setSourceStatus(src.slug, "erro", "loja fora de config/stores.ts: as ofertas seriam suspeitas"));
-      const alvos = await activeAlvos();
+      const alvos = await alvosDoSistema();
       const touched: TouchedBands = new Map();
       let found = 0;
       let market = 0;

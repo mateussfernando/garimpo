@@ -39,21 +39,27 @@ model AlvoRef {
 }
 
 model Alvo {
-  id           Int         @id @default(autoincrement())
-  slug         String      @unique(map: "alvos_slug_unique")
+  id           Int          @id @default(autoincrement())
+  slug         String
   name         String
   terms        Json
   exclusions   Json
-  targetCents  Int?        @map("target_cents")
-  ceilingCents Int?        @map("ceiling_cents")
-  active       Boolean     @default(true)
-  origin       String      @default("seed")
-  editedAt     DateTime?   @map("edited_at") @db.Timestamptz(6)
-  deletedAt    DateTime?   @map("deleted_at") @db.Timestamptz(6)
+  targetCents  Int?         @map("target_cents")
+  ceilingCents Int?         @map("ceiling_cents")
+  active       Boolean      @default(true)
+  origin       String       @default("seed")
+  editedAt     DateTime?    @map("edited_at") @db.Timestamptz(6)
+  deletedAt    DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  /// Dono do Alvo: cada usuário tem os seus. Vazio = Alvo de antes das contas (o admin assume com `pnpm admin:criar`).
+  ownerId      String?      @map("owner_id")
+  owner        User?        @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   alvoRefs     AlvoRef[]
   marketObs    MarketObs[]
+  /// Classificação do sistema (os Alvos de quem gerencia as fontes): mercado, coleta e IA.
   offers       Offer[]
+  ofertasAlvo  OfertaAlvo[]
 
+  @@unique([ownerId, slug], map: "alvos_dono_slug")
   @@map("alvos")
 }
 
@@ -95,8 +101,12 @@ model Event {
   title   String
   detail  Json?
   at      DateTime @default(now()) @db.Timestamptz(6)
+  /// Para quem é o acontecimento (Alvo dele: oferta nova, preço, esgotou, Alvo atingido). Vazio = do sistema (canal novo).
+  userId  String?  @map("user_id")
   offer   Offer?   @relation(fields: [offerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "events_offer_id_offers_id_fk")
+  user    User?    @relation(fields: [userId], references: [id], onDelete: Restrict)
 
+  @@index([userId, id])
   @@map("events")
 }
 
@@ -157,48 +167,52 @@ model OfferAnalysis {
 }
 
 model Offer {
-  id               Int            @id @default(autoincrement())
-  rawMessageId     Int            @unique(map: "offers_raw_message") @map("raw_message_id")
-  sourceId         Int            @map("source_id")
-  productId        Int?           @map("product_id")
-  alvoId           Int?           @map("alvo_id")
+  id               Int             @id @default(autoincrement())
+  rawMessageId     Int             @unique(map: "offers_raw_message") @map("raw_message_id")
+  sourceId         Int             @map("source_id")
+  productId        Int?            @map("product_id")
+  alvoId           Int?            @map("alvo_id")
   title            String
   store            String?
   url              String?
-  imageUrl         String?        @map("image_url")
-  priceCardCents   Int?           @map("price_card_cents")
-  priceBasis       String?        @map("price_basis")
+  imageUrl         String?         @map("image_url")
+  priceCardCents   Int?            @map("price_card_cents")
+  priceBasis       String?         @map("price_basis")
   installments     Int?
-  installmentCents Int?           @map("installment_cents")
+  installmentCents Int?            @map("installment_cents")
   interest         Boolean?
-  cashCents        Int?           @map("cash_cents")
-  listPriceCents   Int?           @map("list_price_cents")
-  shippingCents    Int?           @map("shipping_cents")
-  freeShipping     Boolean?       @map("free_shipping")
+  cashCents        Int?            @map("cash_cents")
+  listPriceCents   Int?            @map("list_price_cents")
+  shippingCents    Int?            @map("shipping_cents")
+  freeShipping     Boolean?        @map("free_shipping")
   coupon           String?
-  verifyStatus     String         @default("pendente") @map("verify_status")
-  verifyNote       String?        @map("verify_note")
-  verifiedAt       DateTime?      @map("verified_at") @db.Timestamptz(6)
+  verifyStatus     String          @default("pendente") @map("verify_status")
+  verifyNote       String?         @map("verify_note")
+  verifiedAt       DateTime?       @map("verified_at") @db.Timestamptz(6)
   nota             Int?
-  notaParts        Json?          @map("nota_parts")
-  watched          Boolean        @default(false)
-  dismissed        Boolean        @default(false)
-  snoozedUntil     DateTime?      @map("snoozed_until") @db.Timestamptz(6)
+  notaParts        Json?           @map("nota_parts")
+  watched          Boolean         @default(false)
+  dismissed        Boolean         @default(false)
+  snoozedUntil     DateTime?       @map("snoozed_until") @db.Timestamptz(6)
   specs            Json?
-  bandKey          String?        @map("band_key")
+  bandKey          String?         @map("band_key")
   available        Boolean?
   extra            Json?
-  hitAt            DateTime?      @map("hit_at") @db.Timestamptz(6)
-  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  kind             String         @default("produto")
+  hitAt            DateTime?       @map("hit_at") @db.Timestamptz(6)
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  kind             String          @default("produto")
   category         String?
-  categorySource   String?        @map("category_source")
+  categorySource   String?         @map("category_source")
+  // watched, dismissed, snoozed_until e hit_at acima são de antes das contas: ficam como estavam.
+  // Hoje cada usuário tem os seus em oferta_usuario e oferta_alvo.
   events           Event[]
+  ofertasAlvo      OfertaAlvo[]
+  ofertasUsuario   OfertaUsuario[]
   analysis         OfferAnalysis?
-  alvo             Alvo?          @relation(fields: [alvoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "offers_alvo_id_alvos_id_fk")
-  product          Product?       @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "offers_product_id_products_id_fk")
-  rawMessage       RawMessage     @relation(fields: [rawMessageId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "offers_raw_message_id_raw_messages_id_fk")
-  source           Source         @relation(fields: [sourceId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "offers_source_id_sources_id_fk")
+  alvo             Alvo?           @relation(fields: [alvoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "offers_alvo_id_alvos_id_fk")
+  product          Product?        @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "offers_product_id_products_id_fk")
+  rawMessage       RawMessage      @relation(fields: [rawMessageId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "offers_raw_message_id_raw_messages_id_fk")
+  source           Source          @relation(fields: [sourceId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "offers_source_id_sources_id_fk")
 
   @@map("offers")
 }
@@ -298,18 +312,22 @@ model WorkerState {
 // ---------- Contas (better-auth). A senha fica em Account.password, com hash bcrypt (bcryptjs, custo 12). ----------
 
 model User {
-  id            String    @id
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false) @map("email_verified")
-  image         String?
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  sessions      Session[]
-  accounts      Account[]
+  id             String          @id
+  name           String
+  email          String          @unique
+  emailVerified  Boolean         @default(false) @map("email_verified")
+  image          String?
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sessions       Session[]
+  accounts       Account[]
   /// Cargo do usuário. Vazio = o cargo padrão (o de quem se cadastra). Só um admin muda; o cadastro nunca escolhe.
-  cargoId       Int?      @map("cargo_id")
-  cargo         Cargo?    @relation(fields: [cargoId], references: [id])
+  cargoId        Int?            @map("cargo_id")
+  cargo          Cargo?          @relation(fields: [cargoId], references: [id])
+  alvos          Alvo[]
+  ofertasAlvo    OfertaAlvo[]
+  ofertasUsuario OfertaUsuario[]
+  events         Event[]
 
   @@map("usuarios")
 }
@@ -407,4 +425,44 @@ model CargoPermissao {
 
   @@id([cargoId, permissaoSlug])
   @@map("cargo_permissoes")
+}
+
+// ---------- O que cada oferta é para cada usuário (Fase 6 do deploy-v2). ----------
+
+/// A oferta nos Alvos de um usuário: o Alvo dele que ela pegou, a faixa, a nota com o preço-alvo dele e quando virou "Alvo atingido".
+model OfertaAlvo {
+  offerId   Int       @map("offer_id")
+  userId    String    @map("user_id")
+  /// Vazio = deixou de bater com os Alvos dele (o histórico do "Alvo atingido" fica).
+  alvoId    Int?      @map("alvo_id")
+  bandKey   String?   @map("band_key")
+  nota      Int?
+  notaParts Json?     @map("nota_parts")
+  hitAt     DateTime? @map("hit_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  offer     Offer     @relation(fields: [offerId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+  alvo      Alvo?     @relation(fields: [alvoId], references: [id])
+
+  @@id([offerId, userId])
+  @@index([userId, alvoId])
+  @@index([alvoId, bandKey])
+  @@map("oferta_alvo")
+}
+
+/// Marcações de cada usuário numa oferta: vigiar, descartar e soneca da War Room.
+model OfertaUsuario {
+  userId       String    @map("user_id")
+  offerId      Int       @map("offer_id")
+  watched      Boolean   @default(false)
+  dismissed    Boolean   @default(false)
+  snoozedUntil DateTime? @map("snoozed_until") @db.Timestamptz(6)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user         User      @relation(fields: [userId], references: [id])
+  offer        Offer     @relation(fields: [offerId], references: [id])
+
+  @@id([userId, offerId])
+  @@index([offerId])
+  @@map("oferta_usuario")
 }

@@ -8,5 +8,5 @@ export async function GET() {
   const eu = await exigir("ofertas.ver");
   if (eu instanceof Response) return eu;
   const c = await contextoDe(eu);
-  return Response.json((await listOffers()).map((o) => ofertaVisivel(o, c)), { headers: { "Cache-Control": "no-store" } });
+  return Response.json((await listOffers({ userId: eu.id })).map((o) => ofertaVisivel(o, c)), { headers: { "Cache-Control": "no-store" } });
 }

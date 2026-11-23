@@ -10,5 +10,5 @@ export async function POST(request: Request) {
   if (eu instanceof Response) return eu;
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ erro: "pedido inválido" }, { status: 400 });
-  return Response.json(await testAlvo(parsed.data), { headers: { "Cache-Control": "no-store" } });
+  return Response.json(await testAlvo(eu.id, parsed.data), { headers: { "Cache-Control": "no-store" } });
 }

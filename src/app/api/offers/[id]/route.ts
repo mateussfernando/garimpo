@@ -1,6 +1,5 @@
 import { connection } from "next/server";
 import { z } from "zod";
-import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { getOfferDetail } from "@/lib/detail";
 import { exigir } from "@/lib/sessao";
@@ -13,12 +12,12 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/offers/[id]
   const { id } = await ctx.params;
   const offerId = Number(id);
   if (!Number.isInteger(offerId)) return Response.json({ erro: "id inválido" }, { status: 400 });
-  const detail = await getOfferDetail(offerId);
+  const detail = await getOfferDetail(offerId, eu.id);
   if (!detail) return Response.json({ erro: "oferta não encontrada" }, { status: 404 });
   return Response.json(detalheVisivel(detail, await contextoDe(eu)), { headers: { "Cache-Control": "no-store" } });
 }
 
-// snoozeMinutes: soneca da War Room (volta para a fila depois); 0 limpa a soneca.
+// Marcações da conta na oferta (só dela): vigiar, descartar e soneca da War Room (snoozeMinutes; 0 limpa a soneca).
 const Body = z.object({
   watched: z.boolean().optional(),
   dismissed: z.boolean().optional(),
@@ -33,8 +32,13 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/offers/[id
   const offerId = Number(id);
   if (!parsed.success || !Number.isInteger(offerId)) return Response.json({ erro: "pedido inválido" }, { status: 400 });
   const { snoozeMinutes, ...rest } = parsed.data;
-  const set: Prisma.OfferUpdateManyMutationInput = { ...rest };
+  const set: { watched?: boolean; dismissed?: boolean; snoozedUntil?: Date | null } = { ...rest };
   if (snoozeMinutes !== undefined) set.snoozedUntil = snoozeMinutes === 0 ? null : new Date(Date.now() + snoozeMinutes * 60_000);
-  await prisma.offer.updateMany({ where: { id: offerId }, data: set });
+  if (!(await prisma.offer.findUnique({ where: { id: offerId }, select: { id: true } }))) return Response.json({ erro: "oferta não encontrada" }, { status: 404 });
+  await prisma.ofertaUsuario.upsert({
+    where: { userId_offerId: { userId: eu.id, offerId } },
+    create: { userId: eu.id, offerId, ...set },
+    update: set,
+  });
   return Response.json({ ok: true });
 }

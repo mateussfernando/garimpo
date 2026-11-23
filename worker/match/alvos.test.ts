@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ALVOS_V0 } from "@/config/alvos";
-import { effectiveTargets, matchAlvo, stripPrefixes } from "./alvos";
+import { effectiveTargets, matchAlvo, mercadoDe, stripPrefixes } from "./alvos";
 import { bandOf, extractSpecs } from "./specs";
 
 const alvos = ALVOS_V0.map((a, i) => ({ id: i + 1, ...a }));
@@ -140,5 +140,17 @@ describe("preço-alvo do usuário", () => {
   });
   it("só o teto: o alvo calculado fica", () => {
     expect(effectiveTargets(auto, { manualTargetCents: null, manualCeilingCents: 120000 })).toEqual({ targetCents: 85000, ceilingCents: 120000 });
+  });
+});
+
+describe("Mercado da faixa (nota geral, análise e insight)", () => {
+  it("é 85% e 115% da mediana, só com 5 preços ou mais", () => {
+    expect(mercadoDe({ medianCents: 100000, n: 5 })).toEqual({ targetCents: 85000, ceilingCents: 115000 });
+    expect(mercadoDe({ medianCents: 100000, n: 4 })).toEqual({ targetCents: null, ceilingCents: null });
+    expect(mercadoDe(null)).toEqual({ targetCents: null, ceilingCents: null });
+  });
+  it("nunca usa o preço-alvo que alguém pôs na faixa", () => {
+    const ref = { medianCents: 100000, n: 9, manualTargetCents: 50000, manualCeilingCents: 60000, targetCents: 50000, ceilingCents: 60000 };
+    expect(mercadoDe(ref)).toEqual({ targetCents: 85000, ceilingCents: 115000 });
   });
 });

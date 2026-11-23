@@ -32,13 +32,14 @@ const median = (v: number[]) => {
   return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
 };
 
-export async function getOfferDetail(id: number): Promise<OfferDetailDTO | null> {
+/** O detalhe de uma oferta para uma conta (com o Alvo, a nota e as marcações dela). */
+export async function getOfferDetail(id: number, userId: string): Promise<OfferDetailDTO | null> {
   const row = await prisma.offer.findUnique({ where: { id } });
   if (!row) return null;
-  const alone = (await listOffers({ onlyId: id }))[0];
+  const alone = (await listOffers({ userId, onlyId: id }))[0];
   if (!alone) return null;
   // O card da Vitrine junta o mesmo produto de várias lojas: o detalhe mostra a oferta aberta com as lojas do grupo.
-  const group = (await listOffers()).find((g) => g.groupIds.includes(id));
+  const group = (await listOffers({ userId })).find((g) => g.groupIds.includes(id));
   const offer = group ? { ...alone, lojas: group.lojas, sources: group.sources, groupIds: group.groupIds } : alone;
 
   // Histórico de 30 dias: o menor preço do dia, só de pontos da própria loja.
@@ -56,11 +57,11 @@ export async function getOfferDetail(id: number): Promise<OfferDetailDTO | null>
   const prev = history.slice(0, -1);
   const minPrev = prev.length ? prev.reduce((m, h) => (h.cents < m.cents ? h : m)) : null;
 
-  // Escada de preços: ofertas parecidas, em outras lojas, nas últimas 72 h.
+  // Escada de preços: ofertas parecidas, em outras lojas, nas últimas 72 h (menos as que a conta descartou).
   const base = tokens(row.title);
   const recent = (
     await prisma.offer.findMany({
-      where: { id: { not: id }, dismissed: false, createdAt: { gte: atras(72 * HORA) } },
+      where: { id: { not: id }, createdAt: { gte: atras(72 * HORA) }, ofertasUsuario: { none: { userId, dismissed: true } } },
       include: { source: { select: { name: true, kind: true } } },
       orderBy: { createdAt: "desc" },
       take: 500,
@@ -113,7 +114,7 @@ export async function getOfferDetail(id: number): Promise<OfferDetailDTO | null>
       tetoCents: offer.alvoTetoCents,
       points: history.length,
     },
-    parts: asJson<OfferDetailDTO["parts"]>(row.notaParts) ?? null,
+    parts: offer.notaParts,
     ladder,
     heat: [...heatMap.values()].sort((a, b) => b.at.localeCompare(a.at)),
     insight,

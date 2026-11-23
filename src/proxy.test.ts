@@ -9,13 +9,18 @@ const status = (path: string, opts?: { method?: string; logado?: boolean }) => p
 
 describe("o que abre sem conta (só leitura)", () => {
   it("a Vitrine, o Detalhe, os Cupons e o que eles leem passam sem cookie", () => {
-    for (const p of ["/", "/cupons", "/oferta/123", "/api/offers", "/api/offers/123", "/api/cupons", "/api/status", "/api/me", "/entrar", "/api/auth/sign-in/email"]) {
+    for (const p of ["/", "/cupons", "/oferta/123", "/api/offers", "/api/offers/123", "/api/cupons", "/api/status", "/api/me", "/api/auth/sign-in/email"]) {
       expect(passa(p), p).toBe(true);
     }
   });
 
-  it("o resto das páginas manda para a tela de entrar, e a API responde 401", () => {
+  it("o resto das páginas volta para a Vitrine com o popup de entrar aberto, e a API responde 401", () => {
     for (const p of ["/alvos", "/war-room", "/fontes", "/lojas", "/ia", "/admin"]) expect(status(p), p).toBe(307);
+    const loc = new URL(proxy(req("/alvos")).headers.get("location")!);
+    expect(loc.pathname).toBe("/");
+    expect(loc.searchParams.get("entrar")).toBe("1");
+    expect(loc.searchParams.get("de")).toBe("/alvos");
+    expect(passa("/entrar")).toBe(false); // a página /entrar não existe mais
     for (const p of ["/api/alvos", "/api/stream", "/api/events", "/api/fontes", "/api/lojas", "/api/ia", "/api/ia/fila", "/api/admin", "/api/alvos/1"]) expect(status(p), p).toBe(401);
   });
 

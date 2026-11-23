@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { ehPrecoPref, type PrecoPref } from "@/lib/preco";
 import { esquecerMe, useMe } from "./me";
@@ -116,9 +115,8 @@ export function PrecoToggle() {
 export function PrecoPopup() {
   const me = useMe();
   const { escolhido, definir } = usePreco();
-  const caminho = usePathname();
   const ref = useRef<HTMLDialogElement>(null);
-  const aberto = !!me && !escolhido && me.precoPreferido == null && !caminho.startsWith("/entrar");
+  const aberto = !!me && !escolhido && me.precoPreferido == null;
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
@@ -140,7 +138,7 @@ export function PrecoPopup() {
           <h2 id="preco-titulo" className="text-lg font-semibold tracking-tight">
             Qual preço você quer ver em destaque?
           </h2>
-          <p className="text-[13px] text-muted">Você pode trocar quando quiser no botão “Preço” do topo. A nota e a comparação entre lojas continuam pelo preço no cartão.</p>
+          <p className="text-[13px] text-muted">Você pode trocar quando quiser no botão “Preço” do topo. A nota, o “Alvo atingido” e a comparação entre lojas seguem o preço que você escolher.</p>
         </div>
         <div className="flex flex-col gap-2">
           <button type="button" onClick={() => definir("cartao")} className="flex flex-col items-start gap-0.5 rounded-[12px] border border-control px-4 py-3 text-left hover:border-ink-3">

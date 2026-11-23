@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Permissao } from "@/config/permissoes";
 import { authClient } from "@/lib/auth-client";
+import { pedirEntrar } from "./entrar-evento";
 import type { StatusDTO } from "@/lib/offers";
 import { obterMe, podeVer, useMe } from "./me";
 import { PrecoToggle } from "./preco";
@@ -255,12 +256,12 @@ function UserMenu() {
     // Sem conta: a Vitrine está aberta; entrar ou criar conta fica à mão.
     return (
       <span className="flex items-center gap-2 text-[13px]">
-        <Link href="/entrar" className="flex h-9 items-center rounded-[10px] border border-control px-3 text-xs font-medium text-ink-2 hover:text-ink">
+        <button type="button" onClick={() => pedirEntrar({ modo: "entrar", de: location.pathname + location.search })} className="flex h-9 items-center rounded-[10px] border border-control px-3 text-xs font-medium text-ink-2 hover:text-ink">
           Entrar
-        </Link>
-        <Link href="/entrar?modo=criar" className="flex h-9 items-center rounded-[10px] bg-ink px-3 text-xs font-semibold text-bg">
+        </button>
+        <button type="button" onClick={() => pedirEntrar({ modo: "criar", de: location.pathname + location.search })} className="flex h-9 items-center rounded-[10px] bg-ink px-3 text-xs font-semibold text-bg">
           Criar conta
-        </Link>
+        </button>
       </span>
     );
   }

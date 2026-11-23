@@ -68,6 +68,12 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 23/11/2026, 06:30 · Entrar vira popup (some a página /entrar); por que o botão do Google não aparece
+
+- **Pedido do usuário:** "cadê o botão de logar com o Google" e tirar a página de entrar, deixando só um popup.
+- **Google:** o botão só existe com as duas chaves no `.env`, e `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` estão **vazias**. O código está pronto (better-auth); falta o usuário criar as credenciais OAuth no Google Cloud (tipo "Aplicativo da Web", URI de redirecionamento autorizado `http://localhost:3333/api/auth/callback/google`) e colar no `.env`, depois reiniciar o `pnpm dev`. Não dá para eu criar isso (conta e chaves são do usuário).
+- **Popup:** `src/components/conta-aviso.tsx` (montado em `globais.tsx`) tem o formulário de entrar e criar conta, o motivo ("Para vigiar…", "continuar") e o botão do Google; abre por `pedirEntrar` (`entrar-evento.ts`) a partir dos botões Entrar e Criar conta do cabeçalho, de vigiar, descartar e Alvos, e quando o site está fechado para visitantes (`me.ts`). A página `/entrar` e `entrar.tsx` foram apagados. Página protegida sem conta (`/alvos`, `/admin`…) manda para `/?entrar=1&de=/alvos`: abre o popup e, depois de entrar, vai para a página pedida. Depois de entrar a página recarrega inteira. `src/proxy.ts` e o teste foram ajustados; o texto do popup de preço foi corrigido (a nota e a comparação agora seguem o preço escolhido).
+
 ### 23/11/2026, 06:00 · Nota única, Fase 3: calor social fora da nota, Pix × parcelar, faixa de certeza
 
 - **Pedido do usuário:** não dar ênfase às curtidas e ao calor social (o app terá poucos usuários, no máximo os amigos dele); escolheu **tirar o calor social da nota de vez**. As curtidas do Promobit ficaram só como informação no Detalhe (coluna `offers.curtidas` já existia).

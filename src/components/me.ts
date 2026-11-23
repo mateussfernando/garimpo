@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Permissao } from "@/config/permissoes";
 import type { PrecoPref } from "@/lib/preco";
+import { pedirEntrar } from "./entrar-evento";
 
 /**
  * Quem está usando o site (de /api/me): a pessoa logada ou o visitante (id null, com as permissões do cargo "Visitante").
@@ -25,11 +26,8 @@ let mePromise: Promise<Me | null> | null = null;
 export function obterMe(): Promise<Me | null> {
   mePromise ??= fetch("/api/me", { cache: "no-store" })
     .then((r) => {
-      // O cargo Visitante não pode ver nada (site fechado para quem não tem conta): vai para a tela de entrar.
-      if (r.status === 401 && !location.pathname.startsWith("/entrar")) {
-        const de = location.pathname === "/" ? "" : `?de=${encodeURIComponent(location.pathname + location.search)}`;
-        location.replace(`/entrar${de}`);
-      }
+      // O cargo Visitante não pode ver nada (site fechado para quem não tem conta): abre o popup de entrar.
+      if (r.status === 401) pedirEntrar({ modo: "entrar", motivo: "continuar", de: location.pathname + location.search });
       return r.ok ? (r.json() as Promise<Me>) : null;
     })
     .catch(() => null);

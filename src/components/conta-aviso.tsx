@@ -1,25 +1,26 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { authClient } from "@/lib/auth-client";
+import { EVENTO_ENTRAR, pedirEntrar, type MotivoConta, type PedidoEntrar } from "./entrar-evento";
 import { useMe } from "./me";
 
-// Quem não tem conta vê a Vitrine, mas vigiar, descartar e os Alvos pedem conta. `pedirConta` abre o aviso de qualquer
-// lugar; `useSeVisitante` é o atalho para as ações: devolve true (e abre o aviso) quando a pessoa é visitante.
+// Entrar e criar conta moram num popup (não há mais a página /entrar). Quem não tem conta vê a Vitrine; vigiar, descartar e
+// os Alvos abrem o popup. `pedirConta` abre de qualquer ação; `useSeVisitante` é o atalho: true (e abre o popup) se visitante.
 
-export type MotivoConta = "vigiar" | "descartar" | "alvos";
-export const TEXTO_MOTIVO: Record<MotivoConta, string> = {
-  vigiar: "vigiar o preço das ofertas",
-  descartar: "descartar ofertas",
-  alvos: "criar os seus Alvos",
+export type { MotivoConta };
+const TEXTO_MOTIVO: Record<MotivoConta, string> = {
+  vigiar: "Para vigiar o preço das ofertas, entre ou crie uma conta.",
+  descartar: "Para descartar ofertas, entre ou crie uma conta.",
+  alvos: "Para criar os seus Alvos, entre ou crie uma conta.",
+  continuar: "Entre ou crie uma conta para continuar.",
 };
-const EVENTO = "garimpo:pedir-conta";
 
 export function pedirConta(motivo: MotivoConta) {
-  window.dispatchEvent(new CustomEvent<MotivoConta>(EVENTO, { detail: motivo }));
+  pedirEntrar({ modo: "criar", motivo, de: location.pathname + location.search });
 }
 
-/** `bloqueia("vigiar")` → true se for visitante (o aviso já abriu); false se pode seguir. */
+/** `bloqueia("vigiar")` → true se for visitante (o popup já abriu); false se pode seguir. */
 export function useSeVisitante() {
   const me = useMe();
   return useCallback(
@@ -32,48 +33,209 @@ export function useSeVisitante() {
   );
 }
 
-export function AvisoConta() {
-  const [pedido, setPedido] = useState<{ motivo: MotivoConta; de: string } | null>(null);
+/** Só volta para um caminho do próprio site (nada de //outro-site.com). */
+function destinoSeguro(de: string | null | undefined): string {
+  return de && de.startsWith("/") && !de.startsWith("//") ? de : "/";
+}
+
+// O endereço é lido uma vez só (o React roda o efeito duas vezes em desenvolvimento e a segunda já não acharia o pedido).
+let enderecoLido = false;
+let pedidoDoEndereco: PedidoEntrar | null = null;
+function lerPedidoDoEndereco(): PedidoEntrar | null {
+  if (enderecoLido) return pedidoDoEndereco;
+  enderecoLido = true;
+  const q = new URLSearchParams(location.search);
+  if (!q.has("entrar")) return null;
+  pedidoDoEndereco = { modo: q.get("modo") === "criar" ? "criar" : "entrar", motivo: "continuar", de: destinoSeguro(q.get("de")) };
+  history.replaceState(null, "", location.pathname);
+  return pedidoDoEndereco;
+}
+
+/** Mensagem de erro em português, sem dizer mais do que precisa. */
+function mensagem(err: { status?: number; code?: string } | null, modo: "entrar" | "criar"): string {
+  if (!err) return "";
+  if (err.status === 429) return "Muitas tentativas. Espere um minuto e tente de novo.";
+  if (err.code === "CONTA_DESATIVADA") return "Esta conta está desativada. Fale com o administrador do Garimpo.";
+  if (modo === "entrar") return "E-mail ou senha errados.";
+  if (err.code === "USER_ALREADY_EXISTS" || err.code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL") return "Já existe uma conta com esse e-mail. Use Entrar.";
+  if (err.code === "PASSWORD_TOO_SHORT") return "A senha precisa ter pelo menos 8 caracteres.";
+  if (err.code === "PASSWORD_TOO_LONG") return "A senha pode ter no máximo 72 caracteres.";
+  if (err.code === "INVALID_EMAIL") return "Esse e-mail não parece válido.";
+  return "Não deu para criar a conta. Confira os dados e tente de novo.";
+}
+
+const input = "h-11 rounded-[10px] border border-control bg-bg px-3 text-[15px] outline-none focus:border-ink-3";
+
+function Campo({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-[11px] uppercase tracking-[0.06em] text-label">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+/** O popup de entrar e criar conta (montado em toda página, em globais.tsx). `google` = as chaves do Google estão no .env. */
+export function AvisoConta({ google }: { google: boolean }) {
+  const [pedido, setPedido] = useState<PedidoEntrar | null>(null);
+  const [modo, setModo] = useState<"entrar" | "criar">("entrar");
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [erro, setErro] = useState("");
+  const [enviando, setEnviando] = useState(false);
   const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const abrir = (e: Event) => setPedido({ motivo: (e as CustomEvent<MotivoConta>).detail, de: location.pathname + location.search });
-    window.addEventListener(EVENTO, abrir);
-    return () => window.removeEventListener(EVENTO, abrir);
+
+  const abrir = useCallback((p: PedidoEntrar) => {
+    setPedido(p);
+    setModo(p.modo);
+    setErro("");
   }, []);
+
+  useEffect(() => {
+    const ouvir = (e: Event) => abrir((e as CustomEvent<PedidoEntrar>).detail);
+    window.addEventListener(EVENTO_ENTRAR, ouvir);
+    // Página protegida sem sessão: o servidor manda para "/?entrar=1&de=/alvos"; abre o popup e limpa o endereço.
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const doEndereco = lerPedidoDoEndereco();
+    if (doEndereco) t = setTimeout(() => abrir(doEndereco), 0);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener(EVENTO_ENTRAR, ouvir);
+    };
+  }, [abrir]);
+
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
     if (pedido && !d.open) d.showModal();
     if (!pedido && d.open) d.close();
   }, [pedido]);
-  const destino = (modo: string) => `/entrar?modo=${modo}&motivo=${pedido?.motivo ?? ""}&de=${encodeURIComponent(pedido?.de ?? "/")}`;
+
+  const destino = destinoSeguro(pedido?.de);
+  const fechar = () => setPedido(null);
+
+  const enviar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErro("");
+    setEnviando(true);
+    const { error } =
+      modo === "entrar"
+        ? await authClient.signIn.email({ email, password: senha })
+        : await authClient.signUp.email({ name: nome.trim(), email, password: senha });
+    if (error) {
+      setEnviando(false);
+      return setErro(mensagem(error, modo));
+    }
+    // Recarrega por inteiro: a conta muda o que a Vitrine mostra, o tempo real e a escolha de preço.
+    location.assign(destino);
+  };
+
+  const comGoogle = async () => {
+    setErro("");
+    await authClient.signIn.social({ provider: "google", callbackURL: destino, errorCallbackURL: "/" });
+  };
+
   return (
     <dialog
       ref={ref}
       aria-labelledby="conta-titulo"
-      onCancel={() => setPedido(null)}
-      onClick={(e) => e.target === ref.current && setPedido(null)}
+      onCancel={fechar}
+      onClick={(e) => e.target === ref.current && fechar()}
       className="m-auto w-[min(92vw,24rem)] rounded-2xl border border-card-line bg-surface p-6 text-ink backdrop:bg-black/60"
     >
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <h2 id="conta-titulo" className="text-lg font-semibold tracking-tight">
-            Crie uma conta para continuar
-          </h2>
-          <p className="text-[13px] text-muted">Para {pedido ? TEXTO_MOTIVO[pedido.motivo] : "isso"} é preciso ter uma conta. A Vitrine continua aberta para você olhar as ofertas.</p>
+      {pedido && (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <h2 id="conta-titulo" className="text-xl font-semibold tracking-tight">
+                Garimpo
+              </h2>
+              <p className="text-sm text-muted">{modo === "entrar" ? "Entre na sua conta." : "Crie sua conta: leva meio minuto."}</p>
+            </div>
+            <button type="button" onClick={fechar} aria-label="Fechar" className="-mr-1 -mt-1 h-8 w-8 rounded-[8px] text-lg leading-none text-muted hover:text-ink">
+              ×
+            </button>
+          </div>
+
+          <div role="tablist" aria-label="Entrar ou criar conta" className="grid grid-cols-2 gap-1 rounded-[10px] border border-control p-1 text-[13px]">
+            {(["entrar", "criar"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                role="tab"
+                aria-selected={modo === m}
+                onClick={() => {
+                  setModo(m);
+                  setErro("");
+                }}
+                className={`h-9 rounded-[7px] font-medium ${modo === m ? "bg-active text-ink" : "text-ink-2 hover:text-ink"}`}
+              >
+                {m === "entrar" ? "Entrar" : "Criar conta"}
+              </button>
+            ))}
+          </div>
+
+          {pedido.motivo && (
+            <p role="status" className="rounded-[10px] border border-control bg-deep px-3 py-2 text-[13px] text-ink-2">
+              {TEXTO_MOTIVO[pedido.motivo]} A Vitrine continua aberta para olhar as ofertas.
+            </p>
+          )}
+
+          <form onSubmit={enviar} className="flex flex-col gap-4">
+            {modo === "criar" && (
+              <Campo label="Nome">
+                <input name="name" value={nome} onChange={(e) => setNome(e.target.value)} required minLength={2} maxLength={60} autoComplete="name" className={input} />
+              </Campo>
+            )}
+            <Campo label="E-mail">
+              <input name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" className={input} />
+            </Campo>
+            <Campo label="Senha">
+              <input
+                name="password"
+                type="password"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                required
+                minLength={8}
+                maxLength={72}
+                autoComplete={modo === "entrar" ? "current-password" : "new-password"}
+                aria-invalid={!!erro}
+                className={input}
+              />
+            </Campo>
+            {modo === "criar" && <p className="-mt-2 text-xs text-muted">Pelo menos 8 caracteres.</p>}
+            {erro && (
+              <p role="alert" className="text-sm text-bad">
+                {erro}
+              </p>
+            )}
+            <button type="submit" disabled={enviando} className="h-11 rounded-[10px] border border-ink bg-ink text-[14px] font-medium text-bg disabled:opacity-60">
+              {enviando ? "Um instante…" : modo === "entrar" ? "Entrar" : "Criar conta"}
+            </button>
+          </form>
+
+          {google && (
+            <>
+              <div className="flex items-center gap-3 text-xs text-ink-3" aria-hidden="true">
+                <span className="h-px flex-1 bg-line" />
+                ou
+                <span className="h-px flex-1 bg-line" />
+              </div>
+              <button type="button" onClick={() => void comGoogle()} className="flex h-11 items-center justify-center gap-2 rounded-[10px] border border-control text-[14px] font-medium text-ink-2 hover:text-ink">
+                <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+                  <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.4 29.3 35.5 24 35.5c-6.4 0-11.5-5.1-11.5-11.5S17.6 12.5 24 12.5c2.9 0 5.6 1.1 7.6 2.9l5.7-5.7C33.7 6.4 29.1 4.5 24 4.5 13.2 4.5 4.5 13.2 4.5 24S13.2 43.5 24 43.5 43.5 34.8 43.5 24c0-1.2-.1-2.3-.3-3.5z" />
+                  <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8c1.8-4.4 6.1-7.5 11.1-7.5 2.9 0 5.6 1.1 7.6 2.9l5.7-5.7C33.7 6.4 29.1 4.5 24 4.5c-7.5 0-14 4.3-17.7 10.2z" />
+                  <path fill="#4CAF50" d="M24 43.5c5 0 9.6-1.9 13-5l-6-5.1c-2 1.4-4.4 2.1-7 2.1-5.3 0-9.7-3.1-11.3-7.5l-6.5 5C9.9 39.1 16.4 43.5 24 43.5z" />
+                  <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.4l6 5.1c-.4.4 6.3-4.6 6.3-14.5 0-1.2-.1-2.3-.4-3.5z" />
+                </svg>
+                Entrar com Google
+              </button>
+            </>
+          )}
         </div>
-        <div className="flex flex-col gap-2">
-          <Link href={destino("criar")} className="flex h-11 items-center justify-center rounded-[10px] bg-ink text-sm font-semibold text-bg">
-            Criar conta
-          </Link>
-          <Link href={destino("entrar")} className="flex h-11 items-center justify-center rounded-[10px] border border-control text-sm font-medium text-ink-2 hover:text-ink">
-            Já tenho conta: entrar
-          </Link>
-          <button type="button" onClick={() => setPedido(null)} className="h-9 text-[13px] text-muted hover:text-ink-2">
-            Agora não
-          </button>
-        </div>
-      </div>
+      )}
     </dialog>
   );
 }

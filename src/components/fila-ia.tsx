@@ -5,7 +5,7 @@ import { useCallback, useState } from "react";
 import { AGY_PARALLEL, AI_AUTO_STOP_PCT, AI_PARALLEL } from "@/config/pricing";
 import type { FilaDTO, FilaItem } from "@/lib/fila-ia";
 import { VERDICT } from "./ia";
-import { AI_CHOICE_LABEL, Badge, PageTitle, ago, brl, useLive, useNow, useStatus } from "./shell";
+import { AI_CHOICE_LABEL, AiControls, Badge, PageTitle, ago, brl, useLive, useNow, useStatus } from "./shell";
 
 function Thumb({ src }: { src: string | null }) {
   return (
@@ -19,10 +19,10 @@ function Thumb({ src }: { src: string | null }) {
 function Row({ it, now, children }: { it: FilaItem; now: number | null; children?: React.ReactNode }) {
   return (
     <li>
-      <Link href={`/oferta/${it.id}`} className="flex min-w-0 items-center gap-3.5 rounded-xl border border-card-line bg-surface p-3 hover:border-ink-3">
+      <Link href={`/oferta/${it.id}`} className="flex min-w-0 items-start gap-3.5 rounded-xl border border-card-line bg-surface p-3 hover:border-ink-3">
         <Thumb src={it.imageUrl} />
         <span className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="truncate text-[14px] font-medium text-ink" title={it.title}>
+          <span className="line-clamp-2 break-words text-[14px] font-medium leading-snug text-ink" title={it.title}>
             {it.title}
           </span>
           <span className="truncate text-xs text-muted">
@@ -99,6 +99,20 @@ export function FilaIa() {
           </button>
         </div>
 
+        {ai !== undefined && (
+          <section className="flex min-w-0 flex-col gap-3 rounded-2xl border border-card-line bg-surface p-4">
+            <div className="flex flex-col gap-0.5">
+              <h2 className="text-[15px] font-semibold">IA</h2>
+              {data && (
+                <p className="text-xs text-muted">
+                  {data.analyzed.toLocaleString("pt-BR")} análises nas últimas 48 h · {data.waitingOffers.toLocaleString("pt-BR")} ofertas esperando análise
+                </p>
+              )}
+            </div>
+            <AiControls ai={ai} />
+          </section>
+        )}
+
         <section className="flex flex-col gap-3 rounded-2xl border border-card-line bg-surface p-5">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {[
@@ -121,8 +135,8 @@ export function FilaIa() {
           </p>
         </section>
 
-        <div className="grid gap-6 xl:grid-cols-[3fr_2fr]">
-          <section className="flex flex-col gap-3" aria-labelledby="esperando">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <section className="flex min-w-0 flex-col gap-3" aria-labelledby="esperando">
             <h2 id="esperando" className="text-[15px] font-semibold">
               Esperando, na ordem em que a IA vai pegar
             </h2>
@@ -140,7 +154,7 @@ export function FilaIa() {
             )}
           </section>
 
-          <section className="flex flex-col gap-3" aria-labelledby="recentes">
+          <section className="flex min-w-0 flex-col gap-3" aria-labelledby="recentes">
             <h2 id="recentes" className="text-[15px] font-semibold">
               Analisadas há pouco
             </h2>
@@ -148,10 +162,12 @@ export function FilaIa() {
               <ol className="flex flex-col gap-2">
                 {data.recent.map((it) => (
                   <Row key={it.id} it={it} now={now}>
-                    <span className="flex min-w-0 items-center gap-2 text-xs">
-                      <span className="font-mono tnum font-semibold text-num">{it.score}</span>
-                      <Badge tone={VERDICT[it.verdict].tone}>{VERDICT[it.verdict].label}</Badge>
-                      <span className="truncate text-ink-3" title={it.summary}>
+                    <span className="flex min-w-0 flex-col gap-1.5 pt-0.5 text-xs">
+                      <span className="flex items-center gap-2">
+                        <span className="font-mono tnum font-semibold text-num">{it.score}</span>
+                        <Badge tone={VERDICT[it.verdict].tone}>{VERDICT[it.verdict].label}</Badge>
+                      </span>
+                      <span className="line-clamp-2 break-words leading-relaxed text-ink-3" title={it.summary}>
                         {it.summary}
                       </span>
                     </span>

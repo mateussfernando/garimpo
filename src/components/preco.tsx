@@ -95,7 +95,7 @@ export function PrecoToggle() {
   const { pref, definir } = usePreco();
   return (
     <span role="group" aria-label="Preço em destaque" className="flex h-9 items-center gap-0.5 rounded-[10px] border border-control p-0.5 text-xs">
-      <span className="px-1.5 text-label">Preço</span>
+      <span className="hidden px-1.5 text-label xl:inline">Preço</span>
       {OPCOES.map((o) => (
         <button
           key={o.valor}

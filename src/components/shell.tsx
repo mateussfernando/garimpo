@@ -8,6 +8,7 @@ import { authClient } from "@/lib/auth-client";
 import { pedirEntrar } from "./entrar-evento";
 import type { StatusDTO } from "@/lib/offers";
 import { obterMe, podeVer, useMe } from "./me";
+import { Logo } from "./logo";
 import { PrecoToggle } from "./preco";
 import { TemaToggle } from "./tema";
 
@@ -32,7 +33,7 @@ export function useNow(everyMs: number) {
 }
 
 /** Selo do cabeçalho: quanto falta para a Black Friday, "ao vivo" no dia e nada depois. */
-export function BlackFriday() {
+export function BlackFriday({ sempre = false }: { sempre?: boolean } = {}) {
   const now = useNow(1000);
   if (now == null || now >= BF_FIM) return null;
   const p = (n: number) => String(n).padStart(2, "0");
@@ -44,7 +45,7 @@ export function BlackFriday() {
     texto = d >= 1 ? `em ${d}d ${Math.floor((s % 86400) / 3600)}h` : `em ${p(Math.floor(s / 3600))}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}`;
   }
   return (
-    <span className="hidden h-9 items-center gap-2 rounded-full border border-control bg-pill px-3 text-xs text-ink-2 sm:flex" title="Black Friday: sexta, 27 de novembro">
+    <span className={`${sempre ? "flex w-fit" : "hidden lg:flex"} h-9 items-center gap-2 rounded-full border border-control bg-pill px-3 text-xs text-ink-2`} title="Black Friday: sexta, 27 de novembro">
       <span className="font-semibold text-ink">Black Friday</span>
       <span className="font-mono tnum">{texto}</span>
     </span>
@@ -263,6 +264,55 @@ agy: gemini-3.8-flash-low · ${agyToday} chamadas hoje, pela conta do Antigravit
   );
 }
 
+/**
+ * Pausar/Continuar a coleta nos sites (comunidades, vitrines, fontes configuráveis e conferência nas lojas).
+ * O Telegram continua escutando; o que chega fica "conferindo" até a coleta voltar. Botão só para quem gerencia as fontes.
+ */
+export function ColetaControl({ coleta, onChange }: { coleta: StatusDTO["coleta"] | undefined; onChange?: () => void }) {
+  const me = useMe();
+  const now = useNow(30_000);
+  const [busy, setBusy] = useState(false);
+  if (!coleta) return null;
+  const pode = podeVer(me, "fontes.gerenciar");
+  const send = async () => {
+    setBusy(true);
+    try {
+      await fetch("/api/coleta", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: coleta.paused ? "continuar" : "pausar" }) });
+      onChange?.();
+    } finally {
+      setTimeout(() => setBusy(false), 800);
+    }
+  };
+  return (
+    <span className="flex flex-wrap items-center gap-2.5 text-[13px]">
+      <span className="flex items-center gap-1.5 text-ink-2" title="Comunidades (Pelando, Promobit, Hardmob), vitrines das lojas, fontes configuráveis e a conferência de preço nas lojas">
+        <span className={`h-2 w-2 rounded-full ${coleta.paused ? "bg-pause" : "bg-good-dot"}`} />
+        {coleta.paused ? (
+          <span className="text-pause">Coleta pausada{coleta.since ? ` ${ago(coleta.since, now)}` : ""}</span>
+        ) : (
+          "Coleta nos sites ligada"
+        )}
+      </span>
+      {pode && (
+        <button
+          type="button"
+          onClick={() => void send()}
+          disabled={busy}
+          aria-pressed={coleta.paused}
+          title={
+            coleta.paused
+              ? "Volta a ler as comunidades, vitrines e fontes, e confere o que ficou esperando"
+              : "Para de abrir sites: comunidades, vitrines, fontes configuráveis e conferência nas lojas. O Telegram continua escutando e o que chegar fica “conferindo” até você continuar."
+          }
+          className={`flex h-9 items-center gap-1.5 rounded-[10px] border px-3 text-xs font-medium disabled:opacity-50 ${coleta.paused ? "border-ink bg-ink text-bg" : "border-control text-ink-2 hover:text-ink"}`}
+        >
+          {coleta.paused ? "▶ Continuar coleta" : "❚❚ Pausar coleta"}
+        </button>
+      )}
+    </span>
+  );
+}
+
 /** Menu da conta: nome, tema, área Admin (para quem administra) e Sair. Visitante: tema, Entrar e Criar conta. */
 function UserMenu() {
   const { data, isPending } = authClient.useSession();
@@ -302,7 +352,7 @@ function UserMenu() {
           <button type="button" onClick={() => pedirEntrar({ modo: "entrar", de: location.pathname + location.search })} className="flex h-9 items-center rounded-[10px] border border-control px-3 text-xs font-medium text-ink-2 hover:text-ink">
             Entrar
           </button>
-          <button type="button" onClick={() => pedirEntrar({ modo: "criar", de: location.pathname + location.search })} className="flex h-9 items-center rounded-[10px] bg-ink px-3 text-xs font-semibold text-bg">
+          <button type="button" onClick={() => pedirEntrar({ modo: "criar", de: location.pathname + location.search })} className="hidden h-9 items-center rounded-[10px] bg-ink px-3 text-xs font-semibold text-bg sm:flex">
             Criar conta
           </button>
         </>
@@ -313,13 +363,14 @@ function UserMenu() {
         aria-expanded={aberto}
         onClick={() => setAberto((a) => !a)}
         title={data ? data.user.email : "Tema"}
-        className="flex h-9 items-center gap-2 rounded-full border border-control pl-1 pr-2.5 text-ink-2 hover:text-ink"
+        aria-label={data ? `Conta de ${nome}` : "Tema"}
+        className={`${data ? "flex" : "hidden sm:flex"} h-9 items-center gap-2 rounded-full border border-control p-1 text-ink-2 hover:text-ink sm:pr-2.5`}
       >
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-active text-xs font-semibold text-ink" aria-hidden="true">
           {data ? (nome.trim()[0] ?? "?").toUpperCase() : "◐"}
         </span>
-        <span className="hidden max-w-32 truncate sm:inline">{data ? nome : "Tema"}</span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+        {data && <span className="hidden max-w-32 truncate lg:inline">{nome}</span>}
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" className="hidden sm:block">
           <path d="M6 9l6 6 6-6" />
         </svg>
       </button>
@@ -351,39 +402,178 @@ function UserMenu() {
   );
 }
 
-/** Cabeçalho de todas as telas: marca, menu curto, Black Friday, ponto "ao vivo", preço em destaque e a conta. */
+// Ícones de traço do menu do celular (mesmo traço do logo e dos ícones do site).
+const ICONE_NAV: Record<string, React.ReactNode> = {
+  vitrine: <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" />,
+  cupons: <path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4zM14 7v10" />,
+  alvos: (
+    <>
+      <circle cx="12" cy="12" r="8" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="12" cy="12" r=".8" />
+    </>
+  ),
+  "war-room": <path d="M13 3 5 13h6l-1 8 8-10h-6z" />,
+  admin: <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M14 4v4M8 10v4M16 16v4" />,
+};
+const IconeNav = ({ k }: { k: string }) => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="flex-none">
+    {ICONE_NAV[k]}
+  </svg>
+);
+
+/**
+ * Menu hambúrguer do celular (abaixo de 640 px): uma gaveta que entra pela esquerda, com as seções, o modo decisão,
+ * a área Admin, o preço em destaque, o tema e a conta. No computador o cabeçalho mostra tudo e este botão some.
+ */
+function MenuCelular({ active }: { active: NavKey | null }) {
+  const { data } = authClient.useSession();
+  const me = useMe();
+  const router = useRouter();
+  const ref = useRef<HTMLDialogElement>(null);
+  const [saindo, setSaindo] = useState(false);
+  const abrir = () => ref.current?.showModal();
+  const fechar = () => ref.current?.close();
+  const admin = PERMISSOES_ADMIN.some((p) => podeVer(me, p));
+  const destinoAdmin = podeVer(me, "sistema.ver") ? "/admin" : podeVer(me, "fontes.gerenciar") ? "/admin/fontes" : podeVer(me, "lojas.gerenciar") ? "/admin/lojas" : podeVer(me, "ia.gerenciar") ? "/admin/ia" : "/admin/usuarios";
+  const itens: { key: string; href: string; label: string }[] = [
+    ...NAV.filter((n) => podeVer(me, n.perm) || (me?.visitante && n.key === "alvos")),
+    ...(data ? [{ key: "war-room", href: "/war-room", label: "Modo decisão" }] : []),
+    ...(admin ? [{ key: "admin", href: destinoAdmin, label: "Admin e estatísticas" }] : []),
+  ];
+  const sair = async () => {
+    setSaindo(true);
+    await authClient.signOut();
+    fechar();
+    router.replace("/");
+    router.refresh();
+  };
+  const nome = data?.user.name ?? "";
+  return (
+    <>
+      <button type="button" onClick={abrir} aria-label="Abrir o menu" aria-haspopup="dialog" className="-ml-1.5 flex h-10 w-10 flex-none items-center justify-center rounded-[10px] text-ink hover:bg-active sm:hidden">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+          <path d="M4 7h16M4 12h16M4 17h10" />
+        </svg>
+      </button>
+      <dialog
+        ref={ref}
+        aria-label="Menu"
+        onClick={(e) => e.target === ref.current && fechar()}
+        className="gaveta fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-[min(86vw,340px)] max-w-none border-r border-card-line bg-surface p-0 text-ink"
+      >
+        <div className="flex h-full flex-col gap-5 overflow-y-auto px-4 pb-[max(20px,env(safe-area-inset-bottom))] pt-[max(12px,env(safe-area-inset-top))]">
+          <div className="flex items-center justify-between">
+            <Link href="/" onClick={fechar} className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+              <Logo size={24} />
+              Garimpo
+            </Link>
+            <button type="button" onClick={fechar} aria-label="Fechar o menu" className="-mr-1.5 flex h-10 w-10 items-center justify-center rounded-[10px] text-ink-2 hover:bg-active hover:text-ink">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
+
+          {data && (
+            <div className="flex items-center gap-3 rounded-2xl bg-deep p-3">
+              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-active text-sm font-semibold" aria-hidden="true">
+                {(nome.trim()[0] ?? "?").toUpperCase()}
+              </span>
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate text-sm font-medium">{nome}</span>
+                <span className="truncate text-xs text-muted">{data.user.email}</span>
+              </span>
+            </div>
+          )}
+
+          <nav aria-label="Seções do app" className="flex flex-col gap-1">
+            {itens.map((n) => {
+              const on = active === n.key;
+              return (
+                <Link
+                  key={n.key}
+                  href={n.href}
+                  onClick={fechar}
+                  aria-current={on ? "page" : undefined}
+                  className={`flex min-h-12 items-center gap-3 rounded-xl px-3 text-[15px] font-medium ${on ? "bg-active text-ink" : "text-ink-2 hover:bg-active hover:text-ink"}`}
+                >
+                  <IconeNav k={n.key} />
+                  {n.label}
+                  {on && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-gold" aria-hidden="true" />}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="flex flex-col gap-4 border-t border-line pt-5">
+            <div className="flex flex-col gap-2">
+              <span className="text-[11px] uppercase tracking-[0.06em] text-label">Preço em destaque</span>
+              <PrecoToggle />
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="text-[11px] uppercase tracking-[0.06em] text-label">Tema</span>
+              <TemaToggle />
+            </div>
+            <BlackFriday sempre />
+          </div>
+
+          <div className="mt-auto flex flex-col gap-2 border-t border-line pt-5">
+            {data ? (
+              <button type="button" onClick={() => void sair()} disabled={saindo} className="flex h-12 items-center justify-center rounded-xl border border-control text-sm font-medium text-ink-2 hover:text-ink disabled:opacity-50">
+                {saindo ? "Saindo…" : "Sair da conta"}
+              </button>
+            ) : (
+              <>
+                <button type="button" onClick={() => { fechar(); pedirEntrar({ modo: "criar", de: location.pathname + location.search }); }} className="flex h-12 items-center justify-center rounded-xl bg-ink text-sm font-semibold text-bg">
+                  Criar conta
+                </button>
+                <button type="button" onClick={() => { fechar(); pedirEntrar({ modo: "entrar", de: location.pathname + location.search }); }} className="flex h-12 items-center justify-center rounded-xl border border-control text-sm font-medium text-ink-2 hover:text-ink">
+                  Entrar
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </dialog>
+    </>
+  );
+}
+
+/**
+ * Cabeçalho de todas as telas: marca, menu curto, Black Friday, ponto "ao vivo", preço em destaque e a conta.
+ * Fica preso no topo e numa linha só. No celular vira cara de app: hambúrguer, marca e a conta; o resto mora na gaveta.
+ */
 export function AppHeader({ active, live }: { active: NavKey | null; status?: StatusDTO | null; live: boolean }) {
   const me = useMe();
   return (
-    <header className="border-b border-line">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-8">
-        <div className="flex flex-wrap items-center gap-2.5 text-lg font-semibold tracking-tight">
-          <Link href="/" className="flex items-center gap-2.5">
-            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 2l8 5v10l-8 5-8-5V7z" className="fill-gold" />
-            </svg>
-            Garimpo
-          </Link>
-          <nav aria-label="Seções do app" className="ml-2 flex flex-wrap gap-1 text-sm font-medium">
-            {NAV.filter((n) => podeVer(me, n.perm) || (me?.visitante && n.key === "alvos")).map((n) => (
-              <Link
-                key={n.key}
-                href={n.href}
-                aria-current={active === n.key ? "page" : undefined}
-                className={`flex min-h-11 items-center rounded-[10px] px-3.5 ${active === n.key ? "bg-active text-ink" : "text-ink-2 hover:text-ink"}`}
-              >
-                {n.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-        <span className="flex flex-wrap items-center gap-3">
+    <header className="sticky top-0 z-30 border-b border-line bg-bg/80 backdrop-blur-md">
+      <div className="flex items-center gap-x-3 px-4 py-2 sm:px-8">
+        <MenuCelular active={active} />
+        <Link href="/" className="flex flex-none items-center gap-2 text-lg font-semibold tracking-tight">
+          <Logo size={24} />
+          Garimpo
+        </Link>
+        <nav aria-label="Seções do app" className="ml-4 hidden gap-1 text-sm font-medium sm:flex">
+          {NAV.filter((n) => podeVer(me, n.perm) || (me?.visitante && n.key === "alvos")).map((n) => (
+            <Link
+              key={n.key}
+              href={n.href}
+              aria-current={active === n.key ? "page" : undefined}
+              className={`flex min-h-11 flex-none items-center rounded-[10px] px-3.5 ${active === n.key ? "bg-active text-ink" : "text-ink-2 hover:text-ink"}`}
+            >
+              {n.label}
+            </Link>
+          ))}
+        </nav>
+        <span className="ml-auto flex flex-none items-center gap-1.5 sm:gap-2.5">
           <BlackFriday />
-          <span className="flex items-center gap-2 text-[13px] text-muted" title={live ? "Recebendo ofertas ao vivo" : "Reconectando"}>
-            <span className={`h-2 w-2 rounded-full ${live ? "bg-good-dot" : "bg-pause"}`} />
-            <span className="hidden md:inline">{live ? "Ao vivo" : "Reconectando"}</span>
+          <span className="hidden h-9 w-5 items-center justify-center sm:flex" title={live ? "Ao vivo: as ofertas chegam sozinhas" : "Reconectando…"} role="status" aria-label={live ? "Ao vivo" : "Reconectando"}>
+            <span className={`h-2 w-2 rounded-full ${live ? "bg-good-dot shadow-[0_0_0_3px_var(--color-good-bg)]" : "bg-pause"}`} />
           </span>
-          <PrecoToggle />
+          <span className="hidden sm:flex">
+            <PrecoToggle />
+          </span>
           <UserMenu />
         </span>
       </div>

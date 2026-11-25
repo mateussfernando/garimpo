@@ -10,6 +10,7 @@ import { registrarClique } from './gabarito'
 import { CompensaLinha } from './compensa'
 import { HistoricoBloco } from './historico'
 import { AiAnalysis } from './ia'
+import { partesDoPreco } from './offer-card'
 import { VotoNota } from './voto-nota'
 import { precoDe, valorDe } from '@/lib/preco'
 import { useSeVisitante } from './conta-aviso'
@@ -211,7 +212,7 @@ function partWhy(k: 'D' | 'A' | 'C' | 'F', d: OfferDetailDTO): string {
   }
   if (k === 'A') {
     if (fora)
-      return 'Sem preço de referência (a oferta não cai numa faixa com 5 preços vistos): este sinal fica fora da conta e o algoritmo não opina'
+      return 'Sem preço de referência (a oferta não cai numa faixa com 5 preços vistos): este sinal fica fora da conta'
     if (!o.alvo || !d.stats.alvoCents)
       return 'Preço contra o mercado da faixa do produto'
     return o.alvoAtingido
@@ -280,7 +281,7 @@ export function Detalhe({ id }: { id: number }) {
   return (
     <div className="flex min-h-screen flex-col">
       <AppHeader active={null} status={status} live={live} />
-      <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-8 pb-8 pt-6">
+      <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 pb-8 pt-6 sm:px-8">
         {missing ? (
           <div className="flex flex-col items-center gap-3 rounded-[14px] border border-dashed border-control px-6 py-14 text-center">
             <span className="text-base font-medium">Oferta não encontrada</span>
@@ -321,12 +322,13 @@ export function Detalhe({ id }: { id: number }) {
             </nav>
 
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <div className="dots relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-2xl border border-card-line">
+              <div className={`relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-2xl border border-card-line ${d.offer.imageUrl ? 'bg-foto' : 'dots'}`}>
                 {d.offer.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={d.offer.imageUrl}
-                    alt=""
+                    alt={d.offer.title}
+                    title="Foto da página da loja"
                     className="h-full w-full object-contain p-8"
                     referrerPolicy="no-referrer"
                   />
@@ -338,9 +340,6 @@ export function Detalhe({ id }: { id: number }) {
                     <Badge tone="gold">Alvo atingido</Badge>
                   </span>
                 )}
-                <span className="absolute bottom-4 left-4 text-xs text-muted">
-                  foto da página da loja
-                </span>
               </div>
 
               <div className="flex min-w-0 flex-col gap-5">
@@ -350,9 +349,6 @@ export function Detalhe({ id }: { id: number }) {
                       {d.offer.store}
                     </span>
                   )}
-                  <span className="rounded-full border border-control bg-pill px-2.5 py-1.5 text-xs text-ink-2">
-                    via {d.offer.source}
-                  </span>
                   <span
                     className="flex items-baseline gap-1.5 rounded-full border border-control bg-pill px-2.5 py-1.5"
                     title={notaDica(d.offer.nota, d.offer.notaDetalhe)}
@@ -375,15 +371,15 @@ export function Detalhe({ id }: { id: number }) {
                     </span>
                     <span className="text-sm text-muted">{precoDe(d.offer, pref).rotulo}</span>
                   </div>
-                  <span className="font-mono text-sm text-ink-3">
-                    {precoDe(d.offer, pref).efetivo === 'pix' && precoDe(d.offer, pref).outro
-                      ? `${brl(precoDe(d.offer, pref).outro!.cents)} no cartão${d.offer.installments && d.offer.installmentCents ? ` · ${d.offer.installments}x de ${brl(d.offer.installmentCents)}${d.offer.interest === false ? ' sem juros' : d.offer.interest ? ' com juros' : ''}` : ''}`
-                      : d.offer.installments && d.offer.installmentCents
-                        ? `${d.offer.installments}x de ${brl(d.offer.installmentCents)}${d.offer.interest === false ? ' sem juros' : d.offer.interest ? ' com juros' : ''}`
-                        : d.offer.cashCents
-                          ? `${brl(d.offer.cashCents)} à vista`
-                          : 'parcelas não informadas'}
+                  <span className="text-sm text-ink-2">
+                    {partesDoPreco(d.offer, precoDe(d.offer, pref)).map((x, i) => (
+                      <span key={x.texto} className={x.tom === 'good' ? 'text-good' : x.tom === 'muted' ? 'text-muted' : undefined}>
+                        {i > 0 && ' · '}
+                        {x.texto}
+                      </span>
+                    ))}
                   </span>
+                  {precoDe(d.offer, pref).dica && <span className="text-xs text-muted">{precoDe(d.offer, pref).dica}.</span>}
                   <CompensaLinha c={d.offer.compensa} />
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -393,7 +389,7 @@ export function Detalhe({ id }: { id: number }) {
                   {d.offer.interest === true && (
                     <Badge tone="bad">Com juros</Badge>
                   )}
-                  {d.stats.points < 5 && (
+                  {d.stats.points < 5 && d.offer.historico == null && d.offer.refPromobit == null && (
                     <Badge tone="neutral">Sem histórico</Badge>
                   )}
                   {d.stats.minPrevCents != null &&
@@ -419,9 +415,52 @@ export function Detalhe({ id }: { id: number }) {
                   )}
                 </div>
 
+                {/* Comprar logo abaixo do preço: a ação principal não fica escondida depois dos detalhes. */}
+                <div className="flex flex-wrap gap-2">
+                  {d.offer.url ? (
+                    <a
+                      href={d.offer.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => registrarClique(d.offer.id)}
+                      className={`flex h-11 flex-1 items-center justify-center rounded-[10px] px-5 text-sm font-semibold ${d.offer.alvoAtingido ? 'bg-gold text-on-gold' : 'bg-ink text-bg'}`}
+                    >
+                      Comprar{d.offer.store ? ` na ${d.offer.store}` : ''}
+                    </a>
+                  ) : (
+                    <span className="flex h-11 flex-1 items-center justify-center rounded-[10px] border border-control text-sm text-muted">
+                      Sem link
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    aria-pressed={d.offer.watched}
+                    onClick={() => void patch({ watched: !d.offer.watched })}
+                    className={`h-11 rounded-[10px] border px-4 text-sm ${d.offer.watched ? 'border-ink bg-pill text-ink' : 'border-control text-ink-2'}`}
+                  >
+                    {d.offer.watched ? 'Vigiando' : 'Vigiar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void patch({ dismissed: true }).then(() =>
+                        window.history.back(),
+                      )
+                    }
+                    className="h-11 rounded-[10px] border border-control px-4 text-sm text-ink-2"
+                  >
+                    Descartar
+                  </button>
+                </div>
+                <p className="text-xs text-muted">
+                  O botão abre a página da loja. O Garimpo nunca compra sozinho.
+                </p>
+
+                <AiAnalysis ia={d.offer.ia} now={now} />
+
                 <Section
                   id="kit-compra"
-                  title="Kit de compra"
+                  title="Antes de comprar"
                   sub={
                     d.offer.verifiedAt
                       ? `conferido na página da loja às ${new Date(d.offer.verifiedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
@@ -476,45 +515,6 @@ export function Detalhe({ id }: { id: number }) {
                   </ul>
                 </Section>
 
-                <div className="flex flex-wrap gap-2">
-                  {d.offer.url ? (
-                    <a
-                      href={d.offer.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => registrarClique(d.offer.id)}
-                      className={`flex h-11 flex-1 items-center justify-center rounded-[10px] px-5 text-sm font-semibold ${d.offer.alvoAtingido ? 'bg-gold text-on-gold' : 'bg-ink text-bg'}`}
-                    >
-                      Comprar{d.offer.store ? ` na ${d.offer.store}` : ''}
-                    </a>
-                  ) : (
-                    <span className="flex h-11 flex-1 items-center justify-center rounded-[10px] border border-control text-sm text-muted">
-                      Sem link
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    aria-pressed={d.offer.watched}
-                    onClick={() => void patch({ watched: !d.offer.watched })}
-                    className={`h-11 rounded-[10px] border px-4 text-sm ${d.offer.watched ? 'border-ink bg-pill text-ink' : 'border-control text-ink-2'}`}
-                  >
-                    {d.offer.watched ? 'Vigiando' : 'Vigiar'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void patch({ dismissed: true }).then(() =>
-                        window.history.back(),
-                      )
-                    }
-                    className="h-11 rounded-[10px] border border-control px-4 text-sm text-ink-2"
-                  >
-                    Descartar
-                  </button>
-                </div>
-                <p className="text-xs text-muted">
-                  O botão abre a página da loja. O Garimpo nunca compra sozinho.
-                </p>
                 {podeVer(me, 'ofertas.moderar') && (
                   <div className="flex flex-col gap-2 rounded-[10px] border border-control p-3">
                     <span className="text-[11px] uppercase tracking-[0.06em] text-label">
@@ -663,7 +663,11 @@ export function Detalhe({ id }: { id: number }) {
               <Section
                 id="por-que-nota"
                 title={`Por que nota ${fmtNota(d.offer.nota)}`}
-                sub="A nota é a mistura do algoritmo com a IA. Os quatro sinais do algoritmo valem pelo que se sabe: o que não se sabe fica fora da conta, sem nota por padrão. O desconto real e o Black Fraude entram com histórico."
+                sub={
+                  podeVer(me, 'ia.gerenciar')
+                    ? 'A nota é a mistura do algoritmo com a IA. Os quatro sinais do algoritmo valem pelo que se sabe: o que não se sabe fica fora da conta, sem nota por padrão. O desconto real e o Black Fraude entram com histórico.'
+                    : 'A nota vai de 0 a 10 e compara esta oferta com as das últimas 48 h. Cada sinal vale pelo que se sabe: o que não se sabe fica fora da conta. O desconto real e o Black Fraude entram com histórico.'
+                }
               >
                 <div className="flex flex-col gap-5">
                   <ComoANota
@@ -723,7 +727,7 @@ export function Detalhe({ id }: { id: number }) {
                     </div>
                   ) : (
                     <p className="text-sm text-muted">
-                      O algoritmo ainda não calculou os sinais desta oferta.
+                      Os sinais desta oferta ainda não foram calculados.
                     </p>
                   )}
                 </div>
@@ -747,11 +751,7 @@ export function Detalhe({ id }: { id: number }) {
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
               <Section
                 id="escada"
-                title={
-                  storeCount(d.offer.lojas) > 1
-                    ? 'Parecidas em outras lojas'
-                    : 'Escada de preços'
-                }
+                title="Parecidas em outras lojas"
                 sub={`Ofertas parecidas em outras lojas nas últimas 72 h (podem não ser o mesmo modelo): total ${pref === 'pix' ? 'no Pix (cartão onde não há Pix)' : 'no cartão'}`}
               >
                 {d.ladder.length === 0 ? (
@@ -821,8 +821,8 @@ export function Detalhe({ id }: { id: number }) {
               <div className="flex min-w-0 flex-col gap-6">
                 <Section
                   id="calor"
-                  title="Calor social"
-                  sub="Quem postou este produto nas últimas 24 h"
+                  title="Onde foi postado"
+                  sub="Grupos e comunidades que postaram este produto nas últimas 24 h"
                 >
                   <ul className="flex flex-col divide-y divide-line">
                     {d.heat.map((h) => (
@@ -846,15 +846,16 @@ export function Detalhe({ id }: { id: number }) {
                   </ul>
                 </Section>
 
-                <AiAnalysis ia={d.offer.ia} now={now} />
-
+                {(d.insight || podeVer(me, 'ia.gerenciar')) && (
                 <Section
                   id="analise"
                   title="Análise do Garimpo"
                   sub={
                     d.insight
-                      ? `${d.insight.provedor} · claude-haiku-5-5 · ${ago(d.insight.geradoEm, now)}`
-                      : 'gerada pela IA a cada 30 min, só quando os números mudam'
+                      ? podeVer(me, 'ia.gerenciar')
+                        ? `${d.insight.provedor} · claude-haiku-5-5 · ${ago(d.insight.geradoEm, now)}`
+                        : `atualizada ${ago(d.insight.geradoEm, now)}`
+                      : 'atualizada a cada 30 min, só quando os números mudam'
                   }
                 >
                   {d.insight ? (
@@ -889,6 +890,7 @@ export function Detalhe({ id }: { id: number }) {
                     </p>
                   )}
                 </Section>
+                )}
               </div>
             </div>
           </>

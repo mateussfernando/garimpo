@@ -18,7 +18,10 @@ Dois temas desde 23/11: o escuro (a tabela abaixo, com cara de terminal de preg�
 | Texto principal | `#ECEDEE` | títulos e corpo; também o botão Comprar (fundo) |
 | Texto secundário | `#C9CDD3` / `#B4BAC2` | descrições |
 | Texto apagado | `#9BA1A9` / `#8E949C` | rótulos e legendas |
-| Ouro (accent) | `#F5B83D`, texto em cima `#1A1404` | só "Alvo atingido": selo, faixa, botão Comprar da oferta no alvo, linha do alvo no gráfico |
+| Ouro (accent) | `#F5B83D`, texto em cima `#1A1404` | só "Alvo atingido": selo, faixa, botão Comprar da oferta no alvo, linha do alvo no gráfico; e a pepita do logo |
+| Brilho do ouro | `#FFD77A` (`gold-hi`) | só o brilho da pepita no logo |
+
+**Logo (25/11):** "Preço em queda", uma linha de preço que desce (cor do texto, segue o tema) e termina numa pepita de ouro. Componente `src/components/logo.tsx`; favicon `src/app/icon.svg` (a linha troca de cor sozinha no tema escuro do navegador); ícone do celular `src/app/apple-icon.tsx`.
 | Verde (bom) | texto `#7BEAA8`, fundo `rgba(61,220,132,0.12)`, borda `rgba(61,220,132,0.35)`, ponto `#3DDC84` | frete grátis, desconto real, fonte confirmada, status ok |
 | Vermelho (ruim) | texto `#FF9A9A`, fundo `rgba(255,107,107,0.12)`, borda `rgba(255,107,107,0.4)`, linha `#FF8A8A` | Black Fraude, com juros, cupom expirado |
 | Laranja (pausa) | ponto `#FF8F5A`, borda de alerta `rgba(255,143,90,0.45)`, texto `#FFB48F` | loja pausada por 429, link de convite desconhecido |

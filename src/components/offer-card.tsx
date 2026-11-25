@@ -7,7 +7,7 @@ import { storeCount } from "./comparar-lojas";
 import { registrarClique } from "./gabarito";
 import { SelosHistorico } from "./historico";
 import { AiLine } from "./ia";
-import { precoDe } from "@/lib/preco";
+import { precoDe, type PrecoDestaque } from "@/lib/preco";
 import { usePreco } from "./preco";
 import { Badge, ago, brl, dataHora } from "./shell";
 
@@ -32,7 +32,23 @@ export function parcelaText(o: OfferDTO): string {
     if (o.installments === 1) return "1x no cartão";
     return `${o.installments}x de ${brl(o.installmentCents)}${o.interest === false ? " sem juros" : o.interest ? " com juros" : ""}`;
   }
-  return o.priceBasis === "unico" || !o.priceBasis ? "parcelas na loja" : "";
+  return "";
+}
+
+/**
+ * A linha de baixo do preço (card e detalhe): o outro preço que a oferta informa, as parcelas e o aviso quando a forma
+ * escolhida (Pix ou cartão) não foi informada. O Pix vem em verde.
+ */
+export function partesDoPreco(o: OfferDTO, preco: PrecoDestaque): { texto: string; tom?: "good" | "muted" }[] {
+  const partes: { texto: string; tom?: "good" | "muted" }[] = [];
+  if (preco.outro) {
+    const nome = preco.outro.rotulo === "no Pix" ? "Pix" : preco.outro.rotulo === "no cartão" ? "cartão" : "anunciado";
+    partes.push({ texto: `${nome} ${brl(preco.outro.cents)}`, tom: preco.outro.rotulo === "no Pix" ? "good" : undefined });
+  }
+  const parcela = parcelaText(o);
+  if (parcela) partes.push({ texto: parcela });
+  if (preco.aviso) partes.push({ texto: preco.aviso, tom: "muted" });
+  return partes;
 }
 
 function Placeholder() {
@@ -60,7 +76,6 @@ export function OfferCard({ o, index, now, flash, onOpen, onWatch, onDismiss }: 
   const soldOut = o.available === false;
   const delta = vsBand(o);
   const ends = endsIn(o.extra?.endsAt, now);
-  const parcela = parcelaText(o);
   const { pref } = usePreco();
   const preco = precoDe(o, pref);
   // O mesmo produto em outras lojas: quantas e o menor preço entre elas.
@@ -71,10 +86,19 @@ export function OfferCard({ o, index, now, flash, onOpen, onWatch, onDismiss }: 
 
   const status =
     o.verifyStatus === "verificado"
-      ? `conferido na loja ${ago(o.verifiedAt, now)}`
+      ? `conferido ${ago(o.verifiedAt, now)}`
       : o.verifyStatus === "pendente"
-        ? "conferindo na loja…"
-        : "não conferido: preço do post";
+        ? "conferindo…"
+        : "não conferido";
+  // O detalhe completo (loja conferida, faixa e fonte) fica na dica ao passar o mouse: a linha do card só diz o essencial.
+  const statusDica = [
+    o.verifyStatus === "verificado" ? `Preço conferido na loja ${ago(o.verifiedAt, now)}` : o.verifyStatus === "pendente" ? "Conferindo o preço na loja" : "Preço do post, ainda não conferido na loja",
+    o.verifyNote,
+    o.band ? `Faixa ${o.band.label}` : null,
+    o.sources.length > 1 ? `Postado em ${o.sources.length} fontes` : `Via ${o.source}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <motion.article
@@ -89,8 +113,10 @@ export function OfferCard({ o, index, now, flash, onOpen, onWatch, onDismiss }: 
       {/* Foto numa caixa 4:3 fixa: imagem alta ou larga nunca muda o tamanho do card. */}
       <button type="button" onClick={onOpen} aria-label={`Abrir ${o.title}`} className="dots relative flex aspect-[4/3] w-full flex-none items-center justify-center overflow-hidden">
         {o.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={o.imageUrl} alt="" className="absolute inset-0 h-full w-full object-contain p-4 transition-transform duration-300 group-hover:scale-[1.04]" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+          <span className="absolute inset-2 overflow-hidden rounded-[10px] bg-foto">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={o.imageUrl} alt="" className="h-full w-full object-contain p-3 pt-10 transition-transform duration-300 group-hover:scale-[1.04]" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+          </span>
         ) : (
           <Placeholder />
         )}
@@ -116,24 +142,17 @@ export function OfferCard({ o, index, now, flash, onOpen, onWatch, onDismiss }: 
         <div className="flex flex-col gap-1">
           <div className={`flex items-baseline gap-x-2 overflow-hidden whitespace-nowrap ${flash === "down" ? "flash-down" : flash === "up" ? "flash-up" : ""}`}>
             <span className="font-mono tnum text-[26px] font-semibold leading-none tracking-tight text-num">{brl(preco.cents)}</span>
-            <span className="text-xs text-muted">{preco.rotulo}</span>
+            <span className={`text-xs text-muted ${preco.dica ? "cursor-help underline decoration-dotted underline-offset-2" : ""}`} title={preco.dica ?? undefined}>
+              {preco.rotulo}
+            </span>
           </div>
-          <span className="block h-[19px] truncate font-mono text-[12.5px] text-ink-3">
-            {preco.efetivo === "pix" ? (
-              <>
-                {preco.outro ? `cartão ${brl(preco.outro.cents)}` : ""}
-                {parcela ? `${preco.outro ? " · " : ""}${parcela}` : ""}
-              </>
-            ) : (
-              <>
-                {parcela}
-                {preco.outro && (
-                  <span className="text-good">
-                    {parcela ? " · " : ""}Pix {brl(preco.outro.cents)}
-                  </span>
-                )}
-              </>
-            )}
+          <span className="block h-5 truncate tnum text-[13px] text-ink-2">
+            {partesDoPreco(o, preco).map((x, i) => (
+              <span key={x.texto} className={x.tom === "good" ? "text-good" : x.tom === "muted" ? "text-muted" : undefined}>
+                {i > 0 && " · "}
+                {x.texto}
+              </span>
+            ))}
           </span>
         </div>
 
@@ -163,21 +182,26 @@ export function OfferCard({ o, index, now, flash, onOpen, onWatch, onDismiss }: 
 
         <AiLine ia={o.ia} />
 
-        <p className="flex items-center gap-1.5 truncate text-[11.5px] text-label" title={o.verifyNote ?? undefined}>
+        {/* Estado e data numa linha só: à esquerda se o preço foi conferido (e em quantas lojas), à direita quando entrou. */}
+        <div className="flex items-center justify-between gap-2 text-xs text-muted">
+        <p className="flex min-w-0 items-center gap-1.5" title={statusDica}>
           <span className={`h-1.5 w-1.5 flex-none rounded-full ${o.verifyStatus === "verificado" ? "bg-good-dot" : o.verifyStatus === "pendente" ? "bg-ink-3" : "bg-pause"}`} />
           <span className="truncate">
-            {status} · {o.band ? `${o.band.label} · ` : ""}
+            {status}
             {nStores > 1 ? (
+              <>
+                {" · "}
               <span className="font-semibold text-ink-2" title={o.lojas.map((l) => `${l.store ?? "?"}: ${brl(l.priceCardCents)}`).join(" · ")}>
                 em {nStores} lojas{minOther < (o.priceCardCents ?? Infinity) ? `, a partir de ${brl(minOther)}` : ", aqui é o menor"}
               </span>
-            ) : o.sources.length > 1 ? (
-              <span className="font-semibold text-ink-2" title={o.sources.join(", ")}>em {o.sources.length} fontes</span>
-            ) : (
-              `via ${o.source}`
-            )}
+              </>
+            ) : null}
           </span>
         </p>
+          <span className="flex-none tnum" title={`Entrou ${dataHora(o.entrouEm)}${ago(o.entrouEm, now) ? ` (${ago(o.entrouEm, now)})` : ""}`}>
+            {dataHora(o.entrouEm).replace(" às ", " ")}
+          </span>
+        </div>
 
         <div className="mt-auto flex gap-2">
           {o.url ? (
@@ -187,22 +211,18 @@ export function OfferCard({ o, index, now, flash, onOpen, onWatch, onDismiss }: 
           ) : (
             <span className="flex h-11 flex-1 items-center justify-center rounded-[10px] border border-control text-sm text-muted">Sem link</span>
           )}
-          <button type="button" aria-pressed={o.watched} aria-label={o.watched ? "Parar de vigiar o preço" : "Vigiar o preço"} onClick={onWatch} className={`flex h-11 w-11 flex-none items-center justify-center rounded-[10px] border ${o.watched ? "border-ink bg-ink text-bg" : "border-control text-ink-2"}`}>
+          <button type="button" aria-pressed={o.watched} aria-label={o.watched ? "Parar de vigiar o preço" : "Vigiar o preço"} title={o.watched ? "Parar de vigiar o preço (W)" : "Vigiar o preço (W)"} onClick={onWatch} className={`flex h-11 w-11 flex-none items-center justify-center rounded-[10px] border ${o.watched ? "border-ink bg-ink text-bg" : "border-control text-ink-2"}`}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
               <circle cx="12" cy="12" r="3" />
             </svg>
           </button>
-          <button type="button" aria-label="Descartar oferta" onClick={onDismiss} className="flex h-11 w-11 flex-none items-center justify-center rounded-[10px] border border-control text-ink-2">
+          <button type="button" aria-label="Descartar oferta" title="Descartar: some da Vitrine (X)" onClick={onDismiss} className="flex h-11 w-11 flex-none items-center justify-center rounded-[10px] border border-control text-ink-2">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
         </div>
-
-        <p className="-mt-1 text-[11.5px] text-label" title={ago(o.entrouEm, now) || undefined}>
-          Entrou {dataHora(o.entrouEm)}
-        </p>
       </div>
     </motion.article>
   );

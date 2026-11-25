@@ -20,6 +20,21 @@ export class PausedError extends Error {
     super(`${host} pediu pausa até ${new Date(until).toLocaleTimeString("pt-BR")}`);
   }
 }
+/** O usuário apertou "Pausar coleta": nenhum site é aberto. Herda de PausedError para as fontes ficarem "pausada". */
+export class ColetaPausadaError extends PausedError {
+  constructor() {
+    super("todos os sites", 0);
+    this.message = "coleta pausada por você";
+  }
+}
+
+/** Ligado pelo worker quando o botão "Pausar coleta" está apertado (app_settings "coleta"). */
+let coletaPausada = false;
+export function setColetaPausada(v: boolean) {
+  coletaPausada = v;
+}
+export const isColetaPausada = () => coletaPausada;
+
 export class RobotsError extends Error {
   constructor(public url: string) {
     super(`robots.txt não permite ${url}`);
@@ -100,6 +115,8 @@ function schedule<T>(host: string, fn: () => Promise<T>): Promise<T> {
     .then(async () => {
       const wait = (nextAllowedAt.get(host) ?? 0) - Date.now();
       if (wait > 0) await sleep(wait);
+      // Pedido que já estava na fila quando a coleta foi pausada também não sai.
+      if (coletaPausada) throw new ColetaPausadaError();
       // Pedido que já estava na fila quando o site pediu pausa também não sai.
       const until = pausedFor(host);
       if (until) throw new PausedError(siteOf(host), until);
@@ -219,6 +236,7 @@ export async function politeFetch(
   url: string,
   opts: { redirect?: "follow" | "manual"; ttlMs?: number } = {},
 ): Promise<FetchResult> {
+  if (coletaPausada) throw new ColetaPausadaError();
   // Endereço da rede interna nem entra na fila (nem o robots.txt dele é pedido).
   await conferirUrl(url);
   const u = new URL(url);

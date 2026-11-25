@@ -157,13 +157,13 @@ export function Cupons() {
   }, [])
 
   const chip = (on: boolean) =>
-    `flex h-11 flex-none items-center gap-2 rounded-full border px-4 text-[13px] font-medium ${on ? 'border-ink bg-ink text-bg' : 'border-control text-ink-2 hover:text-ink'}`
+    `flex h-11 flex-none items-center gap-2 rounded-[10px] border px-3.5 sm:h-10 text-[13px] font-medium ${on ? 'border-ink bg-ink text-bg' : 'border-control text-ink-2 hover:text-ink'}`
   const withCodeN = (data ?? []).filter((c) => c.code).length
 
   return (
     <div className="flex min-h-screen flex-col">
       <AppHeader active="cupons" status={status} live={live} />
-      <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-8 pb-8 pt-7">
+      <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 sm:px-8 pb-8 pt-7">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <PageTitle title="Cupons">
             Cupons que apareceram nos seus grupos e comunidades nos últimos 3
@@ -218,7 +218,7 @@ export function Cupons() {
                   }
                 }}
                 placeholder='Busque por loja, código ou produto: "shopee", "nubank", "smartphones"'
-                className="h-11 w-full rounded-full border border-control bg-surface pl-11 pr-12 text-sm text-ink placeholder:text-label focus:border-ink"
+                className="h-11 w-full rounded-xl border border-control bg-surface pl-11 pr-12 text-sm text-ink placeholder:text-label focus:border-ink"
               />
               <span className="pointer-events-none absolute right-4">
                 <Kbd>/</Kbd>
@@ -229,7 +229,7 @@ export function Cupons() {
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as Sort)}
-                className="h-11 rounded-full border border-control bg-bg px-4 text-[13px] font-medium text-ink-2"
+                className="h-11 rounded-[10px] border border-control bg-bg px-3.5 sm:h-10 text-[13px] font-medium text-ink-2"
               >
                 <option value="recentes">Mais recentes</option>
                 <option value="desconto">Maior desconto</option>
@@ -402,9 +402,13 @@ export function Cupons() {
                     <span title={c.sources.join(', ')}>
                       visto {ago(c.lastSeenAt, now)} · {c.mentions}{' '}
                       {c.mentions === 1 ? 'post' : 'posts'}
-                      {c.sources.length
-                        ? ` · ${c.sources.slice(0, 2).join(', ')}${c.sources.length > 2 ? ` +${c.sources.length - 2}` : ''}`
-                        : ''}
+                      {/* Nomes repetidos (ex.: vários "Grupo do Telegram") viram uma contagem: menos ruído na linha. */}
+                      {(() => {
+                        const uniq = [...new Set(c.sources)]
+                        if (!uniq.length) return ''
+                        if (uniq.length === 1) return ` · ${c.sources.length > 1 ? `${c.sources.length}× ` : ''}${uniq[0]}`
+                        return ` · ${uniq.slice(0, 2).join(', ')}${uniq.length > 2 ? ` +${uniq.length - 2}` : ''}`
+                      })()}
                     </span>
                     <span className="flex gap-2">
                       {c.postUrl && (
@@ -435,7 +439,7 @@ export function Cupons() {
           </div>
         )}
       </main>
-      <footer className="mt-auto flex flex-wrap items-center justify-center gap-x-5 gap-y-2 px-8 pb-7 pt-4 text-xs text-label">
+      <footer className="mt-auto flex flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 sm:px-8 pb-7 pt-4 text-xs text-label">
         {[['/', 'buscar']].map(([k, v]) => (
           <span key={k} className="flex items-center gap-1.5">
             <Kbd>{k}</Kbd> {v}

@@ -3,7 +3,7 @@ import type { Offer } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { jsonOrNull, type OfferExtra } from "@/lib/db/types";
 import { ldProduct, meta, stripTags } from "../http/html";
-import { PausedError, RobotsError, politeFetch, unshorten } from "../http/polite";
+import { ColetaPausadaError, PausedError, RobotsError, isColetaPausada, politeFetch, unshorten } from "../http/polite";
 import { parseOfferText } from "../parse/parser";
 import { afterPriceChange, logEventParaDonos, notify, pendingOffers } from "../pipeline";
 import { adapterFor } from "./adapters";
@@ -47,6 +47,12 @@ export function readGeneric(html: string, o: Pick<Offer, "priceCardCents" | "ins
   const shipIsConditional = /frete gr[áa]tis[^\n]{0,50}(acima|a partir|prime|consulte|selecionad|primeir)/i.test(shipLine);
   const fromPage = parseOfferText(instLine + "\n" + (shipIsConditional ? "" : shipLine));
   const ldPrice = ld?.priceCents ?? null;
+  // Pix só quando a página diz "Pix" ou "à vista" junto de um preço (antes chutava que o JSON-LD menor era o Pix).
+  const pixLine =
+    text.match(/[^\n]{0,30}R\$\s?[\d.,]+[^\n]{0,6}(?:no|via|pelo|à|a)\s+(?:pix|vista)\b[^\n]{0,20}/i)?.[0] ??
+    text.match(/[^\n]{0,20}(?:no pix|via pix|pix|à vista|a vista)\s*[:\-–]?\s*R\$\s?[\d.,]+[^\n]{0,10}/i)?.[0] ??
+    "";
+  const pixDaPagina = pixLine ? parseOfferText(pixLine).cashCents : null;
 
   let priceCard = o.priceCardCents;
   let installments = o.installments;
@@ -68,8 +74,8 @@ export function readGeneric(html: string, o: Pick<Offer, "priceCardCents" | "ins
     installments,
     installmentCents,
     interest,
-    // O preço do JSON-LD costuma ser o do Pix quando é menor que o total no cartão.
-    cashCents: ldPrice && priceCard && ldPrice < priceCard ? ldPrice : null,
+    // Pix lido no texto da página, e só se fizer sentido perto do preço principal (nem acima dele, nem 40% abaixo).
+    cashCents: pixDaPagina != null && (priceCard == null || (pixDaPagina <= priceCard && pixDaPagina >= priceCard * 0.6)) ? pixDaPagina : null,
     listCents: null,
     freeShipping: fromPage.freeShipping ?? o.freeShipping,
     shippingCents: fromPage.shippingCents ?? o.shippingCents,
@@ -213,7 +219,8 @@ async function verifyInner(o: Offer) {
         url: finalUrl,
         imageUrl: v.image ?? o.imageUrl,
         priceCardCents: v.priceCard,
-        priceBasis: v.installments ? "parcelado" : o.priceBasis,
+        // "loja": o leitor exato leu cartão e Pix na página (src/lib/preco.ts sabe que o cartão é conhecido).
+        priceBasis: exact && v.priceCard ? "loja" : v.installments ? "parcelado" : o.priceBasis,
         installments: v.installments,
         installmentCents: v.installmentCents,
         interest: v.interest,
@@ -238,6 +245,8 @@ async function verifyInner(o: Offer) {
     await afterPriceChange(o.id);
     noteRobots(store.slug, true);
   } catch (err) {
+    // Coleta pausada pelo usuário: a oferta continua "conferindo" e é conferida quando a coleta voltar.
+    if (err instanceof ColetaPausadaError) return;
     if (err instanceof PausedError) return markNotVerified(o, err.message);
     if (err instanceof RobotsError) {
       const blocked = storeForUrl(err.url);
@@ -256,6 +265,7 @@ const MAX_PER_STORE = 2;
  * No máximo 2 por loja ao mesmo tempo, então uma loja lenta não segura as outras.
  */
 export async function verifyTick() {
+  if (isColetaPausada()) return;
   const pending = await pendingOffers(40);
   for (const o of pending) {
     if (inFlight.size >= MAX_IN_FLIGHT) break;

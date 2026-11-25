@@ -5,7 +5,7 @@ import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import type { OfferDetailDTO } from "@/lib/detail";
 import { fmtNota, notaDica } from "@/lib/nota";
-import { precoDe, valorDe } from "@/lib/preco";
+import { precoConhecido, precoDe, valorDe } from "@/lib/preco";
 import { usePreco } from "./preco";
 import { CompararLojas, spreadText, storeCount } from "./comparar-lojas";
 import { ComoANota } from "./como-a-nota";
@@ -127,13 +127,19 @@ export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { 
             <h2 className="text-lg font-semibold leading-snug tracking-tight">{o.title}</h2>
 
             <div className="rounded-xl bg-deep px-4 py-2">
-              {precoDe(o, pref).efetivo === "pix" && <Row label="No Pix" value={brl(o.cashCents)} strong />}
-              <Row
-                label={`No cartão${o.installments && o.installments > 1 ? `, ${parcelaText(o)}` : o.installments === 1 ? ", em 1x" : ""}`}
-                value={brl(o.priceCardCents)}
-                strong={precoDe(o, pref).efetivo === "cartao"}
-              />
-              {precoDe(o, pref).efetivo === "cartao" && o.cashCents && o.priceCardCents && o.cashCents < o.priceCardCents && <Row label="No Pix" value={brl(o.cashCents)} tone="good" />}
+              {/* Só as formas que a oferta informa, a escolhida primeiro e em destaque; nada de "no cartão" inventado. */}
+              {(() => {
+                const k = precoConhecido(o);
+                const efetivo = precoDe(o, pref).efetivo;
+                const linhas = [
+                  k.pix != null && { forma: "pix", el: <Row key="pix" label="No Pix" value={brl(k.pix)} strong={efetivo === "pix"} tone={efetivo !== "pix" && k.cartao != null && k.pix < k.cartao ? "good" : undefined} /> },
+                  k.cartao != null && { forma: "cartao", el: <Row key="cartao" label={`No cartão${o.installments && o.installments > 1 ? `, ${parcelaText(o)}` : o.installments === 1 ? ", em 1x" : ""}`} value={brl(k.cartao)} strong={efetivo === "cartao"} /> },
+                  k.anunciado != null && { forma: "anunciado", el: <Row key="anunciado" label="Anunciado (forma de pagamento não informada)" value={brl(k.anunciado)} strong={efetivo === "anunciado"} /> },
+                ].filter((x): x is { forma: string; el: React.JSX.Element } => !!x);
+                if (pref === "pix") linhas.sort((a, b) => (a.forma === "pix" ? -1 : b.forma === "pix" ? 1 : 0));
+                return linhas.map((x) => x.el);
+              })()}
+              {pref === "pix" && precoConhecido(o).pix == null && <Row label="No Pix" value="não informado" tone="muted" />}
               {o.listPriceCents && o.priceCardCents && o.listPriceCents > o.priceCardCents && <Row label={'Preço "de" da loja'} value={brl(o.listPriceCents)} tone="muted" />}
               {o.band && (
                 <Row
@@ -185,8 +191,8 @@ export function PainelFoco({ id, now, version, onClose, onWatch, onDismiss }: { 
             <HistoricoBloco o={o} />
 
             {ready.parts && (
-              <section aria-label={`Sinais do algoritmo, nota ${fmtNota(o.nota)}`} className="flex flex-col gap-3">
-                <span className="text-[11px] uppercase tracking-[0.06em] text-label">Sinais do algoritmo</span>
+              <section aria-label={`Sinais da nota ${fmtNota(o.nota)}`} className="flex flex-col gap-3">
+                <span className="text-[11px] uppercase tracking-[0.06em] text-label">Sinais da nota</span>
                 {PARTS.map(([k, label, max]) => {
                   const parte = ready.parts![k];
                   const v = parte == null ? null : Math.round(parte * max);

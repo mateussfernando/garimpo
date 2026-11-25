@@ -45,7 +45,7 @@ export function Feed({
   return (
     <section
       aria-label="Acontecimentos ao vivo"
-      className="flex items-center gap-3 border-b border-line bg-deep px-8 py-2"
+      className="flex items-center gap-3 border-b border-line bg-deep px-4 sm:px-8 py-2"
     >
       <span className="flex flex-none items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-label">
         <span className="relative flex h-2 w-2">

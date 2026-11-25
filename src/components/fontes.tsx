@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useState } from "react";
 import type { FonteDTO, FonteState, FontesDTO } from "@/lib/fontes";
 import { ConfigActions, FonteForm, Sugestoes } from "./fontes-config";
-import { Badge, PageTitle, ago, useLive, useNow } from "./shell";
+import { Badge, ColetaControl, PageTitle, ago, useLive, useNow, useStatus } from "./shell";
 
 const LABEL: Record<FonteState, string> = { confirmada: "Confirmada", sugerida: "Sugerida", pausada: "Pausada", ignorada: "Ignorada" };
 
@@ -21,6 +21,7 @@ export function Fontes() {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
   const now = useNow(30_000);
+  const { status, reload: reloadStatus } = useStatus();
 
   const load = useCallback(async () => {
     setData(await fetch("/api/fontes", { cache: "no-store" }).then((r) => r.json()));
@@ -68,6 +69,17 @@ export function Fontes() {
             )}
           </div>
         </div>
+
+        {status?.coleta && (
+          <div className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${status.coleta.paused ? "border-pause-line bg-pause-bg" : "border-card-line bg-surface"}`}>
+            <ColetaControl coleta={status.coleta} onChange={() => void reloadStatus()} />
+            <span className="text-xs text-muted">
+              {status.coleta.paused
+                ? "Nenhum site é aberto. O Telegram continua escutando; o que chegar fica “conferindo” até você continuar."
+                : "Comunidades, vitrines, fontes configuráveis e conferência de preço nas lojas. O Telegram não para."}
+            </span>
+          </div>
+        )}
 
         {adding && (
           <section aria-label="Adicionar fonte" className="rounded-2xl border border-ink-3 bg-surface p-5">

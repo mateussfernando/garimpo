@@ -69,6 +69,7 @@ export function statusVisivel(s: StatusDTO, u: Quem): StatusDTO {
     sources: sistema ? s.sources : [],
     telegram: sistema ? s.telegram : null,
     pending: sistema ? s.pending : null,
+    coleta: sistema || pode(u, "fontes.gerenciar") ? s.coleta : null,
     radar: pode(u, "ia.analises.ver") ? s.radar : null,
   };
 }

@@ -15,3 +15,10 @@ export async function setSetting(key: string, value: unknown): Promise<void> {
 /** Pausas pedidas pelos sites: domínio -> fim da pausa (ms). */
 export type Pauses = Record<string, number>;
 export const PAUSES_KEY = "pausas";
+
+/**
+ * Botão "Pausar coleta" (Painel e Fontes): com a coleta pausada o worker não abre site nenhum (comunidades, vitrines,
+ * fontes configuráveis e a conferência nas lojas). O Telegram continua escutando; o que chega fica "conferindo" até voltar.
+ */
+export type ColetaState = { paused: boolean; at: number };
+export const COLETA_KEY = "coleta";

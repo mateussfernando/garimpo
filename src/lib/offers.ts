@@ -8,7 +8,7 @@ import { mercadoDe, notaDePartes, pontoA, type Partes } from "@/lib/nota-algorit
 import { reguaDePosicao } from "@/lib/nota-posicao";
 import { RENDIMENTO_PADRAO_PCT, compensa, valorDe, type Compensa, type PrecoPref } from "@/lib/preco";
 import { clusterSameProduct } from "@/lib/same-product";
-import { getSetting } from "@/lib/settings";
+import { COLETA_KEY, getSetting, type ColetaState } from "@/lib/settings";
 import { DIA, HORA, atras, inicioDoDia } from "@/lib/tempo";
 
 export type Verdict = "excelente" | "boa" | "ok" | "fraca" | "evitar";
@@ -399,6 +399,8 @@ export type StatusDTO = {
   ai: AiStatus | null;
   /** Fila de conferência: só para quem vê o sistema. */
   pending: number | null;
+  /** Coleta nos sites (botão "Pausar coleta"): só para quem vê o sistema ou gerencia as fontes. */
+  coleta: { paused: boolean; since: string | null } | null;
   today: number;
   alvos: { slug: string; name: string; targetCents: number | null; ceilingCents: number | null }[];
   /** Comentário geral da IA sobre o momento (worker/ai/radar.ts). */
@@ -421,7 +423,9 @@ export async function getStatus(userId: number | null): Promise<StatusDTO> {
   const today = await prisma.offer.count({ where: { createdAt: { gte: inicioDoDia() } } });
   const al = userId == null ? [] : await prisma.alvo.findMany({ where: { ownerId: userId, isActive: true, deletedAt: null }, orderBy: { id: "asc" } });
   const radar = await getRadar();
+  const coleta = (await getSetting<ColetaState>(COLETA_KEY))?.value;
   return {
+    coleta: { paused: coleta?.paused === true, since: coleta?.paused && coleta.at ? new Date(coleta.at).toISOString() : null },
     telegram: tg.length ? { on: tg.filter((s) => s.isActive).length, total: tg.length } : null,
     ai: await getAiStatus(),
     sources: src.map((s) => ({ slug: s.slug, name: s.name, status: s.status, note: s.statusNote, lastRunAt: s.lastRunAt?.toISOString() ?? null })),

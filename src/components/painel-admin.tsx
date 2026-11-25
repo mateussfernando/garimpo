@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import type { Barra, PainelDTO } from "@/lib/painel";
-import { AiControls, PageTitle, statusDot, useLive, useStatus } from "./shell";
+import { AiControls, ColetaControl, PageTitle, statusDot, useLive, useStatus } from "./shell";
 
 // Painel do admin: o que estava espalhado no cabeçalho (fila, IA, fontes, máquina) e números de uso. Um gráfico de
 // uma série só por bloco (uma cor, sem legenda), barras finas com ponta arredondada e o valor no passar do mouse.
@@ -75,7 +75,7 @@ function Distribuicao({ faixas }: { faixas: Barra[] }) {
 export function PainelAdmin() {
   const [p, setP] = useState<PainelDTO | null>(null);
   const [erro, setErro] = useState(false);
-  const { status } = useStatus();
+  const { status, reload } = useStatus();
   const load = useCallback(async () => {
     const r = await fetch("/api/admin/painel", { cache: "no-store" });
     if (!r.ok) return setErro(true);
@@ -101,6 +101,7 @@ export function PainelAdmin() {
         </Bloco>
 
         <Bloco titulo="Fontes e máquina">
+          <ColetaControl coleta={status?.coleta} onChange={() => void reload()} />
           <ul className="flex flex-wrap gap-x-4 gap-y-2 text-[13px] text-ink-2">
             {(status?.sources ?? []).map((s) => (
               <li key={s.slug} className="flex items-center gap-1.5" title={s.note ?? s.status}>

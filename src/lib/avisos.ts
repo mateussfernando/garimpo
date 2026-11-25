@@ -17,6 +17,7 @@ export function avisoPara(u: Pick<Usuario, "id" | "permissoes">, raw: string): s
   if (pode(u, "sistema.ver")) return raw;
   const t = a.type;
   if (t === "ai") return pode(u, "ia.gerenciar") ? JSON.stringify({ type: t }) : null;
+  if (t === "coleta") return pode(u, "fontes.gerenciar") ? JSON.stringify({ type: t }) : null;
   if (t === "insight") return pode(u, "ia.analises.ver") ? JSON.stringify({ type: t }) : null;
   if (t === "event") return a.kind === "canal" ? null : JSON.stringify({ type: t, kind: a.kind, offerId: a.offerId });
   if (t === "offer" || t === "coupon" || t === "alvos") return JSON.stringify({ type: t, ...(a.id != null ? { id: a.id } : {}) });

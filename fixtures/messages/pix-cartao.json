@@ -1,0 +1,52 @@
+[
+  {
+    "nome": "pix entre colchetes logo depois do preço",
+    "texto": "💥 Tênis Nike Promina Masculino\n\n✅ Por: R$549,00 [no pix]\n\n🏪 Loja: #Nike\n\n🔗 PEGAR OFERTA: 👇🏼\nhttps://tidd.ly/abc123\n\n⚠️ Oferta por tempo limitado.",
+    "espera": { "cashCents": 54900, "priceCardCents": 54900, "priceBasis": "avista" }
+  },
+  {
+    "nome": "DE: e POR: em linhas separadas, Por no Pix",
+    "texto": "⚫️ Conjunto de Panelas Antiaderente Teflon – 10 Peças\n\nDE: R$ 299,00\nPOR: R$ 151,46 no Pix\n\n🛒 Compre aqui: https://meli.la/abc",
+    "espera": { "listPriceCents": 29900, "cashCents": 15146, "priceCardCents": 15146, "priceBasis": "avista" }
+  },
+  {
+    "nome": "De e Por com emoji depois do Pix",
+    "texto": "🛍️ Monitor LG Gamer 24\" 100Hz Full HD\n\nDe R$ 712,38\nPor R$ 487,51 no Pix 🔥\n\n🛒 Compre aqui: https://s.shopee.com.br/abc",
+    "espera": { "listPriceCents": 71238, "cashCents": 48751, "priceCardCents": 48751, "priceBasis": "avista" }
+  },
+  {
+    "nome": "pagando no PIX numa linha separada",
+    "texto": "Apple Watch SE 3 GPS por R$1.610,09\n\n🎟️Com cupom 20BF26PRIME e pagando no PIX!\n⚠️Exclusivo para membros Prime\n\nCompre aqui: https://link.amazon/abc",
+    "espera": { "cashCents": 161009, "priceCardCents": 161009, "priceBasis": "avista" }
+  },
+  {
+    "nome": "CUPOM + PIX no título, A partir de",
+    "texto": "🔥🔥\n\nCorre aproveitar!\n\nPlaca de Vídeo Gigabyte RX 9050 GAMING OC 8GB | CUPOM + PIX\n\nA partir de R$1.696,49\n\nAcesse: https://canalte.ch/abc",
+    "espera": { "cashCents": 169649, "priceCardCents": 169649, "priceBasis": "avista" }
+  },
+  {
+    "nome": "| PIX no fim do título",
+    "texto": "Processador AMD Ryzen 7 7800X3D, AM5, Com Vídeo Integrado | PIX\n\nA partir de R$1.679,99\n\nAcesse: https://canalte.ch/abc",
+    "espera": { "cashCents": 167999, "priceBasis": "avista" }
+  },
+  {
+    "nome": "desconto extra no Pix não faz o preço virar Pix",
+    "texto": "Air Fryer Mondial 5L R$ 399,90\n10% off no Pix\nhttps://amzn.to/abc",
+    "espera": { "priceCardCents": 39990, "cashCents": null, "priceBasis": "unico" }
+  },
+  {
+    "nome": "em até 10x sem o valor da parcela: cartão",
+    "texto": "Notebook Lenovo IdeaPad Slim 3 R$ 3.299,00\nem até 10x sem juros\nhttps://amzn.to/abc",
+    "espera": { "priceCardCents": 329900, "cashCents": null, "priceBasis": "cartao" }
+  },
+  {
+    "nome": "preço no cartão dito em outra linha",
+    "texto": "Cadeira Gamer ThunderX3 R$ 899,00\nPreço no cartão de crédito\nhttps://kabum.com.br/produto/123",
+    "espera": { "priceCardCents": 89900, "priceBasis": "cartao" }
+  },
+  {
+    "nome": "pix no link não conta",
+    "texto": "Fone JBL Tune 520BT R$ 199,90\nhttps://exemplo.com/oferta-no-pix",
+    "espera": { "priceCardCents": 19990, "cashCents": null, "priceBasis": "unico" }
+  }
+]

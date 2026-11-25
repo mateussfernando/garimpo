@@ -75,8 +75,15 @@ describe("leitura genérica (loja sem leitor próprio)", () => {
     const v = readGeneric(ld("<p>ou 3x de R$ 33,30 sem juros</p>"), blank);
     expect(v.priceCard).toBe(99_90);
     expect(v.installments).toBe(3);
-    expect(v.cashCents).toBe(89_90);
     expect(v.available).toBe(true);
+  });
+
+  it("Pix só quando a página diz Pix junto do preço (o JSON-LD menor não vira Pix sozinho)", () => {
+    expect(readGeneric(ld("<p>ou 3x de R$ 33,30 sem juros</p>"), blank).cashCents).toBeNull();
+    expect(readGeneric(ld("<p>R$ 89,90 no Pix</p><p>ou 3x de R$ 33,30 sem juros</p>"), blank).cashCents).toBe(89_90);
+    expect(readGeneric(ld("<p>À vista: R$ 89,90</p><p>ou 3x de R$ 33,30 sem juros</p>"), blank).cashCents).toBe(89_90);
+    // Pix muito abaixo do preço principal é outra coisa (frete, parcela): não vale.
+    expect(readGeneric(ld("<p>R$ 9,90 no Pix</p><p>ou 3x de R$ 33,30 sem juros</p>"), blank).cashCents).toBeNull();
   });
 
   it("frete grátis com condição não vira selo de frete grátis", () => {

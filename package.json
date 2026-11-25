@@ -25,7 +25,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
-    "admin:criar": "tsx scripts/admin-criar.ts"
+    "admin:criar": "tsx scripts/admin-criar.ts",
+    "precos:reprocessar": "tsx scripts/reprocessar-precos.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",

@@ -1,10 +1,10 @@
 import "dotenv/config";
 import { STORES, storeForUrl } from "@/config/stores";
-import { PAUSES_KEY, getSetting, setSetting, type Pauses } from "@/lib/settings";
+import { COLETA_KEY, PAUSES_KEY, getSetting, setSetting, type ColetaState, type Pauses } from "@/lib/settings";
 import { pgConfig, pool } from "@/lib/db";
 import { prisma } from "@/lib/db/prisma";
 import { collectAll } from "./collect/communities";
-import { pausedHosts, restorePauses, setPauseListener } from "./http/polite";
+import { isColetaPausada, pausedHosts, restorePauses, setColetaPausada, setPauseListener } from "./http/polite";
 import { Client } from "pg";
 import { AI_CMD_CHANNEL, AI_RUN_KEY } from "@/lib/ai-usage";
 import { runAnalises } from "./ai/analises";
@@ -72,10 +72,27 @@ async function main() {
     }
   });
 
+  // Botão "Pausar coleta" do site: lido agora (antes da primeira coleta) e conferido a cada 5 s.
+  const lerColeta = async () => (await getSetting<ColetaState>(COLETA_KEY))?.value.paused === true;
+  setColetaPausada(await lerColeta());
+  if (isColetaPausada()) console.log("[coleta] pausada por você: nenhum site é aberto até continuar.");
+  const aoVoltar: (() => void)[] = [];
+  setInterval(() => {
+    void lerColeta()
+      .then((p) => {
+        if (p === isColetaPausada()) return;
+        setColetaPausada(p);
+        console.log(p ? "[coleta] pausada por você: nenhum site é aberto até continuar." : "[coleta] voltou.");
+        if (!p) for (const fn of aoVoltar) fn();
+      })
+      .catch(() => undefined);
+  }, 5000);
+
   if (roles.includes("collect")) {
     const run = () => collectAll().catch((e) => console.error("[coleta] erro:", e));
     void run();
     setInterval(run, COLLECT_EVERY);
+    aoVoltar.push(run);
     // Vitrines das lojas: categorias dos seus Alvos, a cada 30 min (a coleta educada espaça os pedidos).
     const vitrines = () => collectVitrines().catch((e) => console.error("[vitrine] erro:", e));
     setTimeout(vitrines, 90 * 1000);
@@ -84,6 +101,7 @@ async function main() {
     const configuradas = () => collectConfiguradas().catch((e) => console.error("[fontes] erro:", e));
     setTimeout(configuradas, 30 * 1000);
     setInterval(configuradas, 60 * 1000);
+    aoVoltar.push(configuradas);
   }
   if (roles.includes("listen")) {
     startTelegram().catch((e) => console.error("[telegram] erro:", e));

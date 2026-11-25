@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .linha { stroke: #14171c; }
+    @media (prefers-color-scheme: dark) { .linha { stroke: #ecedee; } }
+  </style>
+  <path class="linha" d="M4 8 10.5 13 15.5 10 23 21" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="24.5" cy="23" r="5" fill="#f5b83d"/>
+  <circle cx="23" cy="21.5" r="1.6" fill="#ffd77a"/>
+</svg>

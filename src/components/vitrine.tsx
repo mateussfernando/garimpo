@@ -175,11 +175,18 @@ export function Vitrine() {
         <AppHeader active="vitrine" status={status} live={live} />
         <Feed events={events} now={now} onOpen={open} />
 
-        <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-8 pb-8 pt-7">
-          <h1 className="text-[30px] font-semibold tracking-tight">Vitrine</h1>
-
-          <div className="-mt-2 flex flex-wrap items-center justify-between gap-3 text-[13px] text-muted">
-            {lastOfferAt ? <span>Última oferta {ago(lastOfferAt, now)}</span> : <span />}
+        <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-5 px-4 pb-8 pt-6 sm:px-4 sm:px-8">
+          {/* Título e ações numa linha só: menos altura antes das ofertas. */}
+          <div className="flex flex-wrap items-end justify-between gap-3 text-[13px] text-muted">
+            <div className="flex flex-col gap-0.5">
+              <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-ink">Vitrine</h1>
+              {lastOfferAt && (
+                <span className="flex items-center gap-1.5">
+                  <span className={`h-1.5 w-1.5 rounded-full ${live ? "bg-good-dot" : "bg-pause"}`} aria-hidden="true" />
+                  {live ? "Ao vivo" : "Reconectando"} · última oferta {ago(lastOfferAt, now)}
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <Link
                 href="/war-room"
@@ -209,7 +216,7 @@ export function Vitrine() {
             <details className="group rounded-2xl border border-card-line bg-surface">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-[13px] text-ink-2 hover:text-ink">
                 <span className="flex min-w-0 items-center gap-2">
-                  <span className="font-medium text-ink">Radar da IA</span>
+                  <span className="flex-none whitespace-nowrap font-medium text-ink">Radar do Garimpo</span>
                   <span className="truncate text-muted">{status.radar.manchete}</span>
                 </span>
                 <span className="text-muted transition-transform group-open:rotate-90" aria-hidden="true">›</span>
@@ -250,8 +257,6 @@ export function Vitrine() {
             </section>
           )}
 
-          <FiltersBar {...filters} alvoNames={alvoNames} />
-
           {pendingNew > 0 && (
             <button
               type="button"
@@ -262,8 +267,9 @@ export function Vitrine() {
             </button>
           )}
 
+          <FiltersBar {...filters} alvoNames={alvoNames}>
           {offers == null ? (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-5" aria-busy="true" aria-label="Carregando ofertas">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-5" aria-busy="true" aria-label="Carregando ofertas">
               {Array.from({ length: 8 }, (_, i) => (
                 <SkeletonCard key={i} />
               ))}
@@ -275,7 +281,7 @@ export function Vitrine() {
             </div>
           ) : (
             <LayoutGroup>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-5">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-5">
                 <AnimatePresence mode="popLayout" initial={false}>
                   {shown.map((o, i) => (
                     <OfferCard
@@ -293,9 +299,10 @@ export function Vitrine() {
               </div>
             </LayoutGroup>
           )}
+          </FiltersBar>
         </main>
 
-        <footer className="mt-auto flex items-center justify-center px-8 pb-7 pt-4 text-xs text-label">
+        <footer className="mt-auto flex items-center justify-center px-4 sm:px-8 pb-7 pt-4 text-xs text-label">
           <span className="flex items-center gap-1.5">
             <Kbd>/</Kbd> buscar
           </span>

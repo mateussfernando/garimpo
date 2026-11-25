@@ -136,16 +136,20 @@ export function faixaDeCerteza(nota: number | null, p: { historico: boolean; ia:
   return { pontos, de: Math.max(0, um(nota - meia)), ate: Math.min(10, um(nota + meia)) };
 }
 
-/** A frase curta (dica ao passar o mouse) de onde a nota veio. */
+/**
+ * A frase curta (dica ao passar o mouse) da nota, na voz do Garimpo: sem "algoritmo" nem "IA" (pedido do usuário, 25/11).
+ * De onde a nota veio (mistura, só algoritmo, só IA) aparece só para admin, em "Como a nota foi feita".
+ */
 export function notaDica(nota: number | null, d: NotaDetalheDTO | null): string {
-  if (nota == null || !d) return "Sem nota ainda: o algoritmo não tem preço de referência para esta oferta e a IA ainda não analisou.";
-  const de =
-    d.fonte === "mistura"
-      ? "Mistura do algoritmo com a IA"
-      : d.fonte === "algoritmo"
-        ? "Só do algoritmo (a IA ainda não analisou, ou não está liberada para você)"
-        : "Só da IA (sem preço de referência para o algoritmo opinar)";
-  return `${de}. Quer dizer: acima de cerca de ${Math.round(nota * 10)}% das ofertas das últimas 48 h.${d.divergente ? " O algoritmo e a IA discordam." : ""}${d.vetoIa ? " Limitada em 4,0 porque a IA mandou evitar." : ""}`;
+  if (nota == null || !d) return "Sem nota ainda: falta um preço de referência e o veredito do Garimpo ainda não chegou.";
+  const pct = Math.round(nota * 10);
+  const onde =
+    pct >= 95
+      ? "uma das melhores ofertas das últimas 48 h"
+      : pct <= 5
+        ? "uma das piores ofertas das últimas 48 h"
+        : `melhor que cerca de ${pct}% das ofertas das últimas 48 h`;
+  return `Nota do Garimpo: ${onde}.${d.vetoIa ? " Limitada em 4,0 porque o Garimpo recomenda evitar." : ""}`;
 }
 
 /** "8,2" (vírgula, como o resto do app); sem nota, o traço. */

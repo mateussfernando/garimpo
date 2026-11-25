@@ -6,6 +6,7 @@ import { fmtNota, notaDica } from "@/lib/nota";
 import type { OfferDTO } from "@/lib/offers";
 import { precoDe } from "@/lib/preco";
 import { registrarClique } from "./gabarito";
+import { Logo } from "./logo";
 import { usePreco } from "./preco";
 import { Badge, Kbd, brl, useLive, useStatus } from "./shell";
 
@@ -131,11 +132,11 @@ export function WarRoom() {
 
   return (
     <div className="flex min-h-screen flex-col" style={{ background: "var(--color-war)" }}>
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line px-8 py-3">
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line px-4 sm:px-8 py-3">
         <div className="flex items-center gap-3">
-          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 2l8 5v10l-8 5-8-5V7z" className="fill-gold" />
-          </svg>
+          <Link href="/" aria-label="Garimpo: voltar para a Vitrine" className="text-ink">
+            <Logo size={24} />
+          </Link>
           <h1 className="text-lg font-semibold tracking-tight">War Room</h1>
           <span className="flex items-center gap-2 text-[13px] text-muted">
             <span className={`h-2 w-2 rounded-full ${live ? "bg-good-dot" : "bg-pause"}`} />
@@ -161,7 +162,7 @@ export function WarRoom() {
         </div>
       </header>
 
-      <main className="mx-auto grid w-full max-w-[1440px] flex-1 gap-6 px-8 py-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <main className="mx-auto grid w-full max-w-[1440px] flex-1 gap-6 px-4 sm:px-8 py-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex min-w-0 flex-col gap-4">
           {!loaded ? (
             <p className="text-sm text-muted">Carregando…</p>
@@ -312,7 +313,7 @@ export function WarRoom() {
         </aside>
       </main>
 
-      <footer className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 px-8 pb-6 pt-2 text-xs text-label">
+      <footer className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 sm:px-8 pb-6 pt-2 text-xs text-label">
         {[["J K", "trocar de oferta"], ["Enter", "comprar"], ["W", "vigiar"], ["S", "soneca de 1 h"], ["X", "descartar"]].map(([k, v]) => (
           <span key={k} className="flex items-center gap-1.5">
             <Kbd>{k}</Kbd> {v}

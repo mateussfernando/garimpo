@@ -27,6 +27,48 @@ describe("preço em destaque", () => {
     expect(precoDe({ priceCardCents: null, cashCents: 9000 }, "pix")).toMatchObject({ cents: 9000, efetivo: "pix", outro: null });
   });
 
+  it("Pix preferido sem Pix na oferta: avisa que o Pix não foi informado", () => {
+    expect(precoDe({ priceCardCents: 50000, cashCents: null }, "pix").aviso).toBe("Pix não informado");
+    expect(precoDe(completa, "pix").aviso).toBeNull();
+    expect(precoDe({ priceCardCents: 50000, cashCents: null }, "cartao").aviso).toBeNull();
+  });
+
+  describe("a forma de pagamento vem de como o preço foi lido (priceBasis)", () => {
+    it("post só com Pix (avista): é Pix nos dois modos, nunca 'no cartão'", () => {
+      const o = { priceCardCents: 54900, cashCents: 54900, priceBasis: "avista", verifyStatus: "nao_verificado", verifyNote: null };
+      expect(precoDe(o, "cartao")).toMatchObject({ cents: 54900, rotulo: "no Pix", efetivo: "pix", outro: null });
+      expect(precoDe(o, "pix")).toMatchObject({ cents: 54900, rotulo: "no Pix", efetivo: "pix", outro: null, aviso: null });
+    });
+
+    it("um preço sem forma (unico): 'anunciado', com a dica de onde veio", () => {
+      const o = { priceCardCents: 9990, cashCents: null, priceBasis: "unico", verifyStatus: "nao_verificado", verifyNote: null };
+      expect(precoDe(o, "cartao")).toMatchObject({ cents: 9990, rotulo: "anunciado", efetivo: "anunciado", dica: "O post não disse se é no Pix ou no cartão" });
+      expect(precoDe(o, "pix")).toMatchObject({ cents: 9990, rotulo: "anunciado", aviso: "Pix não informado" });
+      const generica = { ...o, verifyStatus: "verificado", verifyNote: "leitura genérica da página" };
+      expect(precoDe(generica, "cartao").dica).toMatch(/página da loja/);
+    });
+
+    it("unico com Pix informado: o Pix aparece, e o outro preço fica como anunciado", () => {
+      const o = { priceCardCents: 10000, cashCents: 9000, priceBasis: "unico", verifyStatus: "nao_verificado", verifyNote: null };
+      expect(precoDe(o, "pix")).toMatchObject({ cents: 9000, rotulo: "no Pix", outro: { cents: 10000, rotulo: "anunciado" } });
+      expect(precoDe(o, "cartao")).toMatchObject({ cents: 9000, rotulo: "no Pix" });
+    });
+
+    it("parcelado ou cartão no post: cartão conhecido, troca para o Pix quando há Pix", () => {
+      for (const priceBasis of ["parcelado", "cartao", "loja"]) {
+        const o = { ...completa, priceBasis, verifyStatus: "nao_verificado", verifyNote: null };
+        expect(precoDe(o, "cartao")).toMatchObject({ cents: 129900, rotulo: "no cartão" });
+        expect(precoDe(o, "pix")).toMatchObject({ cents: 119900, rotulo: "no Pix", outro: { cents: 129900, rotulo: "no cartão" } });
+      }
+    });
+
+    it("conferido pelo leitor exato da loja (sem nota): cartão conhecido mesmo que o post fosse 'unico'", () => {
+      const o = { ...completa, priceBasis: "unico", verifyStatus: "verificado", verifyNote: null };
+      expect(precoDe(o, "cartao")).toMatchObject({ cents: 129900, rotulo: "no cartão" });
+      expect(precoDe(o, "pix")).toMatchObject({ cents: 119900, rotulo: "no Pix" });
+    });
+  });
+
   it("filtro e ordenação usam o mesmo valor do destaque", () => {
     expect(valorDe(completa, "cartao")).toBe(129900);
     expect(valorDe(completa, "pix")).toBe(119900);

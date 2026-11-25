@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { EVENTO_ENTRAR, pedirEntrar, type MotivoConta, type PedidoEntrar } from "./entrar-evento";
+import { Logo } from "./logo";
 import { useMe } from "./me";
 
 // Entrar e criar conta moram num popup (não há mais a página /entrar). Quem não tem conta vê a Vitrine; vigiar, descartar e
@@ -148,7 +149,8 @@ export function AvisoConta({ google }: { google: boolean }) {
         <div className="flex flex-col gap-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col gap-1">
-              <h2 id="conta-titulo" className="text-xl font-semibold tracking-tight">
+              <h2 id="conta-titulo" className="flex items-center gap-2 text-xl font-semibold tracking-tight">
+                <Logo size={26} />
                 Garimpo
               </h2>
               <p className="text-sm text-muted">{modo === "entrar" ? "Entre na sua conta." : "Crie sua conta: leva meio minuto."}</p>

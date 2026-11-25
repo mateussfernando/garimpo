@@ -18,6 +18,10 @@
   --color-muted: #9ba1a9;
   --color-label: #8e949c;
   --color-gold: #f5b83d;
+  /* Brilho da pepita no logo (src/components/logo.tsx). Igual nos dois temas. */
+  --color-gold-hi: #ffd77a;
+  /* Placa da foto do produto: as fotos das lojas vêm com fundo branco, então todas ficam numa placa clara do mesmo tamanho. */
+  --color-foto: #eceef1;
   --color-on-gold: #1a1404;
   --color-good: #7beaa8;
   --color-good-dot: #3ddc84;
@@ -67,6 +71,7 @@ html {
   --color-gold: #f5b83d;
   --color-on-gold: #1a1404;
   --color-gold-ink: #8a5800;
+  --color-foto: #ffffff;
   --color-good: #137a43;
   --color-good-dot: #1f9d55;
   --color-bad: #b42318;
@@ -87,6 +92,25 @@ body {
   background: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-sans);
+}
+
+/* Gaveta do menu do celular (src/components/shell.tsx, MenuCelular): entra pela esquerda sobre um fundo escurecido. */
+.gaveta[open] {
+  animation: gaveta-entra 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.gaveta::backdrop {
+  background: rgb(0 0 0 / 0.55);
+  backdrop-filter: blur(2px);
+}
+@keyframes gaveta-entra {
+  from {
+    transform: translateX(-100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gaveta[open] {
+    animation: none;
+  }
 }
 
 .dots {

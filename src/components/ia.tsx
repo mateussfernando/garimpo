@@ -1,9 +1,9 @@
 "use client";
 
-// O que a IA acha: selo do veredito, análise completa da oferta e o radar geral da Vitrine.
+// O veredito do Garimpo (feito pela IA, mas o usuário vê só o Garimpo): selo do card, análise completa e o radar da Vitrine.
 import { useEffect, useState } from "react";
 import type { OfferAiDTO, RadarDTO, Verdict } from "@/lib/offers";
-import { Badge, ago, brl, type Tone } from "./shell";
+import { Badge, ago, brl, podeVer, useMe, type Tone } from "./shell";
 
 export const VERDICT: Record<Verdict, { label: string; tone: Tone; bar: string }> = {
   excelente: { label: "Excelente compra", tone: "good", bar: "bg-good-dot" },
@@ -14,32 +14,21 @@ export const VERDICT: Record<Verdict, { label: string; tone: Tone; bar: string }
 };
 const CONF = { alta: "confiança alta", media: "confiança média", baixa: "confiança baixa" } as const;
 
-const Spark = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="flex-none">
-    <path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z" />
-  </svg>
-);
-
-/** Linha curta no card: veredito da IA e o resumo. A nota dela já está na nota única do card (src/lib/nota.ts). */
+/** Linha curta no card: o veredito e o resumo (sem dizer "IA" para o usuário). A nota dela já está na nota única do card (src/lib/nota.ts). */
 export function AiLine({ ia }: { ia: OfferAiDTO | null }) {
   // Altura fixa, com ou sem análise: todos os cards da grade ficam do mesmo tamanho.
-  const box = "flex h-[78px] flex-none flex-col gap-1.5 overflow-hidden rounded-[10px] border border-line bg-deep px-3 py-2";
+  const box = "flex h-[78px] flex-none flex-col gap-1.5 overflow-hidden rounded-[10px] bg-deep px-3 py-2";
   if (!ia)
     return (
       <div className={box}>
-        <span className="flex items-center gap-1 text-xs font-medium text-label">
-          <Spark /> IA
-        </span>
-        <p className="text-[12.5px] leading-snug text-label">Na fila da análise. Ela chega sozinha em poucos minutos.</p>
+        <span className="text-xs font-medium text-label">Analisando…</span>
+        <p className="text-[12.5px] leading-snug text-label">O veredito do Garimpo chega em poucos minutos.</p>
       </div>
     );
   const v = VERDICT[ia.verdict];
   return (
     <div className={box}>
       <span className="flex items-center gap-2 overflow-hidden whitespace-nowrap text-xs">
-        <span className="flex items-center gap-1 font-medium text-ink-2">
-          <Spark /> IA
-        </span>
         <Badge tone={v.tone} title={`${CONF[ia.confidence]}`}>
           {v.label}
         </Badge>
@@ -53,35 +42,39 @@ export function AiLine({ ia }: { ia: OfferAiDTO | null }) {
 
 /** Análise completa (painel e detalhe): nota, veredito, prós, contras e confiança. */
 export function AiAnalysis({ ia, now }: { ia: OfferAiDTO | null; now: number | null }) {
+  // A nota de 0 a 100 da IA só aparece para admin: para o usuário, a nota é uma só (a de 0 a 10 do card).
+  const admin = podeVer(useMe(), "ia.gerenciar");
   if (!ia)
     return (
       <section className="flex flex-col gap-2 rounded-xl border border-dashed border-control p-4 text-[13px] text-muted">
-        <span className="flex items-center gap-1.5 font-medium text-ink-2">
-          <Spark /> Análise da IA
-        </span>
-        Ainda não analisada. A IA analisa as ofertas novas em lote a cada poucos minutos; use “Chamar IA agora” no topo para não esperar.
+        <span className="font-medium text-ink-2">Veredito do Garimpo</span>
+        Ainda sem veredito. O Garimpo analisa as ofertas novas a cada poucos minutos.
       </section>
     );
   const v = VERDICT[ia.verdict];
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-card-line bg-surface p-4" aria-label="Análise da IA">
+    <section className="flex flex-col gap-3 rounded-xl border border-card-line bg-surface p-4" aria-label="Veredito do Garimpo">
       <div className="flex items-center justify-between gap-3">
-        <span className="flex items-center gap-1.5 text-[13px] font-medium text-ink-2">
-          <Spark /> Análise da IA
-        </span>
+        <span className="text-[13px] font-medium text-ink-2">Veredito do Garimpo</span>
         <span className="text-[11px] text-label">
           {CONF[ia.confidence]} · {ago(ia.at, now)}
         </span>
       </div>
-      <div className="flex items-center gap-3">
-        <span className="font-mono tnum text-[30px] font-semibold leading-none text-num">{ia.score}</span>
-        <div className="flex flex-1 flex-col gap-1.5">
-          <Badge tone={v.tone}>{v.label}</Badge>
-          <span className="block h-1.5 w-full overflow-hidden rounded-full bg-active" aria-hidden="true">
-            <span className={`block h-full ${v.bar}`} style={{ width: `${ia.score}%` }} />
-          </span>
+      {admin ? (
+        <div className="flex items-center gap-3">
+          <span className="font-mono tnum text-[30px] font-semibold leading-none text-num" title="Nota da IA, de 0 a 100 (só admin vê)">{ia.score}</span>
+          <div className="flex flex-1 flex-col gap-1.5">
+            <Badge tone={v.tone}>{v.label}</Badge>
+            <span className="block h-1.5 w-full overflow-hidden rounded-full bg-active" aria-hidden="true">
+              <span className={`block h-full ${v.bar}`} style={{ width: `${ia.score}%` }} />
+            </span>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex">
+          <Badge tone={v.tone}>{v.label}</Badge>
+        </div>
+      )}
       <p className="text-sm text-ink">{ia.summary}</p>
       {(ia.pros.length > 0 || ia.cons.length > 0) && (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -113,7 +106,7 @@ export function AiAnalysis({ ia, now }: { ia: OfferAiDTO | null; now: number | n
 
 const RADAR_KEY = "garimpo:radar-minimizado";
 
-/** Radar da IA no topo da Vitrine: manchete, destaques clicáveis, alertas e dicas. Minimizável (lembrado neste navegador). */
+/** Radar do Garimpo no topo da Vitrine: manchete, destaques clicáveis, alertas e dicas. Minimizável (lembrado neste navegador). */
 export function RadarPanel({ radar, now, onOpen }: { radar: RadarDTO; now: number | null; onOpen: (id: number) => void }) {
   const [min, setMin] = useState(false);
   useEffect(() => {
@@ -136,7 +129,7 @@ export function RadarPanel({ radar, now, onOpen }: { radar: RadarDTO; now: numbe
   const header = (
     <div className="flex items-center justify-between gap-3">
       <h2 id="radar-ia" className="flex flex-none items-center gap-2 text-[15px] font-semibold text-ink">
-        <Spark /> Radar da IA
+        Radar do Garimpo
       </h2>
       {min && <p className="min-w-0 flex-1 truncate text-[13px] text-ink-2">{radar.manchete}</p>}
       <span className="flex flex-none items-center gap-3">

@@ -2,7 +2,7 @@
 
 import type { Confianca, NotaDetalheDTO } from "@/lib/nota";
 import { PESO_IA, faixaDeCerteza, fmtNota, notaDica } from "@/lib/nota";
-import { Badge } from "./shell";
+import { Badge, podeVer, useMe } from "./shell";
 
 const pct = (p: number) => `${Math.round(p * 100)}%`;
 const CONF: Record<Confianca, string> = { alta: "confiança alta", media: "confiança média", baixa: "confiança baixa" };
@@ -24,7 +24,29 @@ export function ComoANota({
   iaConfianca: Confianca | null;
   pecas?: { historico: boolean; conferida: boolean; mercado: boolean };
 }) {
+  const me = useMe();
   const certeza = pecas ? faixaDeCerteza(nota, { ...pecas, ia: d?.iaPos != null }, d) : null;
+  // Quem não cuida da IA vê só a nota do Garimpo e a faixa provável: nada de algoritmo, IA, posição ou peso.
+  if (!podeVer(me, "ia.gerenciar"))
+    return (
+      <div className="flex flex-col gap-2.5 rounded-xl border border-card-line bg-surface p-4 text-[13px]" aria-label="Nota do Garimpo">
+        <p className="flex flex-wrap items-baseline justify-between gap-x-3">
+          <span className="font-medium">Nota do Garimpo</span>
+          <span className="font-mono tnum text-[15px] font-semibold text-num">{fmtNota(nota)}</span>
+        </p>
+        {certeza && (
+          <p className="flex flex-wrap items-baseline justify-between gap-x-3" title="Quanto mais informação sustenta a nota (histórico de preço, preço conferido na loja, preço do mercado e o veredito), mais estreita a faixa.">
+            <span className="text-muted">
+              Faixa provável <span aria-label={`${certeza.pontos} de 4 peças`}>{"●".repeat(certeza.pontos)}{"○".repeat(4 - certeza.pontos)}</span>
+            </span>
+            <span className="font-mono tnum">
+              {fmtNota(certeza.de)} a {fmtNota(certeza.ate)}
+            </span>
+          </p>
+        )}
+        <p className="text-xs text-muted">{notaDica(nota, d)}</p>
+      </div>
+    );
   return (
     <div className="flex flex-col gap-2.5 rounded-xl border border-card-line bg-surface p-4 text-[13px]" aria-label="Como a nota final foi feita">
       <div className="flex flex-wrap items-center gap-2">

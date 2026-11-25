@@ -54,6 +54,8 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 | IA: insights | Job agendado com as métricas calculadas no código. Chama a IA só se o hash mudar e grava na tabela `insights`. O site só lê do banco. |
 | Nota Garimpo | N = 100 × (0,35 D + 0,25 A + 0,15 C + 0,10 F + 0,10 S + 0,05 U). Detalhes em `docs/garimpo.md`. |
 | Design | 5 telas em `design/`, tema escuro, ouro só para "Alvo atingido". |
+| Preço anunciado (25/11) | O app mostra o preço como foi anunciado e não inventa a forma de pagamento: cartão, Pix ou "anunciado" (o post não disse), por `price_basis` (`src/lib/preco.ts`). O botão Cartão/Pix troca o destaque só quando a oferta tem os dois e avisa "Pix não informado". |
+| Cara do app (25/11) | Logo "Preço em queda" (linha que desce até uma pepita), categorias e filtros numa coluna lateral, menu hambúrguer no celular, cantos de 10 px nos controles (nada de pílulas nos filtros). |
 
 ## Perguntas em aberto
 
@@ -67,6 +69,19 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 - Design (canvas clicável): https://claude.ai/artifact/KpCmQB2sKdW9GvHR9Z7MD2
 
 ## Registro (mais recente primeiro)
+
+### 25/11/2026 · Cara nova (logo, filtros na lateral, menu do celular) e preço certo: cartão, Pix ou "anunciado"
+
+- **Pedido do usuário:** tirar a rolagem lateral da Fila da IA; o usuário comum não ver "IA" nem "algoritmo" (o veredito é do Garimpo); manter o nome Garimpo; ícone novo (escolhido: "Preço em queda"); site mais limpo e fácil de ler; filtro de categorias em lista lateral (escolhido entre 5 conceitos); menu hambúrguer no celular; e o botão Cartão/Pix, que "não fazia nada".
+- **Feito (interface):** logo `src/components/logo.tsx`, favicon `src/app/icon.svg`, ícone de celular `src/app/apple-icon.tsx` (o proxy libera os dois); cabeçalho preso no topo, numa linha, com gaveta no celular; Vitrine com categorias e filtros numa coluna à esquerda (no celular, atrás de "Categorias e filtros"); fotos numa placa clara (`bg-foto`); página da oferta com Comprar e veredito logo abaixo do preço; nomes claros ("Antes de comprar", "Onde foi postado", "Parecidas em outras lojas"); quadro técnico da nota só para `ia.gerenciar`.
+- **Achado (preço):** nas ofertas de 48 h, 4.421 tinham um preço só sem forma de pagamento (`price_basis = unico`) e apareciam como "no cartão"; 453 eram só Pix (`avista`) e também apareciam como "no cartão". O Pix não trocava nada porque quase nenhuma tinha `cash_cents`.
+- **Decisão (nova linha na tabela):** o app mostra o preço como foi anunciado e não inventa a forma. `src/lib/preco.ts` (`precoConhecido`): cartão conhecido com base `parcelado`, `cartao`, `loja` ou conferência exata; Pix com `cash_cents` (base `avista` = o preço do post é Pix e o cartão é desconhecido); o resto é **"anunciado"**, com a dica de onde veio. Com Pix escolhido e sem Pix: "Pix não informado". Filtro novo "Com preço no Pix". `price_card_cents` continua sendo o preço principal; a forma sai de `price_basis`.
+- **Parser:** "[no pix]", "DE:/POR:" com dois-pontos, "Por R$ X no Pix" depois de um "De", Pix dito em outra linha ("pagando no PIX", "| PIX", "CUPOM + PIX") e cartão dito em outra linha ("em até 10x", "no cartão"); "10% off no Pix" não vale. 10 fixtures novas em `fixtures/messages/pix-cartao.json`.
+- **Conferência:** a leitura genérica só chama de Pix o preço que a página marca como Pix/à vista (antes chutava o JSON-LD menor); o leitor exato grava `price_basis = "loja"`.
+- **Testado:** 213 testes, `tsc` e `eslint`. No navegador: com Cartão, 28 de 40 cards "anunciado", 8 "no Pix", 4 "no cartão"; com Pix, "anunciado · Pix não informado" onde falta Pix. `pnpm precos:reprocessar` (sem gravar): 393 das 4.059 ofertas recentes mudam (251 viram Pix, 142 viram cartão).
+- **Reprocessamento gravado** (com o ok do usuário): dump `garimpoi-20261125-1132-antes-reprocessar-precos.dump` (8,3 MB) e 393 ofertas corrigidas (251 viraram Pix, 142 viraram cartão); rodar de novo não muda nada. Nas 48 h ficaram 721 só Pix, 368 cartão, 96 parceladas e 4.146 "anunciado".
+- **Pendente:** a Amazon cai quase sempre na leitura genérica (766 genéricas contra 18 exatas em 48 h): o leitor exato da Amazon precisa ser revisto. Mercado Livre e Shopee não podem ser conferidos (robots.txt); o caminho seria a API oficial, com conta, e só com o ok do usuário.
+- **Como testar:** `pnpm test`; na Vitrine, alternar Cartão/Pix e passar o mouse em "anunciado"; o filtro "Com preço no Pix"; no celular, o ☰ e "Categorias e filtros".
 
 ### 23/11/2026, 07:30 · Garimpo mais amigável: tema claro/escuro, área Admin com Painel, menu enxuto, data no card
 

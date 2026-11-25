@@ -7,7 +7,7 @@ import { CATEGORIES, OTHER_CATEGORY, categoryName } from "@/config/categories";
 import { STORES } from "@/config/stores";
 import { storeCount } from "./comparar-lojas";
 import type { OfferDTO } from "@/lib/offers";
-import { valorDe, type PrecoPref } from "@/lib/preco";
+import { precoConhecido, valorDe, type PrecoPref } from "@/lib/preco";
 import { describe, parseQuery, titleHas, type Parsed, type Sort } from "@/lib/smart-filter";
 import { usePreco } from "./preco";
 import { Kbd, brl } from "./shell";
@@ -22,6 +22,8 @@ export type FilterState = {
   verified: boolean;
   noInterest: boolean;
   coupon: boolean;
+  /** Só ofertas que informam o preço no Pix (o post ou a loja). */
+  pix: boolean;
   aiPick: boolean;
   /** Só produtos achados em mais de uma loja. */
   multiStore: boolean;
@@ -29,7 +31,7 @@ export type FilterState = {
 };
 
 const VEREDITO_ORDEM = { excelente: 0, boa: 1, ok: 2, fraca: 3, evitar: 4 } as const;
-const DEFAULT: FilterState = { q: "", category: "all", alvo: "all", store: "all", price: "all", free: false, verified: false, noInterest: false, coupon: false, aiPick: false, multiStore: false, sort: "nota" };
+const DEFAULT: FilterState = { q: "", category: "all", alvo: "all", store: "all", price: "all", free: false, verified: false, noInterest: false, coupon: false, pix: false, aiPick: false, multiStore: false, sort: "nota" };
 /** Ofertas que a IA ainda vai classificar. */
 const PENDING = "__classificando";
 const NO_ALVO = "__nenhum";
@@ -44,7 +46,7 @@ const PRICES = [
 
 const SORTS: { key: Sort; label: string }[] = [
   { key: "nota", label: "Maior nota" },
-  { key: "ia", label: "Melhor pela IA" },
+  { key: "ia", label: "Melhor veredito" },
   { key: "preco", label: "Menor preço" },
   { key: "novos", label: "Mais novas" },
   { key: "desconto", label: "Maior desconto" },
@@ -80,6 +82,7 @@ function matcher(st: FilterState, p: Parsed, pref: PrecoPref) {
     if ((st.verified || p.verified) && o.verifyStatus !== "verificado") return false;
     if ((st.noInterest || p.noInterest) && o.interest !== false) return false;
     if ((st.coupon || p.coupon) && !o.coupon) return false;
+    if (st.pix && precoConhecido(o).pix == null) return false;
     if ((st.aiPick || p.aiPick) && !(o.ia && (o.ia.verdict === "excelente" || o.ia.verdict === "boa"))) return false;
     return titleHas(o.title, p.terms);
   };
@@ -134,20 +137,31 @@ export function useSmartFilters(offers: OfferDTO[] | null) {
   }, [offers, st, parsed, pref]);
 
   const active =
-    st.q.trim() !== "" || st.category !== "all" || st.alvo !== "all" || st.store !== "all" || st.price !== "all" || st.free || st.verified || st.noInterest || st.coupon || st.aiPick || st.multiStore;
+    st.q.trim() !== "" || st.category !== "all" || st.alvo !== "all" || st.store !== "all" || st.price !== "all" || st.free || st.verified || st.noInterest || st.coupon || st.pix || st.aiPick || st.multiStore;
   return { st, setSt, parsed, ...result, active, reset: () => setSt((s) => ({ ...DEFAULT, sort: s.sort })) };
 }
 
-type Props = ReturnType<typeof useSmartFilters> & { alvoNames: Map<string, string>; onChange?: () => void };
+type Props = ReturnType<typeof useSmartFilters> & { alvoNames: Map<string, string>; onChange?: () => void; children?: React.ReactNode };
 
-const chip = (on: boolean) =>
-  `flex h-11 flex-none items-center gap-2 rounded-full border px-4 text-[13px] font-medium ${on ? "border-ink bg-ink text-bg" : "border-control text-ink-2 hover:text-ink"}`;
+// Item da lista lateral: a categoria escolhida ganha fundo e um traço à esquerda.
+const item = (on: boolean) =>
+  `flex min-h-9 w-full items-center justify-between gap-2 rounded-[8px] px-2.5 text-left text-[13.5px] disabled:opacity-50 ${on ? "bg-active font-semibold text-ink shadow-[inset_2px_0_0_var(--color-ink)]" : "text-ink-2 hover:bg-active hover:text-ink"}`;
+const numCls = "flex-none font-mono text-[11.5px] font-normal text-label tnum";
+const tituloCls = "px-2.5 pb-1.5 text-[11px] uppercase tracking-[0.06em] text-label";
 const selectCls = (on: boolean) =>
-  `h-11 rounded-full border bg-bg px-4 text-[13px] font-medium ${on ? "border-ink text-ink" : "border-control text-ink-2 hover:text-ink"}`;
+  `h-10 w-full rounded-[10px] border bg-bg px-3 text-[13px] font-medium ${on ? "border-ink text-ink" : "border-control text-ink-2 hover:text-ink"}`;
 
-export function FiltersBar({ st, setSt, parsed, cats, alvos, stores, prices, total, all, shown, active, reset, alvoNames, onChange }: Props) {
+export function FiltersBar({ st, setSt, parsed, cats, alvos, stores, prices, total, all, shown, active, reset, alvoNames, onChange, children }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [allCats, setAllCats] = useState(false);
+  // Celular e tablet: a coluna de categorias e filtros abre e fecha pelo botão.
+  const [painel, setPainel] = useState(false);
+  // No celular, escolher a categoria fecha a lista para as ofertas aparecerem; os filtros de "Mostrar só" deixam aberta.
+  const escolherCategoria = (category: string) => {
+    set({ category });
+    setPainel(false);
+  };
+  const nAtivos = [st.store !== "all", st.price !== "all", st.alvo !== "all", st.aiPick, st.multiStore, st.verified, st.free, st.noInterest, st.coupon, st.pix].filter(Boolean).length;
   const set = (patch: Partial<FilterState>) => {
     setSt((s) => ({ ...s, ...patch }));
     onChange?.();
@@ -174,8 +188,9 @@ export function FiltersBar({ st, setSt, parsed, cats, alvos, stores, prices, tot
   ]
     .filter((c) => c.n > 0 || c.slug === st.category)
     .sort((a, b) => (a.slug === PENDING ? 1 : b.slug === PENDING ? -1 : b.n - a.n));
-  const VISIBLE = 8;
-  const catShown = allCats ? catList : catList.slice(0, VISIBLE);
+  // As 12 maiores categorias e um "Mais" para o resto (a categoria escolhida sempre aparece).
+  const VISIBLE = 12;
+  const catShown = allCats ? catList : catList.filter((c, i) => i < VISIBLE || c.slug === st.category);
   const catLocked = parsed.category != null;
   const storeList = [...stores.entries()].filter(([name]) => name).sort((a, b) => b[1] - a[1]);
   const alvoList = [...alvos.entries()].filter(([slug]) => slug !== NO_ALVO).sort((a, b) => b[1] - a[1]);
@@ -201,7 +216,7 @@ export function FiltersBar({ st, setSt, parsed, cats, alvos, stores, prices, tot
               }
             }}
             placeholder='Busque ou peça: "tv até 2000 frete grátis", "air fryer shopee", "fone mais barato"'
-            className="h-11 w-full rounded-full border border-control bg-surface pl-11 pr-12 text-sm text-ink placeholder:text-label focus:border-ink"
+            className="h-11 w-full rounded-xl border border-control bg-surface pl-11 pr-12 text-sm text-ink placeholder:text-label focus:border-ink"
           />
           <span className="pointer-events-none absolute right-4">
             <Kbd>/</Kbd>
@@ -209,7 +224,7 @@ export function FiltersBar({ st, setSt, parsed, cats, alvos, stores, prices, tot
         </label>
         <label className="flex items-center gap-2 text-[13px] text-muted">
           Ordenar
-          <select value={parsed.sort ?? st.sort} onChange={(e) => set({ sort: e.target.value as Sort })} disabled={parsed.sort != null} className={selectCls(false)}>
+          <select value={parsed.sort ?? st.sort} onChange={(e) => set({ sort: e.target.value as Sort })} disabled={parsed.sort != null} className="h-11 rounded-xl border border-control bg-bg px-3 text-[13px] font-medium text-ink-2 hover:text-ink">
             {SORTS.map((s) => (
               <option key={s.key} value={s.key}>
                 {s.label}
@@ -223,104 +238,150 @@ export function FiltersBar({ st, setSt, parsed, cats, alvos, stores, prices, tot
         <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted" aria-live="polite">
           <span>Entendi:</span>
           {understood.map((u) => (
-            <span key={u} className="inline-flex h-7 items-center rounded-full border border-control bg-active px-3 text-ink-2">
+            <span key={u} className="inline-flex h-7 items-center rounded-[8px] border border-control bg-active px-2.5 text-ink-2">
               {u}
             </span>
           ))}
         </div>
       )}
 
-      <div role="group" aria-label="Categorias" className="flex flex-wrap gap-2">
-        <button type="button" aria-pressed={!catLocked && st.category === "all"} disabled={catLocked} onClick={() => set({ category: "all" })} className={chip(!catLocked && st.category === "all")}>
-          Todas
-          <span className="font-mono text-xs opacity-65">{total}</span>
-        </button>
-        {catShown.map((c) => {
-          const on = catLocked ? parsed.category === c.slug : st.category === c.slug;
-          return (
-            <button
-              key={c.slug}
-              type="button"
-              aria-pressed={on}
-              disabled={catLocked}
-              onClick={() => set({ category: on ? "all" : c.slug })}
-              className={chip(on)}
-              title={c.slug === PENDING ? "Ofertas que as regras não souberam classificar; a IA classifica em lote em poucos minutos" : undefined}
-            >
-              {c.name}
-              <span className="font-mono text-xs opacity-65">{c.n}</span>
-            </button>
-          );
-        })}
-        {catList.length > VISIBLE && (
-          <button type="button" onClick={() => setAllCats((v) => !v)} className={chip(false)} aria-expanded={allCats}>
-            {allCats ? "Menos" : `Mais ${catList.length - VISIBLE}`}
-          </button>
-        )}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <select aria-label="Loja" value={parsed.store ? storeName(parsed.store) : st.store} disabled={parsed.store != null} onChange={(e) => set({ store: e.target.value })} className={selectCls(st.store !== "all" || parsed.store != null)}>
-          <option value="all">Todas as lojas</option>
-          {storeList.map(([name, n]) => (
-            <option key={name} value={name}>
-              {name} ({n})
-            </option>
-          ))}
-          {st.store !== "all" && !stores.has(st.store) && <option value={st.store}>{st.store} (0)</option>}
-        </select>
-        <select
-          aria-label="Faixa de preço"
-          value={st.price}
-          disabled={parsed.minCents != null || parsed.maxCents != null}
-          onChange={(e) => set({ price: e.target.value })}
-          className={selectCls(st.price !== "all")}
+      {/* Lista lateral (escolhida em 25/11): categorias e filtros numa coluna à esquerda da grade a partir do notebook.
+          No celular e no tablet ficam atrás do botão "Categorias e filtros". Nada rola para o lado. */}
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[232px_minmax(0,1fr)] lg:items-start lg:gap-7">
+        <button
+          type="button"
+          onClick={() => setPainel((v) => !v)}
+          aria-expanded={painel}
+          aria-controls="filtros-laterais"
+          className="flex h-11 items-center gap-2.5 rounded-xl border border-control bg-surface px-4 text-sm font-medium text-ink lg:hidden"
         >
-          <option value="all">Qualquer preço</option>
-          {PRICES.map((b) => (
-            <option key={b.key} value={b.key}>
-              {b.label} ({prices.get(b.key) ?? 0})
-            </option>
-          ))}
-        </select>
-        {alvoList.length > 0 && (
-          <select aria-label="Alvo" value={st.alvo} onChange={(e) => set({ alvo: e.target.value })} className={selectCls(st.alvo !== "all")}>
-            <option value="all">Todos os Alvos</option>
-            {alvoList.map(([slug, n]) => (
-              <option key={slug} value={slug}>
-                {alvoNames.get(slug) ?? slug} ({n})
-              </option>
-            ))}
-            <option value={NO_ALVO}>Fora dos Alvos ({alvos.get(NO_ALVO) ?? 0})</option>
-          </select>
-        )}
-        <span className="mx-1 hidden h-6 w-px bg-control sm:block" aria-hidden="true" />
-        <button type="button" aria-pressed={st.aiPick || parsed.aiPick} onClick={() => set({ aiPick: !st.aiPick })} className={chip(st.aiPick || parsed.aiPick)} title="Excelentes e boas compras, segundo a análise da IA">
-          ✦ Recomendadas pela IA
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+            <path d="M4 6h16M7 12h10M10 18h4" />
+          </svg>
+          Categorias e filtros
+          <span className="ml-auto truncate text-[13px] font-normal text-muted">
+            {[st.category !== "all" ? catList.find((c) => c.slug === st.category)?.name : null, nAtivos > 0 ? `${nAtivos} ${nAtivos === 1 ? "filtro" : "filtros"}` : null].filter(Boolean).join(" · ")}
+          </span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" className={`flex-none text-muted transition-transform ${painel ? "rotate-180" : ""}`}>
+            <path d="M6 9l6 6 6-6" />
+          </svg>
         </button>
-        <button type="button" aria-pressed={st.multiStore} onClick={() => set({ multiStore: !st.multiStore })} className={chip(st.multiStore)} title="O mesmo produto achado em mais de uma loja, para comparar">
-          Em várias lojas
-        </button>
-        <button type="button" aria-pressed={st.verified || parsed.verified} onClick={() => set({ verified: !st.verified })} className={chip(st.verified || parsed.verified)}>
-          Conferidas na loja
-        </button>
-        <button type="button" aria-pressed={st.free || parsed.free} onClick={() => set({ free: !st.free })} className={chip(st.free || parsed.free)}>
-          Frete grátis
-        </button>
-        <button type="button" aria-pressed={st.noInterest || parsed.noInterest} onClick={() => set({ noInterest: !st.noInterest })} className={chip(st.noInterest || parsed.noInterest)}>
-          Sem juros
-        </button>
-        <button type="button" aria-pressed={st.coupon || parsed.coupon} onClick={() => set({ coupon: !st.coupon })} className={chip(st.coupon || parsed.coupon)}>
-          Com cupom
-        </button>
-        <span className="ml-auto flex items-center gap-3 text-[13px] text-muted">
-          <span className="font-mono tnum">{shown.length}</span> de <span className="font-mono tnum">{all}</span>
-          {active && (
-            <button type="button" onClick={reset} className="h-11 rounded-full px-3 text-ink-2 underline-offset-4 hover:text-ink hover:underline">
-              Limpar filtros
+
+        <aside id="filtros-laterais" aria-label="Categorias e filtros" className={`${painel ? "flex" : "hidden"} flex-col gap-6 rounded-2xl border border-card-line bg-surface p-3 lg:flex lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0`}>
+          <div role="group" aria-labelledby="cat-titulo" className="flex flex-col gap-px">
+            <span id="cat-titulo" className={tituloCls}>Categorias</span>
+            <button type="button" aria-pressed={!catLocked && st.category === "all"} disabled={catLocked} onClick={() => escolherCategoria("all")} className={item(!catLocked && st.category === "all")}>
+              Todas
+              <span className={numCls}>{total.toLocaleString("pt-BR")}</span>
             </button>
-          )}
-        </span>
+            {catShown.map((c) => {
+              const on = catLocked ? parsed.category === c.slug : st.category === c.slug;
+              return (
+                <button
+                  key={c.slug}
+                  type="button"
+                  aria-pressed={on}
+                  disabled={catLocked}
+                  onClick={() => escolherCategoria(on ? "all" : c.slug)}
+                  className={item(on)}
+                  title={c.slug === PENDING ? "Ofertas que as regras não souberam classificar; o Garimpo classifica em poucos minutos" : undefined}
+                >
+                  <span className="truncate">{c.name}</span>
+                  <span className={numCls}>{c.n}</span>
+                </button>
+              );
+            })}
+            {catList.length > VISIBLE && (
+              <button type="button" onClick={() => setAllCats((v) => !v)} aria-expanded={allCats} className="flex min-h-9 items-center rounded-[8px] px-2.5 text-left text-[13px] text-muted hover:bg-active hover:text-ink">
+                {allCats ? "Mostrar menos" : `Mais ${catList.length - VISIBLE} categorias`}
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <span className={tituloCls}>Loja e preço</span>
+            <select aria-label="Loja" value={parsed.store ? storeName(parsed.store) : st.store} disabled={parsed.store != null} onChange={(e) => set({ store: e.target.value })} className={selectCls(st.store !== "all" || parsed.store != null)}>
+              <option value="all">Todas as lojas</option>
+              {storeList.map(([name, n]) => (
+                <option key={name} value={name}>
+                  {name} ({n})
+                </option>
+              ))}
+              {st.store !== "all" && !stores.has(st.store) && <option value={st.store}>{st.store} (0)</option>}
+            </select>
+            <select
+              aria-label="Faixa de preço"
+              value={st.price}
+              disabled={parsed.minCents != null || parsed.maxCents != null}
+              onChange={(e) => set({ price: e.target.value })}
+              className={selectCls(st.price !== "all")}
+            >
+              <option value="all">Qualquer preço</option>
+              {PRICES.map((b) => (
+                <option key={b.key} value={b.key}>
+                  {b.label} ({prices.get(b.key) ?? 0})
+                </option>
+              ))}
+            </select>
+            {alvoList.length > 0 && (
+              <select aria-label="Alvo" value={st.alvo} onChange={(e) => set({ alvo: e.target.value })} className={selectCls(st.alvo !== "all")}>
+                <option value="all">Todos os Alvos</option>
+                {alvoList.map(([slug, n]) => (
+                  <option key={slug} value={slug}>
+                    {alvoNames.get(slug) ?? slug} ({n})
+                  </option>
+                ))}
+                <option value={NO_ALVO}>Fora dos Alvos ({alvos.get(NO_ALVO) ?? 0})</option>
+              </select>
+            )}
+          </div>
+
+          <div role="group" aria-labelledby="mostrar-titulo" className="flex flex-col gap-px">
+            <span id="mostrar-titulo" className={tituloCls}>Mostrar só</span>
+            {(
+              [
+                ["Recomendadas", st.aiPick || parsed.aiPick, () => set({ aiPick: !st.aiPick }), "Excelentes e boas compras, segundo o veredito do Garimpo"],
+                ["Em várias lojas", st.multiStore, () => set({ multiStore: !st.multiStore }), "O mesmo produto achado em mais de uma loja, para comparar"],
+                ["Conferidas na loja", st.verified || parsed.verified, () => set({ verified: !st.verified }), "Preço conferido na página da loja"],
+                ["Frete grátis", st.free || parsed.free, () => set({ free: !st.free }), undefined],
+                ["Sem juros", st.noInterest || parsed.noInterest, () => set({ noInterest: !st.noInterest }), undefined],
+                ["Com cupom", st.coupon || parsed.coupon, () => set({ coupon: !st.coupon }), undefined],
+                ["Com preço no Pix", st.pix, () => set({ pix: !st.pix }), "Só ofertas em que o post ou a loja informam o preço no Pix"],
+              ] as const
+            ).map(([rotulo, on, toggle, dica]) => (
+              <button key={rotulo} type="button" aria-pressed={on} onClick={toggle} title={dica} className={`flex min-h-9 items-center gap-2.5 rounded-[8px] px-2.5 text-left text-[13.5px] ${on ? "font-medium text-ink" : "text-ink-2 hover:bg-active hover:text-ink"}`}>
+                <span className={`flex h-4 w-4 flex-none items-center justify-center rounded-[4px] border ${on ? "border-ink bg-ink text-bg" : "border-control"}`} aria-hidden="true">
+                  {on && (
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12.5l4.5 4.5L19 7.5" />
+                    </svg>
+                  )}
+                </span>
+                {rotulo}
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="flex min-h-9 items-center justify-between gap-3 text-[13px] text-muted">
+            {shown.length === all ? (
+              <span>
+                <span className="font-mono tnum text-ink-2">{all.toLocaleString("pt-BR")}</span> ofertas
+              </span>
+            ) : (
+              <span>
+                <span className="font-mono tnum text-ink-2">{shown.length.toLocaleString("pt-BR")}</span> de <span className="font-mono tnum">{all.toLocaleString("pt-BR")}</span> ofertas
+              </span>
+            )}
+            {active && (
+              <button type="button" onClick={reset} className="h-9 rounded-[10px] px-3 text-ink-2 underline-offset-4 hover:text-ink hover:underline">
+                Limpar filtros
+              </button>
+            )}
+          </div>
+          {children}
+        </div>
       </div>
     </div>
   );

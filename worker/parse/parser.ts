@@ -25,8 +25,14 @@ type Role = "cash" | "card" | "ship" | "none";
 type Price = { cents: number; index: number; end: number; role: Role };
 
 const MONEY = String.raw`R\$\s*(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+\.\d{2}(?!\d)|\d+(?:,\d{1,2})?)`;
-const CASH_AFTER = /^\s*[-–(]?\s*(no |via |a |em )?(pix|a vista|boleto)\b/;
-const CARD_AFTER = /^\s*[-–(]?\s*(no |em |via )?(cartao|credito|parcelado|a prazo)\b/;
+// O rótulo pode vir entre parênteses ou colchetes: "R$ 549,00 [no pix]", "R$ 99 (no cartão)".
+const CASH_AFTER = /^\s*[-–([]?\s*(no |via |a |em )?(pix|a vista|boleto)\b/;
+const CARD_AFTER = /^\s*[-–([]?\s*(no |em |via )?(cartao|credito|parcelado|a prazo)\b/;
+// Pix ou cartão ditos em outra linha do post ("pagando no PIX!", "| PIX" no título, "CUPOM + PIX", "em até 10x").
+// "10% off no Pix" fala de um desconto extra, não do preço anunciado: não vale.
+const PIX_NO_POST = /\b(no|via|com|pelo)\s+pix\b|[|+]\s*pix\b|\bpix\s*[|+]|\[\s*pix\s*\]|\(\s*pix\s*\)/;
+const PIX_DESCONTO = /%\s*(off|de desconto|desconto)?\s*(no|via|pelo|pagando no)?\s*pix\b/;
+const CARTAO_NO_POST = /\b(no|em|via|pelo)\s+cartao\b|\bem ate \d{1,2}\s*x\b|\bparcelad[oa]\b/;
 const CASH_BEFORE = /(pix|a vista|boleto)\s*[:\-–]?\s*$/;
 const CARD_BEFORE = /(cartao|credito|parcelado)\s*[:\-–]?\s*$/;
 const SHIP_BEFORE = /frete\s*(de|:|por)?\s*$/;
@@ -100,7 +106,8 @@ export function parseOfferText(input: string): ParsedOffer {
 
   // "de R$ X por R$ Y"
   let mainCents: number | null = null;
-  const dePor = text.match(new RegExp(String.raw`\bde\s*` + MONEY + String.raw`\s*(?:por|→|->|por apenas|sai por)\s*` + MONEY, "i"));
+  // Também com dois-pontos em linhas separadas: "DE: R$ 299,00 / POR: R$ 151,46".
+  const dePor = text.match(new RegExp(String.raw`\bde\s*:?\s*` + MONEY + String.raw`\s*(?:por|→|->|por apenas|sai por)\s*:?\s*` + MONEY, "i"));
   if (dePor) {
     result.listPriceCents = parseBRL(dePor[1]);
     mainCents = parseBRL(dePor[2]);
@@ -140,6 +147,17 @@ export function parseOfferText(input: string): ParsedOffer {
   } else if (result.cashCents != null) {
     result.priceCardCents = result.cashCents;
     result.priceBasis = "avista";
+  }
+
+  // O preço principal é o próprio Pix ("Por R$ 487,51 no Pix" depois de um "De R$ 712,38"): o post é só Pix.
+  if (result.priceBasis === "unico" && result.cashCents != null && result.priceCardCents === result.cashCents) result.priceBasis = "avista";
+  // Um preço só, e a forma de pagamento dita em outra linha do post.
+  if (result.priceBasis === "unico" && result.cashCents == null && !card) {
+    const semLinks = norm.replace(/https?:\/\/\S+/g, " ");
+    if (PIX_NO_POST.test(semLinks) && !PIX_DESCONTO.test(semLinks)) {
+      result.cashCents = result.priceCardCents;
+      result.priceBasis = "avista";
+    } else if (CARTAO_NO_POST.test(semLinks)) result.priceBasis = "cartao";
   }
 
   // Frete

@@ -568,8 +568,10 @@ export function AppHeader({ active, live }: { active: NavKey | null; status?: St
         </nav>
         <span className="ml-auto flex flex-none items-center gap-1.5 sm:gap-2.5">
           <BlackFriday />
-          <span className="hidden h-9 w-5 items-center justify-center sm:flex" title={live ? "Ao vivo: as ofertas chegam sozinhas" : "Reconectando…"} role="status" aria-label={live ? "Ao vivo" : "Reconectando"}>
-            <span className={`h-2 w-2 rounded-full ${live ? "bg-good-dot shadow-[0_0_0_3px_var(--color-good-bg)]" : "bg-pause"}`} />
+          {/* Status do site com nome ao lado da bolinha (pedido do usuário, 25/11): dá para ver se está rodando. */}
+          <span className="hidden h-9 items-center gap-2 text-[13px] text-muted sm:flex" title={live ? "Ao vivo: as ofertas chegam sozinhas" : "Reconectando ao servidor…"} role="status">
+            <span className={`h-2 w-2 flex-none rounded-full ${live ? "bg-good-dot shadow-[0_0_0_3px_var(--color-good-bg)]" : "bg-pause"}`} aria-hidden="true" />
+            <span className={live ? "" : "text-pause"}>{live ? "Ao vivo" : "Reconectando"}</span>
           </span>
           <span className="hidden sm:flex">
             <PrecoToggle />

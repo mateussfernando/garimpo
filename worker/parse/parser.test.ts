@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parseOfferText, type ParsedOffer } from "./parser";
+import { parseOfferText, trechoDaOferta, type ParsedOffer } from "./parser";
 
 type Fixture = { nome: string; texto: string; espera: Partial<ParsedOffer> };
 
@@ -31,4 +31,34 @@ describe("parser BR", () => {
       expect(failures(fx)).toEqual([]);
     });
   }
+});
+
+describe("post com vários produtos", () => {
+  const lista = [
+    "🦫 Fontes · menor preço por modelo (15% OFF) 🔥",
+    "🎟 Cupom: POTENTEDEMAIS (toque para copiar)",
+    "",
+    "🎮 650W — 🔥 R$ 203",
+    "➡️ Fonte Montech Beta 2, 650W, 80 PLUS, Preto - BETA2650W",
+    "🛒 https://ofertou.ai/5gDn-Kabum",
+    "",
+    "🎮 850W — 🔥 R$ 271",
+    "➡️ Fonte Montech Beta 2, 850W, Preto - BETA2850W",
+    "🛒 https://ofertou.ai/yoKG-Kabum",
+    "",
+    "🎮 1600W — 🔥 R$ 2.549",
+    "➡️ Fonte MSI MPG Ai1600TS PCIE5, 1600W, 80 Plus Titanium, Modular,…",
+    "🛒 https://ofertou.ai/U44f-Kabum",
+  ].join("\n");
+
+  it("o preço sai do bloco do produto do título, não do último da lista", () => {
+    const t = trechoDaOferta(lista, "Fonte Montech Beta 2, 650W, 80 PLUS, Preto - BETA2650W");
+    expect(t).not.toBeNull();
+    expect(parseOfferText(t!).priceCardCents).toBe(20300);
+    expect(parseOfferText(trechoDaOferta(lista, "Fonte Montech Beta 2, 850W, Preto - BETA2850W")!).priceCardCents).toBe(27100);
+  });
+
+  it("post de um produto só fica como está", () => {
+    expect(trechoDaOferta("Fonte Montech Beta 2 650W\n\nR$ 203\n\nhttps://ofertou.ai/5gDn-Kabum", "Fonte Montech Beta 2 650W")).toBeNull();
+  });
 });

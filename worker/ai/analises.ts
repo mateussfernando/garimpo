@@ -54,7 +54,7 @@ const SYSTEM = [
 ].join(" ");
 
 type Metrics = Record<string, unknown> & { id: number };
-type Candidate = { m: Metrics; hash: string; key: string; createdAt: Date; nota: number | null; base: number | null; productId: number | null };
+type Candidate = { m: Metrics; hash: string; key: string; createdAt: Date; verifiedAt: Date | null; nota: number | null; base: number | null; productId: number | null };
 
 const pct = (a: number | null, b: number | null) => (a && b ? Math.round(((a - b) / b) * 1000) / 10 : null);
 
@@ -65,7 +65,7 @@ async function candidates(): Promise<Candidate[]> {
     select: {
       id: true, title: true, category: true, store: true, priceCardCents: true, installments: true, interest: true, cashCents: true,
       listPriceCents: true, freeShipping: true, coupon: true, verifyStatus: true, available: true, productId: true, alvoId: true,
-      bandKey: true, nota: true, notaParts: true, createdAt: true,
+      bandKey: true, nota: true, notaParts: true, createdAt: true, verifiedAt: true,
     },
     orderBy: { createdAt: "desc" },
     take: 3000,
@@ -120,6 +120,7 @@ async function candidates(): Promise<Candidate[]> {
       // Mesmo produto em vários grupos: mesmo título (sem acento e pontuação) e mesmo preço.
       key: `${normalize(o.title).replace(/[^a-z0-9]+/g, "")}|${o.priceCardCents ?? "?"}`,
       createdAt: o.createdAt,
+      verifiedAt: o.verifiedAt,
       nota: o.nota,
       base: o.notaParts ? notaDePartes(asJson<Partes>(o.notaParts)).base : null,
       productId: o.productId,
@@ -127,23 +128,33 @@ async function candidates(): Promise<Candidate[]> {
   });
 }
 
-/** O que falta analisar, agrupado por produto: cada grupo vai à IA uma vez. Nunca analisadas primeiro, depois as que mudaram. */
+/**
+ * O que falta analisar, agrupado por produto: cada grupo vai à IA uma vez. Primeiro as nunca analisadas e as que a loja
+ * conferiu depois da análise (o preço do post pode ter vindo errado: a análise velha julgou outro preço, 27/11); depois as
+ * que mudaram por outro motivo. Sem isso, uma análise "evitar" por preço errado derrubava a nota e a oferta ia para o fim
+ * da fila, sem nunca ser refeita.
+ */
 async function pendingGroups(): Promise<{ list: Candidate[][]; total: number; done: number }> {
   const all = await candidates();
-  const known = new Map<number, string>();
+  const known = new Map<number, { hash: string; at: Date }>();
   for (let i = 0; i < all.length; i += 1000) {
     const ids = all.slice(i, i + 1000).map((c) => c.m.id);
-    const rows = await prisma.offerAnalysis.findMany({ where: { offerId: { in: ids } }, select: { offerId: true, hash: true } });
-    for (const r of rows) known.set(r.offerId, r.hash);
+    const rows = await prisma.offerAnalysis.findMany({ where: { offerId: { in: ids } }, select: { offerId: true, hash: true, createdAt: true } });
+    for (const r of rows) known.set(r.offerId, { hash: r.hash, at: r.createdAt });
   }
   const groups = new Map<string, Candidate[]>();
-  for (const c of all) if (known.get(c.m.id) !== c.hash) groups.set(c.key, [...(groups.get(c.key) ?? []), c]);
+  for (const c of all) if (known.get(c.m.id)?.hash !== c.hash) groups.set(c.key, [...(groups.get(c.key) ?? []), c]);
   const list = [...groups.values()].sort((a, b) => {
-    const na = a.some((c) => !known.has(c.m.id)) ? 0 : 1;
-    const nb = b.some((c) => !known.has(c.m.id)) ? 0 : 1;
+    const urgente = (g: Candidate[]) =>
+      g.some((c) => {
+        const k = known.get(c.m.id);
+        return !k || (c.verifiedAt != null && c.verifiedAt > k.at);
+      });
+    const na = urgente(a) ? 0 : 1;
+    const nb = urgente(b) ? 0 : 1;
     return na - nb || (b[0].nota ?? -1) - (a[0].nota ?? -1) || b[0].createdAt.getTime() - a[0].createdAt.getTime();
   });
-  return { list, total: all.length, done: all.filter((c) => known.get(c.m.id) === c.hash).length };
+  return { list, total: all.length, done: all.filter((c) => known.get(c.m.id)?.hash === c.hash).length };
 }
 
 let running = false;

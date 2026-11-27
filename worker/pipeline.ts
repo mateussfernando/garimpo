@@ -15,7 +15,7 @@ import { effectiveTargets, matchAlvo, median, mercadoDe, targetsFrom, type AlvoL
 import { categorize } from "./match/category";
 import { couponFromPost, couponKey, couponsFromPost, isCouponMessage, type CouponInfo } from "./parse/coupons";
 import { bandOf, extractSpecs, type Band } from "./match/specs";
-import { parseOfferText } from "./parse/parser";
+import { parseOfferText, trechoDaOferta } from "./parse/parser";
 import { notaRapida } from "./score/nota";
 
 export async function notify(payload: Record<string, unknown>) {
@@ -136,7 +136,10 @@ export async function ingestRaw(input: RawInput): Promise<number | null> {
 
 async function createOffer(rawId: number, input0: RawInput): Promise<number> {
   const input = { ...input0, outboundUrl: input0.outboundUrl ? decodeTrackingUrl(input0.outboundUrl) : null };
-  const parsed = parseOfferText(input.text);
+  // Post com vários produtos: o preço vem do bloco do produto do título; o cupom do post vale para todos.
+  const trecho = trechoDaOferta(input.text, input.title);
+  const parsed = parseOfferText(trecho ?? input.text);
+  if (trecho && !parsed.coupon) parsed.coupon = parseOfferText(input.text).coupon;
   const { alvo, specs, band } = classify(input.title, await alvosDoSistema());
   const store =
     (input.outboundUrl && storeForUrl(input.outboundUrl)) || (input.storeName ? storeByName(input.storeName) : null);

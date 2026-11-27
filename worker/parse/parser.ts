@@ -21,7 +21,7 @@ export type ParsedOffer = {
   links: string[];
 };
 
-type Role = "cash" | "card" | "ship" | "none";
+type Role = "cash" | "card" | "ship" | "off" | "none";
 type Price = { cents: number; index: number; end: number; role: Role };
 
 const MONEY = String.raw`R\$\s*(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+\.\d{2}(?!\d)|\d+(?:,\d{1,2})?)`;
@@ -36,6 +36,11 @@ const CARTAO_NO_POST = /\b(no|em|via|pelo)\s+cartao\b|\bem ate \d{1,2}\s*x\b|\bp
 const CASH_BEFORE = /(pix|a vista|boleto)\s*[:\-–]?\s*$/;
 const CARD_BEFORE = /(cartao|credito|parcelado)\s*[:\-–]?\s*$/;
 const SHIP_BEFORE = /frete\s*(de|:|por)?\s*$/;
+// Quanto se economiza, não o preço: "Por R$ 271 (-R$ 39,58)", "economize R$ 50", "R$ 30 OFF" (27/11).
+// O sinal de menos colado no R$ ("-R$ 39" ou "(- R$ 39)"); "R$ 1.599 - R$ 1.007" (de / por) continua valendo.
+const OFF_BEFORE = /(economi[zs]e|economia( de)?|desconto( de)?)\s*$/;
+const MENOS_COLADO = /(\(\s*[-−–]\s*|[-−–])$/;
+const OFF_AFTER = /^\s*(off|de desconto|a menos)\b/;
 
 function findPrices(text: string): Price[] {
   const out: Price[] = [];
@@ -49,6 +54,7 @@ function findPrices(text: string): Price[] {
     const before = normalize(text.slice(Math.max(0, index - 14), index).split("\n").pop() ?? "");
     let role: Role = "none";
     if (SHIP_BEFORE.test(before)) role = "ship";
+    else if (OFF_BEFORE.test(before) || OFF_AFTER.test(after) || MENOS_COLADO.test(text.slice(Math.max(0, index - 4), index))) role = "off";
     else if (CASH_AFTER.test(after)) role = "cash";
     else if (CARD_AFTER.test(after)) role = "card";
     else if (CASH_BEFORE.test(before)) role = "cash";
@@ -56,6 +62,20 @@ function findPrices(text: string): Price[] {
     out.push({ cents, index, end, role });
   }
   return out;
+}
+
+/**
+ * Post com vários produtos ("Fontes · menor preço por modelo": um bloco com preço, nome e link para cada um): o trecho do
+ * produto escolhido como título, para o preço sair dele e não do último produto da lista (27/11: a fonte 650W saiu com
+ * o preço da 1600W, R$ 2.549). null quando o post é de um produto só ou o título não está num bloco com preço.
+ */
+export function trechoDaOferta(text: string, title: string): string | null {
+  const blocos = text.split(/\n\s*\n/).filter((b) => b.trim());
+  if (blocos.filter((b) => /https?:\/\//.test(b)).length < 2) return null;
+  const alvo = normalize(title).replace(/[^a-z0-9]+/g, " ").trim().slice(0, 40);
+  if (alvo.length < 8) return null;
+  const bloco = blocos.find((b) => normalize(b).replace(/[^a-z0-9]+/g, " ").includes(alvo));
+  return bloco && findPrices(bloco).some((p) => p.role !== "off") ? bloco : null;
 }
 
 export function parseOfferText(input: string): ParsedOffer {

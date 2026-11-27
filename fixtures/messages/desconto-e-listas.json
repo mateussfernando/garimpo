@@ -1,0 +1,17 @@
+[
+  {
+    "nome": "economia entre parênteses não é o preço",
+    "texto": "🤓🔥 OFERTAS PC GAMER · -12%\n\n⚡ Fonte Montech Beta 2, 850W, Preto - BETA2850W\n\n📉 Média 30d: R$ 311\n✅ Por R$ 271 (-R$ 39,58)\n\n🎟 Cupom: POTENTEDEMAIS\n\n🛒 https://ofertou.ai/yoKG-Kabum",
+    "espera": { "priceCardCents": 27100, "coupon": "POTENTEDEMAIS" }
+  },
+  {
+    "nome": "economize R$ não é o preço",
+    "texto": "SSD Kingston NV3 1TB por R$ 399 (economize R$ 120)\nhttps://www.kabum.com.br/produto/1",
+    "espera": { "priceCardCents": 39900 }
+  },
+  {
+    "nome": "traço com espaço entre dois preços não vira desconto",
+    "texto": "Monitor LG 24 R$ 899,00 - R$ 649,00\nhttps://www.kabum.com.br/produto/2",
+    "espera": { "priceCardCents": 64900 }
+  }
+]

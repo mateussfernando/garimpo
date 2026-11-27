@@ -70,6 +70,24 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 27/11/2026, 08:30 · Deploy: Supabase (São Paulo) + Vercel, worker neste PC
+
+- **Feito (docs/deploy.md):**
+  - Projeto Supabase `garimpo` (ref `enbhxxbenrxnpwcgqaqx`, sa-east-1, plano Free, US$ 0), criado pelo MCP do Supabase. Senha definida pelo usuário no painel. Os poolers ficam em `aws-1-sa-east-1.pooler.supabase.com`, com o mesmo endereço e usuário: 5432 = sessão, 6543 = transação.
+  - `pnpm db:deploy` (14 migrações) e `pnpm db:travas` ("Tudo trancado") no Supabase. Avisos do Supabase: só INFO ("RLS sem política" em 36 tabelas, que é o esperado; 11 chaves estrangeiras sem índice).
+  - `pnpm db:copiar-supabase`, com o worker parado: 32 tabelas com as mesmas contagens nos dois bancos (37.631 ofertas, 5 usuários), as 24 sequências em dia e as travas conferidas de novo. Dump em `~/garimpo-backups/garimpo-dados-20261127-0738-para-supabase.dump` (o de antes do deploy é o `garimpoi-20261127-0703-antes-do-deploy.dump`).
+  - `.env` deste PC: `DATABASE_URL` = Session pooler; a linha do banco local ficou comentada (é a volta).
+  - Site na Vercel em `https://garimpo-ashen.vercel.app`, branch `main`, com as variáveis da tabela do docs/deploy.md.
+  - Skills do Supabase instaladas no projeto (`npx skills add supabase/agent-skills`: `.claude/skills/supabase*` e `skills-lock.json`), a pedido do usuário. Só texto, sem scripts. Ficaram fora deste commit.
+- **Decisão: o worker não reclassifica ao ligar (`REMATCH_AO_LIGAR`).** Com o banco no Supabase, cada ida e volta leva ~68 ms, e o `rematchOffers` das 18.778 ofertas de 7 dias levaria cerca de 3 h, com o Telegram parado esperando. Agora ele só roda ao ligar com `REMATCH_AO_LIGAR=1` (depois de mudar o parser ou `config/alvos.ts`). Mudar Alvos pelo site continua reclassificando, mas leva minutos no Supabase.
+- **Pendente:**
+  - Login com o Google na Vercel: dava `redirect_uri_mismatch`. O site manda o endereço certo (`https://garimpo-ashen.vercel.app/api/auth/callback/google`); falta pôr esse endereço e a origem no cliente OAuth do Google Cloud.
+  - Tempo real na Vercel: as ofertas passaram a aparecer sem recarregar, mas nas conferências o Supabase não mostrou a escuta `LISTEN garimpo` do site, só as do worker. Pode ser a reconexão do SSE a cada poucos minutos, e não o aviso na hora. Conferir quanto tempo uma oferta leva para aparecer e, se for em levas, olhar os logs do `/api/stream` na Vercel.
+  - A conferência de ofertas no worker ficou lenta (de 20 a 200 s com fila), pela distância até o banco.
+  - Reclassificação de Alvos pelo site (`rematchOffers` e `rematchPessoal`) faz uma consulta por oferta: lenta no Supabase. Vale juntar em lote depois da Black Friday.
+  - O conector MCP no claude.ai (docs/mcp.md), agora que o site está publicado.
+- **Como testar:** `pnpm worker` mostra "reclassificação ao ligar desligada" e "worker ok". Abrir `https://garimpo-ashen.vercel.app`: a Vitrine aparece como visitante; entrar com e-mail e senha; ofertas novas chegam. Voltar ao banco local = descomentar a linha antiga do `DATABASE_URL` e religar o worker.
+
 ### 27/11/2026 · MCP do Garimpo (local e pela internet)
 
 - **Pedido do usuário:** o Claude conversar com o Garimpo pelo protocolo MCP. Escolhas dele: nos dois jeitos (local e no site), ler e mudar o básico, com o SDK oficial (`@modelcontextprotocol/sdk`, dependência aprovada).

@@ -36,10 +36,17 @@ async function main() {
     process.exit(1);
   }
   await ensureSeed();
-  const rm = await rematchOffers();
-  console.log(
-    `[alvos] ${rm.total} ofertas reclassificadas (${rm.changed} mudaram de Alvo ou faixa no sistema, ${rm.pessoais} nos Alvos das contas), ${rm.bands} faixas com referência recalculada`,
-  );
+  // Reclassificar as ofertas de 7 dias ao ligar só quando pedido (REMATCH_AO_LIGAR=1, depois de mudar as regras do
+  // parser ou dos Alvos no código). Com o banco no Supabase são milhares de idas e voltas de ~70 ms: horas com o
+  // Telegram parado esperando (27/11). Mudança de Alvo pelo site continua reclassificando (listenAlvos).
+  if (process.env.REMATCH_AO_LIGAR === "1") {
+    const rm = await rematchOffers();
+    console.log(
+      `[alvos] ${rm.total} ofertas reclassificadas (${rm.changed} mudaram de Alvo ou faixa no sistema, ${rm.pessoais} nos Alvos das contas), ${rm.bands} faixas com referência recalculada`,
+    );
+  } else {
+    console.log("[alvos] reclassificação ao ligar desligada (REMATCH_AO_LIGAR=1 no .env para ligar)");
+  }
   await listenAlvos();
   await listenFontes();
   // Pausas pedidas pelos sites antes deste reinício continuam valendo.

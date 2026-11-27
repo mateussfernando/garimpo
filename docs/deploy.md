@@ -17,7 +17,7 @@
 
 ## Passo 0. Antes de começar (neste PC)
 
-1. Tudo commitado e enviado ao GitHub (`git status` limpo, branch `deploy-v2` no `origin`).
+1. Tudo commitado e enviado ao GitHub (`git status` limpo, branch `main` no `origin`).
 2. Conferir que o build de produção passa: `pnpm build`.
 3. Backup do banco local: `pnpm db:backup antes-do-deploy` (vai para `~/garimpo-backups`).
 
@@ -31,11 +31,11 @@
    - **Plan:** Free.
 3. Espere o projeto ficar pronto (1 a 2 minutos).
 4. Clique em **Connect** (no topo do projeto). Na aba de connection string, copie duas URLs e troque `[YOUR-PASSWORD]` pela senha:
-   - **Session pooler** (porta **5432**): `postgresql://postgres.<ref>:SENHA@aws-0-sa-east-1.pooler.supabase.com:5432/postgres`
+   - **Session pooler** (porta **5432**): `postgresql://postgres.<ref>:SENHA@aws-1-sa-east-1.pooler.supabase.com:5432/postgres`
      Serve para o worker, para as migrações, para a cópia dos dados e para o tempo real do site.
-   - **Transaction pooler** (porta **6543**): `postgresql://postgres.<ref>:SENHA@aws-0-sa-east-1.pooler.supabase.com:6543/postgres`
+   - **Transaction pooler** (porta **6543**): `postgresql://postgres.<ref>:SENHA@aws-1-sa-east-1.pooler.supabase.com:6543/postgres`
      Serve só para as consultas do site na Vercel.
-   A "Direct connection" (`db.<ref>.supabase.co`) não serve: no plano grátis ela é só IPv6.
+   A "Direct connection" (`db.<ref>.supabase.co`) não serve: no plano grátis ela é só IPv6. O Session e o Transaction pooler têm o mesmo endereço e o mesmo usuário: só a porta muda. O servidor (`aws-0` ou `aws-1`) é o que o botão **Connect** mostra.
 5. Opcional, mais seguro: em **Project Settings → Data API**, desligue a Data API. O Garimpo não usa, e as tabelas já ficam trancadas para ela de qualquer jeito (RLS e `pnpm db:travas`).
 
 ## Passo 2. Criar as tabelas no Supabase
@@ -52,7 +52,7 @@ No PowerShell, na pasta do projeto, rode as migrações apontando para o Supabas
 $env:DATABASE_URL = (Select-String -Path .env -Pattern '^SUPABASE_URL=(.*)$').Matches[0].Groups[1].Value; pnpm db:deploy; pnpm db:travas; Remove-Item Env:DATABASE_URL
 ```
 
-Tem que terminar com as 12 migrações aplicadas e "Tudo trancado: RLS em todas as tabelas e nenhuma permissão para anon/authenticated".
+Tem que terminar com todas as migrações de `prisma/migrations` aplicadas (14 em 27/11) e "Tudo trancado: RLS em todas as tabelas e nenhuma permissão para anon/authenticated".
 
 ## Passo 3. Copiar os dados deste PC para o Supabase
 
@@ -82,6 +82,8 @@ Ligue o worker de novo (`pnpm worker`). Em 1 a 2 minutos o Telegram volta a ler 
 
 > O worker precisa do modo **sessão** (5432): ele usa LISTEN para receber os comandos do site.
 
+> Ao ligar, o worker **não** reclassifica mais as ofertas de 7 dias (no Supabase são milhares de idas e voltas de ~70 ms: horas com o Telegram parado). Depois de mudar o parser ou `config/alvos.ts`, ligue uma vez com `REMATCH_AO_LIGAR=1` no `.env`.
+
 ## Passo 5. Publicar o site na Vercel
 
 1. Entre em https://vercel.com com o GitHub.
@@ -102,7 +104,7 @@ Ligue o worker de novo (`pnpm worker`). Em 1 a 2 minutos o Telegram volta a ler 
    **Não** ponha: `TELEGRAM_*`, `CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`, `WORKER_ROLES`, `PORT`, `PG_BIN`, `SUPABASE_URL`.
 5. **Deploy.** Espere o build (uns 2 a 4 minutos).
 6. Em **Settings → Functions → Function Region**, escolha **São Paulo, Brazil (gru1)**, perto do banco, e faça **Redeploy**.
-7. A Vercel publica em produção o branch padrão do GitHub (`main`). Enquanto o trabalho estiver no `deploy-v2`, troque o branch de produção em **Settings → Environments → Production** (ou junte o `deploy-v2` no `main`).
+7. A Vercel publica em produção o branch padrão do GitHub (`main`).
 
 ## Passo 6. Acertar o endereço do login
 

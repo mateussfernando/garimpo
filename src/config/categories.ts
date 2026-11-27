@@ -12,11 +12,22 @@ export type CategorySeed = {
 
 export const CATEGORIES: CategorySeed[] = [
   {
+    // Pedido do usuário (27/11): notebooks saem de Informática e ganham categoria própria.
+    slug: "notebooks",
+    name: "Notebooks",
+    aliases: ["notebook", "laptop", "macbook"],
+    terms: [
+      "notebook", "macbook", "chromebook", "laptop", "ultrabook", "ideapad", "thinkpad", "thinkbook", "vivobook", "zenbook", "expertbook",
+      "inspiron", "vostro", "galaxy book", "galaxy book2", "galaxy book3", "galaxy book4", "galaxy book5","acer aspire", "nitro v", "nitro v15", "nitro v16", "nitro 5", "legion slim", "victus",
+      "tuf gaming f15", "tuf gaming f16", "tuf gaming a15", "tuf gaming a16",
+    ],
+  },
+  {
     slug: "informatica",
     name: "Informática",
     aliases: ["pc", "computador", "periferico", "perifericos", "hardware"],
     terms: [
-      "notebook", "macbook", "chromebook", "laptop", "ultrabook", "mac mini", "imac", "computador", "pc gamer", "desktop", "all in one",
+      "mac mini", "imac", "computador", "pc gamer", "desktop", "all in one",
       "monitor", "ssd", "nvme", "hd externo", "hd interno", "hd sata", "disco rigido", "memoria ram", "memoria ddr4", "memoria ddr5", "pendrive", "pen drive",
       "cartao de memoria", "cartao micro sd", "micro sd", "placa de video", "placa mae", "processador", "gabinete", "fonte atx", "water cooler",
       "cooler", "mouse", "mousepad", "mouse pad", "deskpad", "teclado", "webcam", "hub usb", "hub", "dock", "roteador", "repetidor", "mesh",

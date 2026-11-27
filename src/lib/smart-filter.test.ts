@@ -12,7 +12,7 @@ describe("busca inteligente da Vitrine", () => {
   });
 
   it("entende faixa de preço com mil, k e R$", () => {
-    expect(parseQuery("notebook entre 3 mil e 5 mil sem juros")).toMatchObject({ terms: ["notebook"], minCents: 300000, maxCents: 500000, noInterest: true });
+    expect(parseQuery("notebook entre 3 mil e 5 mil sem juros")).toMatchObject({ category: "notebooks", minCents: 300000, maxCents: 500000, noInterest: true });
     expect(parseQuery("celular acima de R$ 1.500")).toMatchObject({ category: "celulares", minCents: 150000 });
     expect(parseQuery("fone até 2k")).toMatchObject({ category: "audio", maxCents: 200000 });
   });

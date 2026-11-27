@@ -42,7 +42,13 @@ describe("categorias", () => {
     expect(categorize("Por R$ 1.226: Smart TV 43 AOC Full HD DLED Roku 2025")).toBe("tv-video");
     expect(categorize("Fritadeira Elétrica Sem Óleo Air Fryer 5.5L Gaabor")).toBe("cozinha");
     expect(categorize("Por R$ 39,90: [Vip] Panettone Lindt Trufado ao Leite 410g")).toBe("mercado");
-    expect(categorize("LENOVO IDEAPAD SLIM 3 (RYZEN 5 7535HS/ 512 GB SSD)")).toBe("informatica");
+    expect(categorize("LENOVO IDEAPAD SLIM 3 (RYZEN 5 7535HS/ 512 GB SSD)")).toBe("notebooks");
+    expect(categorize("Notebook Asus Tuf Gaming F16 Rtx 4050")).toBe("notebooks");
+    expect(categorize("ASUS TUF Gaming F16 Intel Core 5, RTX 4050, 8 GB, 512 GB SSD")).toBe("notebooks");
+    expect(categorize("Samsung Galaxy Book4 Intel Core i5 8GB 512GB")).toBe("notebooks");
+    expect(categorize("Mochila para Notebook 15,6 Samsonite")).toBe("moda");
+    expect(categorize("Placa Mae Asus TUF Gaming B650M-Plus")).toBe("informatica");
+    expect(categorize("Monitor Gamer LG UltraGear 27 180Hz")).toBe("informatica");
     expect(categorize("APPLE WATCH SE 3 (GPS) (44 mm)")).toBe("relogios");
     expect(categorize("Por R$ 3.725: PlayStation 5 Digital 825GB 1 Controle Branco")).toBe("games");
     expect(categorize("Suporte para TV articulado 32 a 75")).toBe("tv-video");

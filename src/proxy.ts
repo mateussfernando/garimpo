@@ -5,7 +5,8 @@ import type { NextRequest } from "next/server";
 // Checagem rápida (otimista) em toda página e rota: sem o cookie de sessão, página vai para a Vitrine com o popup de entrar e /api responde 401.
 // A checagem de verdade (sessão válida no banco, cargo e permissões) fica em src/lib/sessao.ts, perto dos dados.
 // O worker não passa por aqui: fala direto com o banco.
-const PUBLICAS = ["/api/auth/"];
+// /api/acesso: o "estou aqui" de cada aba, também do visitante (a rota confere a origem e tem freio próprio).
+const PUBLICAS = ["/api/auth/", "/api/acesso"];
 // Abertos a quem não tem conta, só para LER (GET): a Vitrine, o Detalhe, os Cupons e o que as telas leem deles. Quem pode
 // ver o quê é o cargo "Visitante" (src/lib/sessao.ts); mudar algo, vigiar, Alvos e o resto continuam pedindo conta.
 const ABERTAS_PARA_LER = ["/", "/cupons", "/oferta/", "/api/offers", "/api/cupons", "/api/status", "/api/me"];

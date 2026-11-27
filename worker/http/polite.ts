@@ -258,19 +258,35 @@ export async function politeFetch(
   return res;
 }
 
+type UnshortenOpts = {
+  /** Para antes de abrir este endereço (ex.: já é a página de uma loja conhecida: quem abre é a conferência). */
+  pararEm?: (url: string) => boolean;
+  /** Lê o destino embutido no link, sem rede (ex.: a URL da loja no parâmetro de uma rede de afiliados). */
+  decodificar?: (url: string) => string;
+  /** Acha o link da loja dentro da página de um site de promoção. */
+  linkNaPagina?: (url: string, html: string) => string | null;
+};
+
 /** Segue redirecionamentos um a um (no máximo 5 saltos), cada salto com a fila do seu domínio. */
-export async function unshorten(url: string, maxHops = 5): Promise<string> {
-  let current = url;
+export async function unshorten(url: string, maxHops = 5, opts: UnshortenOpts = {}): Promise<string> {
+  const proximo = (u: string) => (opts.decodificar ? opts.decodificar(u) : u);
+  let current = proximo(url);
   for (let i = 0; i < maxHops; i++) {
+    if (opts.pararEm?.(current)) break;
     const res = await politeFetch(current, { redirect: "manual", ttlMs: 6 * 60 * 60 * 1000 });
     if (res.status >= 300 && res.status < 400 && res.location) {
-      current = new URL(res.location, current).toString();
+      current = proximo(new URL(res.location, current).toString());
+      continue;
+    }
+    const naPagina = opts.linkNaPagina?.(current, res.body);
+    if (naPagina && i < maxHops - 1) {
+      current = proximo(naPagina);
       continue;
     }
     // Alguns encurtadores redirecionam por meta refresh ou JS simples.
     const meta = res.body.match(/http-equiv=["']?refresh["']?[^>]*url=([^"'>\s]+)/i) ?? res.body.match(/window\.location(?:\.href)?\s*=\s*["']([^"']+)["']/);
     if (meta && i < maxHops - 1) {
-      current = new URL(meta[1].replace(/&amp;/g, "&"), current).toString();
+      current = proximo(new URL(meta[1].replace(/&amp;/g, "&"), current).toString());
       continue;
     }
     break;

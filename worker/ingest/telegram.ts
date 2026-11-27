@@ -9,7 +9,7 @@
 //    se um evento se perder, a mensagem entra na próxima passada.
 // 4. Oferta que vem daqui é conferida na loja na hora (via rápida), sem esperar a fila.
 import { Client } from "pg";
-import { TelegramClient } from "telegram";
+import { Api, TelegramClient } from "telegram";
 import { NewMessage, type NewMessageEvent } from "telegram/events";
 import { StringSession } from "telegram/sessions";
 import { hostOf } from "@/config/stores";
@@ -17,6 +17,8 @@ import { isOffTopicGroup, isPromoGroup } from "@/config/telegram-filter";
 import { CMD_CHANNEL, pgConfig } from "@/lib/db";
 import { TelegramCmdSchema, lerComando } from "../comandos";
 import { prisma } from "@/lib/db/prisma";
+import { codigoDoConvite, normalizarConvite, porQueNaoAbre } from "@/lib/convites";
+import { CONVITES_DENTRO_KEY, CONVITES_RECUSADOS_KEY, getSetting, setSetting } from "@/lib/settings";
 import { asJson, json } from "@/lib/db/types";
 import type { SourceStats } from "@/lib/db/types";
 import { alvosDoSistema, ingestRaw, notify } from "../pipeline";
@@ -67,7 +69,8 @@ const freshStats = (lastId = 0): SourceStats => ({ day: today(), read: 0, withLi
 
 /** Guarda convites (t.me, chat.whatsapp.com) vistos nas mensagens. O app nunca entra sozinho em nenhum. */
 async function saveInvites(text: string, ownUsername: string | null, from: string | null) {
-  const found = new Set((text.match(INVITE_RE) ?? []).map((l) => l.replace(/^https?:\/\//i, "").toLowerCase()));
+  // O código de convite privado diferencia maiúsculas (até 25/11 era gravado em minúsculas e não abria).
+  const found = new Set<string>((text.match(INVITE_RE) ?? []).map(normalizarConvite));
   for (const link of found) {
     if (/^t\.me\/(c|s)\//.test(link) || (ownUsername && link === `t.me/${ownUsername.toLowerCase()}`)) continue;
     const kind = link.startsWith("t.me") ? "telegram" : "whatsapp";
@@ -240,7 +243,51 @@ export async function startTelegram() {
         }
       }
     }
+    void conferirConvitesPrivados().catch((e) => console.error("[telegram] erro ao conferir convites:", (e as Error).message));
     return { on, off };
+  }
+
+  /**
+   * Convites privados (t.me/+…, t.me/joinchat/…) vistos nas mensagens: a conta já está nesse grupo? Pergunta ao
+   * Telegram com messages.CheckChatInvite, que só consulta (nunca entra). Cada convite é conferido no máximo
+   * uma vez por dia. Os que a conta já tem vão para app_settings, e a tela Fontes não os mostra.
+   */
+  const conferidoEm = new Map<string, number>();
+  async function conferirConvitesPrivados() {
+    const convites = await prisma.invite.findMany({
+      where: { dismissed: false, kind: "telegram", lastSeenAt: { gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) } },
+      select: { link: true },
+    });
+    const dentro = new Set((await getSetting<string[]>(CONVITES_DENTRO_KEY))?.value ?? []);
+    const recusados = new Set((await getSetting<string[]>(CONVITES_RECUSADOS_KEY))?.value ?? []);
+    let mudou = false;
+    let mudouRecusados = false;
+    for (const { link } of convites) {
+      const hash = codigoDoConvite(link);
+      // Sem código, já recusado ou gravado sem as maiúsculas: não adianta perguntar ao Telegram.
+      if (!hash || porQueNaoAbre(link, recusados) || Date.now() - (conferidoEm.get(link) ?? 0) < 24 * 60 * 60 * 1000) continue;
+      conferidoEm.set(link, Date.now());
+      try {
+        const r = await client.invoke(new Api.messages.CheckChatInvite({ hash }));
+        const ja = r.className === "ChatInviteAlready";
+        if (ja !== dentro.has(link)) {
+          if (ja) dentro.add(link);
+          else dentro.delete(link);
+          mudou = true;
+        }
+      } catch (e) {
+        // Vencido ou inexistente: vai para "Não abrem" na tela. Outro erro (FLOOD_WAIT, rede) fica para o dia seguinte.
+        if (/INVITE_HASH_(INVALID|EXPIRED)/.test((e as Error).message ?? "")) {
+          recusados.add(link);
+          mudouRecusados = true;
+        }
+      }
+    }
+    if (mudouRecusados) await setSetting(CONVITES_RECUSADOS_KEY, [...recusados]);
+    if (mudou || mudouRecusados) {
+      if (mudou) await setSetting(CONVITES_DENTRO_KEY, [...dentro]);
+      await notify({ type: "source" });
+    }
   }
 
   /** Grava os contadores dos canais que mudaram e avisa as telas. */

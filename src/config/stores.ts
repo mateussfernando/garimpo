@@ -166,6 +166,29 @@ export function storeByName(name: string): Store | null {
   );
 }
 
+/**
+ * Sites de promoção cuja página da oferta tem o link para a loja (o robots.txt deles libera essas páginas).
+ * O worker abre a página uma vez, acha o link e segue até a loja. Achado de 25/11: ofertas.canaltech.com.br
+ * (140 ofertas por semana sem loja) manda para canalte.ch, que redireciona direto para a loja.
+ */
+const LINK_NA_PAGINA: { host: string; link: RegExp }[] = [
+  { host: "ofertas.canaltech.com.br", link: /https:\/\/canalte\.ch\/op2\/[A-Za-z0-9]+/ },
+  { host: "boletando.com", link: /https:\/\/boletando\.com\/ir\/\d+\/?/ },
+];
+
+/** O link para a loja dentro da página de um site de promoção conhecido; null se não for um deles ou não achar. */
+export function linkDaLojaNaPagina(url: string, html: string): string | null {
+  const host = hostOf(url);
+  const site = LINK_NA_PAGINA.find((s) => s.host === host);
+  return site ? (html.match(site.link)?.[0] ?? null) : null;
+}
+
+/** Encurtador, rede de afiliados ou site de promoção: o link é seguido até a loja, não é uma loja. */
+export function isLinkDeOutroSite(url: string): boolean {
+  const host = hostOf(url);
+  return isShortener(url) || (host != null && LINK_NA_PAGINA.some((s) => s.host === host));
+}
+
 export function isShortener(url: string): boolean {
   const host = hostOf(url);
   if (!host) return false;
@@ -179,6 +202,19 @@ export function isShortener(url: string): boolean {
 export function decodeTrackingUrl(url: string): string {
   try {
     const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, "");
+    // Awin (rede de afiliados, por onde o tidd.ly passa): a loja vem no parâmetro "ued". O robots.txt da Awin não
+    // deixa abrir o cread.php, e nem precisa: a URL da loja já está no link (achado de 25/11, 108 ofertas por semana).
+    if (/(^|\.)awin1\.com$/.test(host) && u.pathname.startsWith("/cread.php")) {
+      const ued = u.searchParams.get("ued");
+      return ued && /^https?:\/\//i.test(ued) ? ued : url;
+    }
+    // Boletando: a página da oferta (…/?oferta=274687) tem o botão "ir para a loja" em /ir/274687/, que o robots.txt
+    // libera e redireciona para a loja. O número já está no link: vai direto, sem abrir a página.
+    if (host === "boletando.com" && !u.pathname.startsWith("/ir/")) {
+      const n = u.searchParams.get("oferta");
+      return n && /^\d+$/.test(n) ? `https://boletando.com/ir/${n}/` : url;
+    }
     if (u.hostname !== "dpl.pelando.com.br" || !u.pathname.startsWith("/r/")) return url;
     const payload = u.pathname.slice(3).split(".")[1];
     if (!payload) return url;

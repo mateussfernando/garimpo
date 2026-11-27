@@ -3,6 +3,7 @@ import { STORES } from "@/config/stores";
 import { prisma } from "@/lib/db/prisma";
 import { asJson, type EventDetail } from "@/lib/db/types";
 import { cleanTitle } from "@/lib/offers";
+import { getJanelaHoras } from "@/lib/janela";
 import { exigir, pode } from "@/lib/sessao";
 import { HORA, atras } from "@/lib/tempo";
 
@@ -24,11 +25,11 @@ export async function GET() {
   await connection();
   const eu = await exigir("ofertas.ver");
   if (eu instanceof Response) return eu;
-  // Os acontecimentos da conta só das últimas 48 h (a janela da Vitrine) e só de ofertas que ainda estão num Alvo ligado e
+  // Os acontecimentos da conta só da janela da Vitrine (48 h por padrão) e só de ofertas que ainda estão num Alvo ligado e
   // não apagado dela: apagar ou desligar um Alvo tira da faixa o que ele gerou (o histórico fica no banco). Para quem vê o
   // sistema, também o "canal novo" (grupo do Telegram achado).
   const sistema = pode(eu, "sistema.ver");
-  const desde = atras(48 * HORA);
+  const desde = atras((await getJanelaHoras()) * HORA);
   const daConta = {
     userId: eu.id,
     at: { gte: desde },

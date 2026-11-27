@@ -1,4 +1,4 @@
-import { STORES, cleanUrl, decodeTrackingUrl, isShortener, productIdFor, storeForUrl } from "@/config/stores";
+import { STORES, cleanUrl, decodeTrackingUrl, isShortener, linkDaLojaNaPagina, productIdFor, storeForUrl } from "@/config/stores";
 import type { Offer } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { jsonOrNull, type OfferExtra } from "@/lib/db/types";
@@ -123,6 +123,21 @@ function robotsSkip(slug: string): boolean {
   return ++robotsProbe % 20 !== 0;
 }
 
+/**
+ * Do link do post até o endereço da loja: segue encurtadores (um salto por vez, com a fila e o robots.txt de cada
+ * site), lê a loja embutida em links de afiliado e acha o link dentro da página de sites de promoção. Para assim que
+ * chega numa loja conhecida: abrir a página da loja é com a conferência.
+ */
+export async function seguirAteALoja(url: string, { soALoja = false } = {}): Promise<string> {
+  const final = await unshorten(url, 5, {
+    // soALoja: basta saber a loja (o encurtador da própria loja, como meli.la ou amzn.to, já diz qual é).
+    pararEm: (u) => !!storeForUrl(u) && (soALoja || !isShortener(u)),
+    decodificar: decodeTrackingUrl,
+    linkNaPagina: linkDaLojaNaPagina,
+  });
+  return cleanUrl(final);
+}
+
 /** Abre a página da loja uma vez e confere preço no cartão e no Pix, parcelas, frete, estoque e foto. */
 export async function verifyOffer(o: Offer): Promise<void> {
   if (inFlight.has(o.id)) return;
@@ -152,7 +167,7 @@ async function verifyInner(o: Offer) {
   const guess = storeForUrl(decoded) ?? (o.store ? STORES.find((s) => s.slug === o.store) ?? null : null);
   if (guess && robotsSkip(guess.slug)) return markNotVerified(o, "o robots.txt da loja não permite (pulado sem abrir)");
   try {
-    const finalUrl = cleanUrl(await unshorten(start));
+    const finalUrl = await seguirAteALoja(start);
     const store = storeForUrl(finalUrl);
     if (!store) {
       // Fora de config/stores.ts = suspeito: não abre a página.
@@ -169,6 +184,9 @@ async function verifyInner(o: Offer) {
       await prisma.offer.update({ where: { id: o.id }, data: { url: finalUrl, store: store.slug } });
       return markNotVerified(o, NOT_PRODUCT);
     }
+    // A loja já é conhecida: grava antes de abrir a página. Se a loja pedir pausa ou o robots.txt barrar, a oferta
+    // fica com a loja certa (e na Vitrine principal), só "não conferida", em vez de voltar a ser "loja desconhecida".
+    if (o.store !== store.slug || o.url !== finalUrl) await prisma.offer.update({ where: { id: o.id }, data: { url: finalUrl, store: store.slug } });
     const page = await politeFetch(finalUrl);
     if (page.status >= 400) return markNotVerified(o, `a loja respondeu ${page.status}`);
 
@@ -251,6 +269,8 @@ async function verifyInner(o: Offer) {
     if (err instanceof RobotsError) {
       const blocked = storeForUrl(err.url);
       if (blocked && !isShortener(err.url)) noteRobots(blocked.slug, false);
+      // O link chegou numa loja conhecida que não deixa abrir a página: a oferta fica com a loja, só não conferida.
+      if (blocked && !o.store) await prisma.offer.update({ where: { id: o.id }, data: { store: blocked.slug } });
       return markNotVerified(o, "o robots.txt da loja não permite");
     }
     return markNotVerified(o, `falhou: ${(err as Error).message.slice(0, 120)}`);

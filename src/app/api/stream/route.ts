@@ -10,7 +10,9 @@ export async function GET(request: Request) {
   await connection();
   const eu = await exigir("ofertas.ver");
   if (eu instanceof Response) return eu;
-  const client = new Client(pgConfig());
+  // LISTEN precisa de uma conexão que fica com a gente (modo sessão). Na Vercel o DATABASE_URL é o pooler em modo
+  // transação (porta 6543), que não escuta: lá DATABASE_LISTEN_URL aponta para o pooler em modo sessão (porta 5432).
+  const client = new Client(pgConfig(process.env.DATABASE_LISTEN_URL || process.env.DATABASE_URL));
   await client.connect();
   await client.query(`LISTEN ${NOTIFY_CHANNEL}`);
 

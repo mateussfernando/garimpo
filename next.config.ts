@@ -1,4 +1,14 @@
+import { networkInterfaces } from "node:os";
 import type { NextConfig } from "next";
+
+// O site em modo dev também abre de outro PC ou do celular da rede de casa (http://<endereço deste PC>:3333).
+// Sem isto o Next barra os arquivos do dev para quem não é localhost e a página fica sem funcionar.
+// Mesma regra de src/lib/rede-local.ts (este arquivo não importa do src): só os endereços deste PC.
+const IP_DA_REDE = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/;
+const ipsDaRede = Object.values(networkInterfaces())
+  .flat()
+  .filter((i) => i && i.family === "IPv4" && !i.internal && IP_DA_REDE.test(i.address))
+  .map((i) => i!.address);
 
 // Cabeçalhos de segurança em toda resposta (páginas e API).
 const SEGURANCA = [
@@ -22,6 +32,7 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   // Não anuncia que é Next.js (e a versão) em cada resposta.
   poweredByHeader: false,
+  allowedDevOrigins: ipsDaRede,
   async headers() {
     return [{ source: "/:path*", headers: SEGURANCA }];
   },

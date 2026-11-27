@@ -7,7 +7,7 @@ App pessoal que roda em localhost num PC só do usuário (decisão de 10/11: o s
 ## Plano acelerado (decidido em 10/11 às 18:20, vale até o fim do 11.11)
 - Nada de coleta rodando sozinha: sem coleta diária, sem agendamento e sem pg-boss hoje. Só a verificação ao vivo de cada oferta que chega, numa fila em memória por domínio, com as mesmas regras de coleta educada.
 - O WhatsApp fica fora hoje. O Telegram ENTRA no 11.11 (decidido em 10/11 às 21:10): Escuta só leitura com GramJS na conta do usuário, papel `listen`. As outras ofertas vêm do scraping ao vivo de Pelando, Promobit, fórum do Hardmob e vitrines de ofertas das lojas, só com o app aberto.
-- Tudo roda num PC só. Não existe segundo PC como ajudante (decidido em 10/11). A Vitrine ainda abre pela rede local (next dev -H 0.0.0.0), só para olhar.
+- Tudo roda num PC só. Não existe segundo PC como ajudante (decidido em 10/11). O site abre pela rede de casa (next dev -H 0.0.0.0) em http://<endereço do PC>:3333, com login por e-mail e senha (decisão de 26/11: `trustedOrigins` e `allowedDevOrigins` só com os endereços em número deste PC, src/lib/rede-local.ts; o Google só pelo localhost).
 - Tabelas de hoje: sources, raw_messages, offers, products, price_points, alvos, ai_usage e insights.
 - Hoje não entram Playwright, War Room, job de insights, Black Fraude nem desconto real. Use a Nota rápida do prompts/hoje/04.
 - Siga ETAPAS.md e prompts/hoje/. O resto deste arquivo volta a valer depois do 11.11.
@@ -59,6 +59,7 @@ App pessoal que roda em localhost num PC só do usuário (decisão de 10/11: o s
 ## Referências
 - DIARIO-DE-BORDO.md: estado atual, decisões tomadas, perguntas em aberto e o registro de cada sessão.
 - ETAPAS.md: as 11 etapas, com prompt, PC, horário e critério de pronto.
+- docs/deploy.md: o passo a passo do deploy (Supabase, Vercel com o site, worker no PC).
 - docs/garimpo.md: o plano completo, com o porquê de cada decisão (fontes, Nota Garimpo, IA, riscos). Leia antes de começar.
 - design/: as telas aprovadas. Main.dc.html = Vitrine (home), Detalhe.dc.html, WarRoom.dc.html, Fontes.dc.html e Lojas.dc.html. Antes de mexer em UI, leia design/README.md e design/tokens.md. Implemente em React + Tailwind + shadcn seguindo layout, cores, textos e interações; não copie o HTML.
 - prompts/: os 8 passos, na ordem. Cada um termina com "Pronto quando"; pare ali e mostre o resultado.

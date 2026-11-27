@@ -2,6 +2,7 @@ import { STORES } from "@/config/stores";
 import { prisma } from "@/lib/db/prisma";
 import { NA_VITRINE, asJson, type OfferExtra, type OfferSpecs } from "@/lib/db/types";
 import { getAiStatus, type AiStatus } from "@/lib/ai-usage";
+import { getJanelaHoras } from "@/lib/janela";
 import { estatisticas, type HistoricoDTO } from "@/lib/historico";
 import { montarNota, type NotaDetalheDTO } from "@/lib/nota";
 import { mercadoDe, notaDePartes, pontoA, type Partes } from "@/lib/nota-algoritmo";
@@ -116,13 +117,13 @@ export type OfferDTO = {
 };
 
 /**
- * A Vitrine de uma conta: as ofertas de produto de 48 h, menos as que ela descartou, com o Alvo, a nota, o preço-alvo
+ * A Vitrine de uma conta: as ofertas de produto da janela da Vitrine (48 h por padrão; o admin muda no Painel), menos as que ela descartou, com o Alvo, a nota, o preço-alvo
  * e o "Alvo atingido" dela (oferta_alvo) e as marcações dela (oferta_usuario). Sem Alvo dela na oferta, vale a nota geral.
  */
 export async function listOffers(opts: { userId: number | null; onlyId?: number; pref?: PrecoPref }): Promise<OfferDTO[]> {
   const { userId } = opts; // null = visitante: sem Alvo, sem marcações, com a nota geral
   const pref: PrecoPref = opts.pref ?? "cartao"; // o preço em destaque: a nota, o ouro e a comparação entre lojas seguem ele
-  const since = atras(48 * HORA);
+  const since = atras((await getJanelaHoras()) * HORA);
   const include = {
     analysis: true,
     source: { select: { name: true, kind: true } },

@@ -2,6 +2,7 @@
 import { STORES } from "@/config/stores";
 import { prisma } from "@/lib/db/prisma";
 import { NA_VITRINE } from "@/lib/db/types";
+import { getJanelaHoras } from "@/lib/janela";
 import { listOffers } from "@/lib/offers";
 import { pode, type Quem } from "@/lib/sessao";
 import { DIA, HORA, atras, inicioDoDia } from "@/lib/tempo";
@@ -10,7 +11,9 @@ import { contextoDe, ofertaVisivel } from "@/lib/visao";
 export type Barra = { rotulo: string; n: number };
 
 export type PainelDTO = {
-  ofertas: { em48h: number; hoje: number; conferindo: number; conferidasPct: number; semLoja: number };
+  /** A janela da Vitrine em horas: os números de ofertas, fontes e lojas são dela. */
+  janelaHoras: number;
+  ofertas: { naJanela: number; hoje: number; conferindo: number; conferidasPct: number; semLoja: number };
   ia: { analisadas24h: number; esperando: number };
   nota: { faixas: Barra[]; mistura: number; soIa: number; soAlgoritmo: number; semNota: number; comHistorico: number; cards: number };
   gente: { contas: number; ativas: number; novas7d: number; votosSim7d: number; votosNao7d: number; cliques7d: number; alvosAtingidos7d: number };
@@ -21,27 +24,28 @@ export type PainelDTO = {
 const NOMES_LOJA: Record<string, string> = Object.fromEntries(STORES.map((s) => [s.slug, s.name]));
 
 export async function getPainel(eu: Quem): Promise<PainelDTO> {
-  const desde = atras(48 * HORA);
+  const janelaHoras = await getJanelaHoras();
+  const desde = atras(janelaHoras * HORA);
   const semana = atras(7 * DIA);
-  const na48h = { kind: "produto", createdAt: { gte: desde }, ...NA_VITRINE };
+  const naJanelaWhere = { kind: "produto", createdAt: { gte: desde }, ...NA_VITRINE };
   const internos = pode(eu, "ofertas.detalhes_internos");
 
-  const [em48h, hoje, conferindo, conferidas, semLoja, analisadas24h, esperando, contas, ativas, novas7d, votos, cliques7d, atingidos7d, fontes, lojas] = await Promise.all([
-    prisma.offer.count({ where: na48h }),
-    prisma.offer.count({ where: { ...na48h, createdAt: { gte: inicioDoDia() } } }),
-    prisma.offer.count({ where: { ...na48h, verifyStatus: "pendente" } }),
-    prisma.offer.count({ where: { ...na48h, verifyStatus: "verificado" } }),
-    prisma.offer.count({ where: { ...na48h, store: null } }),
+  const [naJanela, hoje, conferindo, conferidas, semLoja, analisadas24h, esperando, contas, ativas, novas7d, votos, cliques7d, atingidos7d, fontes, lojas] = await Promise.all([
+    prisma.offer.count({ where: naJanelaWhere }),
+    prisma.offer.count({ where: { ...naJanelaWhere, createdAt: { gte: inicioDoDia() } } }),
+    prisma.offer.count({ where: { ...naJanelaWhere, verifyStatus: "pendente" } }),
+    prisma.offer.count({ where: { ...naJanelaWhere, verifyStatus: "verificado" } }),
+    prisma.offer.count({ where: { ...naJanelaWhere, store: null } }),
     prisma.offerAnalysis.count({ where: { createdAt: { gte: atras(DIA) } } }),
-    prisma.offer.count({ where: { ...na48h, analysis: null } }),
+    prisma.offer.count({ where: { ...naJanelaWhere, analysis: null } }),
     prisma.user.count(),
     prisma.user.count({ where: { isActive: true } }),
     prisma.user.count({ where: { createdAt: { gte: semana } } }),
     prisma.notaFeedback.groupBy({ by: ["voto"], where: { atualizadoEm: { gte: semana } }, _count: { _all: true } }),
     prisma.cliqueComprar.count({ where: { criadoEm: { gte: semana } } }),
     prisma.event.count({ where: { type: "alvo", at: { gte: semana } } }),
-    prisma.offer.groupBy({ by: ["sourceId"], where: na48h, _count: { _all: true }, orderBy: { _count: { sourceId: "desc" } }, take: 10 }),
-    prisma.offer.groupBy({ by: ["store"], where: na48h, _count: { _all: true }, orderBy: { _count: { store: "desc" } }, take: 10 }),
+    prisma.offer.groupBy({ by: ["sourceId"], where: naJanelaWhere, _count: { _all: true }, orderBy: { _count: { sourceId: "desc" } }, take: 10 }),
+    prisma.offer.groupBy({ by: ["store"], where: naJanelaWhere, _count: { _all: true }, orderBy: { _count: { store: "desc" } }, take: 10 }),
   ]);
 
   const fontesInfo = await prisma.source.findMany({ where: { id: { in: fontes.map((f) => f.sourceId) } }, select: { id: true, name: true, kind: true } });
@@ -64,7 +68,8 @@ export async function getPainel(eu: Quem): Promise<PainelDTO> {
   }
 
   return {
-    ofertas: { em48h, hoje, conferindo, conferidasPct: em48h ? Math.round((conferidas / em48h) * 100) : 0, semLoja },
+    janelaHoras,
+    ofertas: { naJanela, hoje, conferindo, conferidasPct: naJanela ? Math.round((conferidas / naJanela) * 100) : 0, semLoja },
     ia: { analisadas24h, esperando },
     nota: { faixas, mistura, soIa, soAlgoritmo, semNota, comHistorico: cards.filter((o) => o.historico).length, cards: cards.length },
     gente: {

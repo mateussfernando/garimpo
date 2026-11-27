@@ -22,3 +22,13 @@ export const PAUSES_KEY = "pausas";
  */
 export type ColetaState = { paused: boolean; at: number };
 export const COLETA_KEY = "coleta";
+
+/**
+ * Convites privados do Telegram (t.me/+…) de grupos em que a conta já está. O worker confere com
+ * messages.CheckChatInvite (só consulta, nunca entra) e grava aqui; a tela Fontes não mostra esses convites.
+ * Os públicos (t.me/nome) nem precisam: a tela compara com os grupos que o worker já achou na conta.
+ */
+export const CONVITES_DENTRO_KEY = "convites_dentro";
+
+/** Convites privados que o Telegram recusou no CheckChatInvite (vencidos ou inexistentes): a tela Fontes os põe em "Não abrem". */
+export const CONVITES_RECUSADOS_KEY = "convites_recusados";

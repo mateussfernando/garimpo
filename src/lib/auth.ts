@@ -9,6 +9,7 @@ import { nextCookies } from "better-auth/next-js";
 import { prisma } from "@/lib/db/prisma";
 import { tellWorker } from "@/lib/alvos";
 import { darAlvosIniciais } from "@/lib/alvos-iniciais";
+import { origensDaRede } from "@/lib/rede-local";
 
 /** O botão "Entrar com Google" só existe com as duas chaves no .env. */
 export const googleEnabled = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
@@ -16,6 +17,8 @@ export const googleEnabled = () => !!(process.env.GOOGLE_CLIENT_ID && process.en
 export const auth = betterAuth({
   appName: "Garimpo",
   // BETTER_AUTH_URL e BETTER_AUTH_SECRET vêm do .env.
+  // Também se entra pelo endereço deste PC na rede de casa (http://192.168.x.x:3333), de outro PC ou do celular.
+  trustedOrigins: origensDaRede(),
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   emailAndPassword: {
     enabled: true,

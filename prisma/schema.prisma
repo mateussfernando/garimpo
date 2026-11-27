@@ -538,3 +538,24 @@ model CliqueComprar {
   @@index([offerId])
   @@map("cliques_comprar")
 }
+
+/// Presença no site (pedido do usuário, 26/11): uma linha por pessoa por hora em que ela esteve com o site aberto e
+/// visível. Cada aba avisa "estou aqui" a cada minuto (src/components/presenca.tsx -> /api/acesso). Sem IP, sem navegador,
+/// sem página: o visitante é só um código aleatório guardado no navegador dele. Só o Painel do admin lê.
+model Acesso {
+  id         Int      @id @default(autoincrement())
+  /// "u:<id da conta>" ou "v:<código aleatório do navegador>" (visitante sem conta).
+  quem       String
+  userId     Int?     @map("user_id")
+  /// Início da hora (UTC) desta linha.
+  hora       DateTime @db.Timestamptz(6)
+  primeiraEm DateTime @default(now()) @map("primeira_em") @db.Timestamptz(6)
+  ultimaEm   DateTime @default(now()) @map("ultima_em") @db.Timestamptz(6)
+  /// Páginas abertas nesta hora (o "estou aqui" de cada minuto não conta).
+  paginas    Int      @default(0)
+
+  @@unique([quem, hora], map: "acessos_quem_hora")
+  @@index([ultimaEm])
+  @@index([hora])
+  @@map("acessos")
+}

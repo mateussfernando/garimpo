@@ -40,8 +40,8 @@ export function Fontes() {
       setScanning(false);
     }, 4000);
   };
-  const dismissInvite = async (link: string) => {
-    await fetch("/api/fontes/convite", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ link }) });
+  const dismissInvite = async (link: string, ignorar = true) => {
+    await fetch("/api/fontes/convite", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ link, ignorar }) });
     await load();
   };
 
@@ -103,7 +103,7 @@ export function Fontes() {
             <span className="font-mono tnum text-3xl font-semibold">
               {tg?.on ?? "—"} <span className="text-sm font-normal text-muted">de {tg?.total ?? "—"} grupos e canais ligados</span>
             </span>
-            <span className="text-xs text-muted">{tg?.hasSession ? "Sessão neste PC · mensagens privadas nunca são lidas" : "Rode `pnpm telegram:login` e ponha o papel listen em WORKER_ROLES"}</span>
+            <span className="text-xs text-muted">{tg?.hasSession ? "Sessão no PC do worker · mensagens privadas nunca são lidas" : "Rode `pnpm telegram:login` e ponha o papel listen em WORKER_ROLES"}</span>
           </div>
           <div className="flex flex-col gap-2 rounded-2xl border border-card-line bg-surface p-5">
             <div className="flex items-center justify-between">
@@ -205,10 +205,10 @@ export function Fontes() {
             <h2 id="sugestoes" className="text-lg font-semibold tracking-tight">
               Convites encontrados
             </h2>
-            <span className="text-[13px] text-muted">O Garimpo nunca entra sozinho: você decide e entra pelo próprio app do Telegram</span>
+            <span className="text-[13px] text-muted">Só do Telegram, sem os grupos em que você já está. O Garimpo nunca entra sozinho: você decide e entra pelo próprio app do Telegram</span>
           </div>
           {data && data.invites.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-control px-5 py-6 text-[13px] text-muted">Nenhum convite visto nas mensagens por enquanto. Quando um grupo citar outro grupo, ele aparece aqui, com a contagem de menções.</p>
+            <p className="rounded-2xl border border-dashed border-control px-5 py-6 text-[13px] text-muted">Nenhum convite novo do Telegram. Quando um grupo citar outro grupo, ele aparece aqui, com a contagem de menções.</p>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {(data?.invites ?? []).map((i) => (
@@ -225,6 +225,54 @@ export function Fontes() {
                 </article>
               ))}
             </div>
+          )}
+          {/* Ignorou uma vez, fica aqui: não volta para a lista de cima, mesmo que o convite apareça de novo. */}
+          {data && data.ignorados.length > 0 && (
+            <details className="group rounded-2xl border border-card-line bg-surface">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-3.5 text-sm font-medium text-ink-2 hover:text-ink">
+                <span>
+                  Ignorados <span className="font-mono text-xs text-muted tnum">{data.ignorados.length}</span>
+                </span>
+                <span className="text-muted transition-transform group-open:rotate-90" aria-hidden="true">›</span>
+              </summary>
+              <ul className="flex flex-col divide-y divide-line border-t border-line">
+                {data.ignorados.map((i) => (
+                  <li key={i.link} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-5 py-2.5">
+                    <span className="flex min-w-0 flex-col">
+                      <span className="break-all font-mono text-[13px] text-ink-2">{i.link}</span>
+                      <span className="text-xs text-muted">
+                        Visto {i.mentions}x, a última {ago(i.lastSeenAt, now)}
+                        {i.fromSource ? ` em ${i.fromSource}` : ""}
+                      </span>
+                    </span>
+                    <button type="button" onClick={() => void dismissInvite(i.link, false)} className="h-9 flex-none rounded-[10px] border border-control px-3 text-xs font-medium text-ink-2 hover:text-ink">
+                      Voltar a mostrar
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {/* Não abrem: link salvo sem as maiúsculas, recusado pelo Telegram ou bot. Sem botão: não há o que fazer. */}
+          {data && data.naoAbrem.length > 0 && (
+            <details className="group rounded-2xl border border-card-line bg-surface">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-3.5 text-sm font-medium text-ink-2 hover:text-ink">
+                <span>
+                  Não abrem ou são bots <span className="font-mono text-xs text-muted tnum">{data.naoAbrem.length}</span>
+                </span>
+                <span className="text-muted transition-transform group-open:rotate-90" aria-hidden="true">›</span>
+              </summary>
+              <ul className="flex flex-col divide-y divide-line border-t border-line">
+                {data.naoAbrem.map((i) => (
+                  <li key={i.link} className="flex min-w-0 flex-col px-5 py-2.5">
+                    <span className="break-all font-mono text-[13px] text-muted line-through decoration-line">{i.link}</span>
+                    <span className="text-xs text-muted">
+                      {i.motivo} · visto {i.mentions}x{i.fromSource ? ` em ${i.fromSource}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </details>
           )}
         </section>
       </div>

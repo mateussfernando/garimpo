@@ -93,10 +93,17 @@ export function Lojas() {
         <section aria-labelledby="sugeridas" className="flex flex-col gap-3">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="sugeridas" className="text-lg font-semibold tracking-tight">
-              Lojas que apareceram e não são vigiadas
+              Lojas fora da lista
             </h2>
-            <span className="text-[13px] text-muted">Domínio fora de config/stores.ts é suspeito: o app não abre a página nem mostra a oferta na Vitrine principal</span>
+            <span className="max-w-2xl text-[13px] text-muted">
+              Lojas de verdade que apareceram nas ofertas da semana e o app não conhece. Por segurança, ele não abre essas páginas e a oferta fica fora da Vitrine principal. Se alguma for confiável, peça para incluí-la na lista de lojas.
+            </span>
           </div>
+          {data && data.linksSemLoja > 0 && (
+            <p className="text-[13px] text-muted">
+              Encurtadores de link e sites de promoção (cupom.cc, tidd.ly, Boletando, Canaltech Ofertas…) não aparecem aqui: o app segue o link até a loja. {data.linksSemLoja.toLocaleString("pt-BR")} {data.linksSemLoja === 1 ? "oferta da semana ainda está" : "ofertas da semana ainda estão"} sem a loja identificada.
+            </p>
+          )}
           {data && data.suggested.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-control px-5 py-6 text-[13px] text-muted">Nenhuma loja fora da lista nas ofertas dos últimos 7 dias.</p>
           ) : (
@@ -108,7 +115,7 @@ export function Lojas() {
                     <span className="font-mono text-xs text-muted">{g.seen}x</span>
                   </div>
                   <p className="text-[13px] text-muted">
-                    Apareceu {g.seen} {g.seen === 1 ? "vez" : "vezes"} nas ofertas desta semana. Para vigiar, a loja precisa entrar em config/stores.ts com o jeito de achar o ID do produto.
+                    Apareceu {g.seen} {g.seen === 1 ? "vez" : "vezes"} nas ofertas desta semana. Para o app conferir os preços dela, a loja precisa entrar na lista (config/stores.ts), com o jeito de achar o produto no link.
                   </p>
                 </article>
               ))}

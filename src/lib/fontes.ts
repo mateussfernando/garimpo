@@ -4,6 +4,8 @@ import { storeForUrl } from "@/config/stores";
 import { groupReason } from "@/config/telegram-filter";
 import { prisma } from "@/lib/db/prisma";
 import { asJson, type SourceStats } from "@/lib/db/types";
+import { porQueNaoAbre } from "@/lib/convites";
+import { CONVITES_DENTRO_KEY, CONVITES_RECUSADOS_KEY, getSetting } from "@/lib/settings";
 import { DIA, atras } from "@/lib/tempo";
 
 /** A tela Fontes pede ao worker para testar uma fonte; o resultado volta em app_settings. */
@@ -41,6 +43,10 @@ export type FontesDTO = {
   telegram: { hasSession: boolean; connected: boolean; on: number; total: number; lastScan: string | null };
   web: { active: number; names: string[] };
   invites: { link: string; kind: string; mentions: number; lastSeenAt: string; fromSource: string | null }[];
+  /** Convites do Telegram que o usuário já ignorou (pode voltar a mostrar). */
+  ignorados: { link: string; kind: string; mentions: number; lastSeenAt: string; fromSource: string | null }[];
+  /** Convites que não abrem (sem as maiúsculas, recusados pelo Telegram) ou que são bots, com o motivo. */
+  naoAbrem: { link: string; kind: string; mentions: number; lastSeenAt: string; fromSource: string | null; motivo: string }[];
   /** Fontes da pesquisa (docs/fontes-novas.md) ainda não adicionadas. */
   sugestoes: { slug: string; name: string; kind: FonteKind; kindLabel: string; config: unknown; why: string; rotulo: string }[];
   /** Canais do Telegram conferidos que você ainda não segue. */
@@ -123,23 +129,47 @@ export async function getFontes(): Promise<FontesDTO> {
   const lastScan = tg.map((s) => s.lastRunAt?.getTime() ?? 0).reduce((a, b) => Math.max(a, b), 0);
   const web = all.filter((s) => (s.kind === "comunidade" || s.kind === "feed" || s.kind === "pagina") && s.isActive);
 
-  const inv = await prisma.invite.findMany({
-    where: { dismissed: false, lastSeenAt: { gte: atras(14 * DIA) } },
+  // Convites de grupos em que a conta já está não aparecem (pedido do usuário, 25/11): os públicos pelo endereço
+  // dos grupos que o worker achou na conta (t.me/nome), os privados pela lista que o worker confere no Telegram.
+  const jaDentro = new Set([
+    ...tg.map((s) => s.url.toLowerCase().replace(/^https?:\/\//, "")).filter((u) => u.startsWith("t.me/")),
+    ...((await getSetting<string[]>(CONVITES_DENTRO_KEY))?.value ?? []),
+  ]);
+  const recusados = new Set((await getSetting<string[]>(CONVITES_RECUSADOS_KEY))?.value ?? []);
+  const todos = await prisma.invite.findMany({
+    // Só Telegram (pedido do usuário, 25/11): o app não lê o WhatsApp, então convite de lá não serve.
+    where: { kind: "telegram" },
     orderBy: [{ mentions: "desc" }, { lastSeenAt: "desc" }],
-    take: 8,
   });
+  type Linha = (typeof todos)[number];
+  const convite = (i: Linha) => ({ link: i.link, kind: i.kind, mentions: i.mentions, lastSeenAt: i.lastSeenAt.toISOString(), fromSource: i.fromSource });
+  const recentes = (a: Linha, b: Linha) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime();
+  // Pedido do usuário (26/11): convite que não abre (gravado sem maiúsculas, recusado pelo Telegram) ou que é bot
+  // sai das duas listas e vai para "Não abrem", sem botão: não há o que fazer com ele.
+  const naoAbrem = todos.flatMap((i) => {
+    const motivo = porQueNaoAbre(i.link, recusados);
+    return motivo ? [{ ...convite(i), motivo }] : [];
+  });
+  const servem = todos.filter((i) => !porQueNaoAbre(i.link, recusados) && !jaDentro.has(i.link) && !jaDentro.has(i.link.toLowerCase()));
+  const inv = servem.filter((i) => !i.dismissed && i.lastSeenAt >= atras(14 * DIA)).slice(0, 8);
+  // Ignorou uma vez, vai para a lista de ignorados (com "Voltar a mostrar"), mesmo que apareça de novo nas mensagens.
+  const ignorados = servem.filter((i) => i.dismissed).sort(recentes).slice(0, 60);
 
   return {
     fontes,
     telegram: {
-      hasSession: !!process.env.TELEGRAM_SESSION,
+      // A sessão do Telegram mora só no .env do worker. Na Vercel ela não existe (e não deve existir): ali vale o sinal
+      // que o worker deixa no banco ao ler os grupos.
+      hasSession: !!process.env.TELEGRAM_SESSION || lastScan > 0,
       connected: lastScan > Date.now() - 3 * 60 * 1000,
       on: tg.filter((s) => s.isActive).length,
       total: tg.length,
       lastScan: lastScan ? new Date(lastScan).toISOString() : null,
     },
     web: { active: web.length, names: web.map((s) => s.name.replace("Fórum de Promoções do ", "")) },
-    invites: inv.map((i) => ({ link: i.link, kind: i.kind, mentions: i.mentions, lastSeenAt: i.lastSeenAt.toISOString(), fromSource: i.fromSource })),
+    invites: inv.map(convite),
+    ignorados: ignorados.map(convite),
+    naoAbrem: naoAbrem.sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt)).slice(0, 60),
     sugestoes: await sugestoesPendentes(),
     canais: CANAIS_SUGERIDOS.filter((c) => !tg.some((s) => s.url.toLowerCase() === `https://t.me/${c.handle.toLowerCase()}`)),
   };

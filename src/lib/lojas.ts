@@ -1,4 +1,4 @@
-import { STORES, hostOf } from "@/config/stores";
+import { STORES, hostOf, isLinkDeOutroSite } from "@/config/stores";
 import { prisma } from "@/lib/db/prisma";
 import { DIA, atras, inicioDoDia } from "@/lib/tempo";
 
@@ -34,6 +34,8 @@ export type LojasDTO = {
   readToday: number;
   pausesActive: number;
   suggested: { host: string; seen: number; example: string | null }[];
+  /** Ofertas da semana que vieram por encurtador ou site de promoção e ainda não chegaram numa loja. */
+  linksSemLoja: number;
 };
 
 export async function getLojas(): Promise<LojasDTO> {
@@ -78,10 +80,17 @@ export async function getLojas(): Promise<LojasDTO> {
   const urls = await prisma.offer.findMany({ where: { createdAt: { gte: atras(7 * DIA) }, url: { not: null } }, select: { url: true }, take: 1000 });
   const known = new Set(STORES.flatMap((s) => s.domains));
   const count = new Map<string, { n: number; example: string | null }>();
+  // Encurtadores, redes de afiliados e sites de promoção não são lojas: o worker segue o link até a loja.
+  // Aqui só contam as ofertas cujo link ainda não chegou numa loja.
+  let linksSemLoja = 0;
   for (const { url } of urls) {
     const host = url ? hostOf(url) : null;
     if (!host || [...known].some((d) => host === d || host.endsWith("." + d))) continue;
     if (/pelando|promobit|gatry|hardmob|t\.me|telegram/.test(host)) continue;
+    if (isLinkDeOutroSite(url!)) {
+      linksSemLoja++;
+      continue;
+    }
     const c = count.get(host) ?? { n: 0, example: url };
     c.n++;
     count.set(host, c);
@@ -97,5 +106,6 @@ export async function getLojas(): Promise<LojasDTO> {
     readToday: today,
     pausesActive: stores.filter((s) => s.health === "pausada_loja").length,
     suggested,
+    linksSemLoja,
   };
 }

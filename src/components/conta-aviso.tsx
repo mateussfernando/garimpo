@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { destinoSeguro } from "@/lib/destino";
 import { authClient } from "@/lib/auth-client";
 import { EVENTO_ENTRAR, pedirEntrar, type MotivoConta, type PedidoEntrar } from "./entrar-evento";
 import { Logo } from "./logo";
@@ -34,10 +35,6 @@ export function useSeVisitante() {
   );
 }
 
-/** Só volta para um caminho do próprio site (nada de //outro-site.com). */
-function destinoSeguro(de: string | null | undefined): string {
-  return de && de.startsWith("/") && !de.startsWith("//") ? de : "/";
-}
 
 // O endereço é lido uma vez só (o React roda o efeito duas vezes em desenvolvimento e a segunda já não acharia o pedido).
 let enderecoLido = false;
@@ -76,8 +73,14 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+/** Aberto pelo endereço deste PC na rede de casa (http://192.168.x.x:3333)? O Google só volta para o endereço do .env
+ * (localhost), então ali o botão some e fica o e-mail e senha. Num domínio (o site publicado) o botão aparece. */
+const pelaRede = () => /^\d+\.\d+\.\d+\.\d+$/.test(location.hostname);
+const nada = () => () => undefined;
+
 /** O popup de entrar e criar conta (montado em toda página, em globais.tsx). `google` = as chaves do Google estão no .env. */
-export function AvisoConta({ google }: { google: boolean }) {
+export function AvisoConta({ google: googleNoEnv }: { google: boolean }) {
+  const google = !useSyncExternalStore(nada, pelaRede, () => false) && googleNoEnv;
   const [pedido, setPedido] = useState<PedidoEntrar | null>(null);
   const [modo, setModo] = useState<"entrar" | "criar">("entrar");
   const [nome, setNome] = useState("");

@@ -24,9 +24,11 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
+    "db:copiar-supabase": "node scripts/supabase-copiar.mjs",
     "postinstall": "prisma generate",
     "admin:criar": "tsx scripts/admin-criar.ts",
-    "precos:reprocessar": "tsx scripts/reprocessar-precos.ts"
+    "precos:reprocessar": "tsx scripts/reprocessar-precos.ts",
+    "lojas:resolver": "tsx scripts/resolver-lojas.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",

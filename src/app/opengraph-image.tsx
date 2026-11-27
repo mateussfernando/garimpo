@@ -6,7 +6,7 @@ export const alt = "Garimpo: as melhores ofertas da Black Friday, com nota de 0 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const CATEGORIAS = ["Notebooks", "Celulares", "TV e vídeo", "Informática", "Cupons"];
+const CATEGORIAS = ["Notebooks", "Celulares", "TV e vídeo", "Cupons"];
 
 export default function OpengraphImage() {
   return new ImageResponse(
@@ -50,11 +50,11 @@ export default function OpengraphImage() {
 
         <div style={{ display: "flex", gap: 14 }}>
           {CATEGORIAS.map((c) => (
-            <div key={c} style={{ display: "flex", fontSize: 28, padding: "12px 24px", borderRadius: 12, background: "#1a1e23", border: "2px solid #2a2f36", color: "#ecedee" }}>
+            <div key={c} style={{ display: "flex", alignItems: "center", whiteSpace: "nowrap", fontSize: 30, padding: "14px 26px", borderRadius: 12, background: "#1a1e23", border: "2px solid #2a2f36", color: "#ecedee" }}>
               {c}
             </div>
           ))}
-          <div style={{ display: "flex", fontSize: 28, padding: "12px 24px", borderRadius: 12, background: "#f5b83d", color: "#1a1306", fontWeight: 700 }}>
+          <div style={{ display: "flex", alignItems: "center", whiteSpace: "nowrap", fontSize: 30, padding: "14px 26px", borderRadius: 12, background: "#f5b83d", color: "#1a1306" }}>
             Nota 10,0
           </div>
         </div>

@@ -348,6 +348,8 @@ model User {
   ofertasUsuario OfertaUsuario[]
   events         Event[]
   chavesMcp      ChaveMcp[]
+  oauthCodigos   OauthCodigo[]
+  oauthTokens    OauthToken[]
 
   @@map("usuarios")
 }
@@ -578,4 +580,62 @@ model ChaveMcp {
 
   @@index([userId])
   @@map("chaves_mcp")
+}
+
+// ---------- OAuth do MCP (27/11): o claude.ai e outros clientes entram no /api/mcp com login e consentimento. ----------
+// Códigos e tokens guardam só o hash SHA-256. Nada é apagado: token usado ou vencido fica, desligado.
+
+/// Cliente OAuth registrado sozinho (RFC 7591, registro dinâmico), ex.: o conector do claude.ai.
+model OauthCliente {
+  id           Int           @id @default(autoincrement())
+  clientId     String        @unique @map("client_id")
+  /// Só para cliente confidencial (client_secret_post/basic); "none" = cliente público com PKCE.
+  segredoHash  String?       @map("segredo_hash")
+  authMetodo   String        @default("none") @map("auth_metodo")
+  nome         String
+  redirectUris String[]      @map("redirect_uris")
+  criadoEm     DateTime      @default(now()) @map("criado_em") @db.Timestamptz(6)
+  isActive     Boolean       @default(true) @map("is_active")
+  codigos      OauthCodigo[]
+  tokens       OauthToken[]
+
+  @@map("oauth_clientes")
+}
+
+/// Código de autorização (vale 5 minutos, uma vez só), com o desafio PKCE (S256).
+model OauthCodigo {
+  id          Int          @id @default(autoincrement())
+  hash        String       @unique
+  clienteId   Int          @map("cliente_id")
+  cliente     OauthCliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  userId      Int          @map("user_id")
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  redirectUri String       @map("redirect_uri")
+  desafio     String
+  escopo      String       @default("")
+  expiraEm    DateTime     @map("expira_em") @db.Timestamptz(6)
+  usadoEm     DateTime?    @map("usado_em") @db.Timestamptz(6)
+  criadoEm    DateTime     @default(now()) @map("criado_em") @db.Timestamptz(6)
+
+  @@map("oauth_codigos")
+}
+
+/// Token de acesso (gma_, 1 h) ou de renovação (gmr_, 30 dias, troca a cada uso).
+model OauthToken {
+  id        Int          @id @default(autoincrement())
+  hash      String       @unique
+  /// "acesso" ou "renovacao".
+  tipo      String
+  clienteId Int          @map("cliente_id")
+  cliente   OauthCliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  userId    Int          @map("user_id")
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  escopo    String       @default("")
+  expiraEm  DateTime     @map("expira_em") @db.Timestamptz(6)
+  criadoEm  DateTime     @default(now()) @map("criado_em") @db.Timestamptz(6)
+  usadoEm   DateTime?    @map("usado_em") @db.Timestamptz(6)
+  isActive  Boolean      @default(true) @map("is_active")
+
+  @@index([userId])
+  @@map("oauth_tokens")
 }

@@ -52,4 +52,18 @@ Ligar no Claude Code de outro PC:
 claude mcp add --transport http garimpo https://<site>/api/mcp --header "Authorization: Bearer <a chave>"
 ```
 
-**claude.ai (conectores):** ainda não. Os conectores do claude.ai pedem login por OAuth, e a rota hoje aceita só chave. Fica para uma próxima etapa.
+## No claude.ai (conector com login OAuth)
+
+Só funciona com o site publicado (https), porque o claude.ai precisa alcançar o endereço.
+
+1. No claude.ai: **Configurações → Conectores → Adicionar conector personalizado**.
+2. Nome: `Garimpo`. URL: `https://<site>/api/mcp`. Deixe Client ID e segredo vazios (o claude.ai se registra sozinho).
+3. Clique em **Conectar**. Abre o Garimpo: entre com a sua conta, se pedir, e clique em **Permitir**.
+4. Pronto: o claude.ai usa as ferramentas com as permissões da sua conta.
+
+Como funciona (`src/lib/mcp/oauth.ts`, sem dependência nova):
+- `/api/mcp` sem token responde 401 apontando para `/.well-known/oauth-protected-resource/api/mcp`, que aponta para `/.well-known/oauth-authorization-server`.
+- O cliente se registra em `/api/oauth/registrar` (retorno só https ou `http://localhost`), manda a pessoa para `/oauth/autorizar` (tela de consentimento, com login) e troca o código em `/api/oauth/token`.
+- Só PKCE S256. Código de 5 minutos e de uso único; token de acesso `gma_` de 1 hora; renovação `gmr_` de 30 dias que troca a cada uso. Código ou renovação usados duas vezes derrubam os tokens daquele app.
+- Códigos e tokens guardam só o hash (`oauth_clientes`, `oauth_codigos`, `oauth_tokens`).
+- Cortar o acesso: `pnpm mcp:chave listar` mostra os apps que entraram pelo OAuth, e `pnpm mcp:chave desligar oauth:<id>` corta um app com todos os tokens dele.

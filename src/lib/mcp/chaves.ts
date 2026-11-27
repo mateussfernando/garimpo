@@ -2,6 +2,7 @@
 // No banco fica só o hash SHA-256 (tabela chaves_mcp): quem lê o banco não consegue usar a chave.
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
+import { donoDoToken } from "@/lib/mcp/oauth";
 import { usuarioDaConta, type Usuario } from "@/lib/sessao";
 
 const PREFIXO = "gmp_";
@@ -20,9 +21,16 @@ export const pareceChave = (s: string) => /^gmp_[A-Za-z0-9_-]{43}$/.test(s);
 // "Usada em" no máximo uma vez por minuto por chave, para não escrever no banco a cada chamada.
 const ultimaMarca = new Map<number, number>();
 
-/** O dono da chave do cabeçalho Authorization, com cargo e permissões; null = sem chave, chave errada ou desligada. */
+/**
+ * O dono do cabeçalho Authorization, com cargo e permissões: chave de acesso (gmp_, pnpm mcp:chave) ou token OAuth
+ * (gma_, do login pelo claude.ai). null = sem nada, errado, vencido ou desligado.
+ */
 export async function usuarioDaChave(authorization: string | null): Promise<Usuario | null> {
   const m = /^Bearer\s+(\S+)$/i.exec(authorization ?? "");
+  if (m?.[1].startsWith("gma_")) {
+    const dono = await donoDoToken(m[1]);
+    return dono ? usuarioDaConta(dono) : null;
+  }
   if (!m || !pareceChave(m[1])) return null;
   const hash = hashDaChave(m[1]);
   const row = await prisma.chaveMcp.findUnique({ where: { hash }, select: { id: true, userId: true, isActive: true, hash: true } });

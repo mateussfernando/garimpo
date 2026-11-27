@@ -6,8 +6,9 @@ import type { NextRequest } from "next/server";
 // A checagem de verdade (sessão válida no banco, cargo e permissões) fica em src/lib/sessao.ts, perto dos dados.
 // O worker não passa por aqui: fala direto com o banco.
 // /api/acesso: o "estou aqui" de cada aba, também do visitante (a rota confere a origem e tem freio próprio).
-// /api/mcp: o MCP do Garimpo, que entra com chave de acesso (Bearer) e não com cookie (a rota confere a chave).
-const PUBLICAS = ["/api/auth/", "/api/acesso", "/api/mcp"];
+// /api/mcp: o MCP do Garimpo, que entra com chave de acesso ou token OAuth (Bearer) e não com cookie (a rota confere).
+// /api/oauth/ e /.well-known/: o OAuth do MCP (metadados, registro, token; o consentimento confere a sessão sozinho).
+const PUBLICAS = ["/api/auth/", "/api/acesso", "/api/mcp", "/api/oauth/", "/.well-known/"];
 // Abertos a quem não tem conta, só para LER (GET): a Vitrine, o Detalhe, os Cupons e o que as telas leem deles. Quem pode
 // ver o quê é o cargo "Visitante" (src/lib/sessao.ts); mudar algo, vigiar, Alvos e o resto continuam pedindo conta.
 const ABERTAS_PARA_LER = ["/", "/cupons", "/oferta/", "/api/offers", "/api/cupons", "/api/status", "/api/me"];

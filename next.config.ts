@@ -36,6 +36,15 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: SEGURANCA }];
   },
+  // OAuth do MCP (docs/mcp.md): os endereços da especificação apontam para as rotas de src/app/api/oauth/meta.
+  async rewrites() {
+    return [
+      { source: "/.well-known/oauth-protected-resource", destination: "/api/oauth/meta/recurso" },
+      { source: "/.well-known/oauth-protected-resource/api/mcp", destination: "/api/oauth/meta/recurso" },
+      { source: "/.well-known/oauth-authorization-server", destination: "/api/oauth/meta/servidor" },
+      { source: "/.well-known/oauth-authorization-server/api/mcp", destination: "/api/oauth/meta/servidor" },
+    ];
+  },
   // As telas de administração moraram na raiz até 23/11; hoje ficam na área Admin.
   async redirects() {
     return [

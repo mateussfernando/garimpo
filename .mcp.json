@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "garimpo": {
+      "command": "node",
+      "args": ["node_modules/tsx/dist/cli.mjs", "scripts/mcp.ts"]
+    }
+  }
+}

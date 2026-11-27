@@ -28,10 +28,13 @@
     "postinstall": "prisma generate",
     "admin:criar": "tsx scripts/admin-criar.ts",
     "precos:reprocessar": "tsx scripts/reprocessar-precos.ts",
-    "lojas:resolver": "tsx scripts/resolver-lojas.ts"
+    "lojas:resolver": "tsx scripts/resolver-lojas.ts",
+    "mcp": "tsx scripts/mcp.ts",
+    "mcp:chave": "tsx scripts/mcp-chave.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
     "bcryptjs": "3.0.3",

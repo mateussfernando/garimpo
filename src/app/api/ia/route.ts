@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { AI_CHOICES, AI_CHOICE_KEY, AI_CMD_CHANNEL, AI_STATE_KEY } from "@/lib/ai-usage";
+import { controlarIa } from "@/lib/acoes";
+import { AI_CHOICES, AI_CHOICE_KEY } from "@/lib/ai-usage";
 import { NOTIFY_CHANNEL, pool } from "@/lib/db";
 import { setSetting } from "@/lib/settings";
 import { exigir } from "@/lib/sessao";
@@ -19,13 +20,9 @@ export async function POST(request: Request) {
   const b = parsed.data;
   if (b.acao === "provedor") {
     await setSetting(AI_CHOICE_KEY, { modo: b.modo });
-  } else if (b.acao === "rodar") {
-    await pool.query("select pg_notify($1, $2)", [AI_CMD_CHANNEL, JSON.stringify({ acao: "rodar" })]);
+    await pool.query("select pg_notify($1, $2)", [NOTIFY_CHANNEL, JSON.stringify({ type: "ai" })]);
   } else {
-    await setSetting(AI_STATE_KEY, { paused: b.acao === "pausar" });
-    // Continuar já dispara uma rodada, para o que ficou parado andar.
-    if (b.acao === "continuar") await pool.query("select pg_notify($1, $2)", [AI_CMD_CHANNEL, JSON.stringify({ acao: "rodar" })]);
+    await controlarIa(b.acao);
   }
-  await pool.query("select pg_notify($1, $2)", [NOTIFY_CHANNEL, JSON.stringify({ type: "ai" })]);
   return Response.json({ ok: true });
 }

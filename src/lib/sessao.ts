@@ -26,22 +26,33 @@ async function cargoPadrao() {
 export const getUser = cache(async (): Promise<Usuario | null> => {
   const s = await auth.api.getSession({ headers: await headers() });
   if (!s) return null;
-  const row = await prisma.user.findUnique({ where: { id: Number(s.user.id) }, select: { isActive: true, cargo: { include: { permissoes: true } } } });
+  return usuarioDaConta(Number(s.user.id));
+});
+
+/**
+ * A conta com cargo e permissões, sem olhar cookie: a sessão do site (getUser) e o MCP (chave de acesso ou o servidor
+ * local) montam o usuário do mesmo jeito. Conta desativada = null, na hora.
+ */
+export async function usuarioDaConta(id: number): Promise<Usuario | null> {
+  const row = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, name: true, email: true, image: true, isActive: true, cargo: { include: { permissoes: true } } },
+  });
   // Conta desativada pelo admin vale como sem sessão, na hora (mesmo com o cookie ainda válido).
   if (!row?.isActive) return null;
   // Cargo desativado vale como sem cargo: a pessoa fica com as permissões do padrão.
-  const cargo = (row?.cargo?.isActive ? row.cargo : null) ?? (await cargoPadrao());
+  const cargo = (row.cargo?.isActive ? row.cargo : null) ?? (await cargoPadrao());
   // Sem cargo nenhum (banco sem a semente): nenhuma permissão. Nunca o contrário.
   const permissoes = !cargo ? [] : cargo.todas ? TODAS : cargo.permissoes.map((p) => p.permissaoSlug).filter(ehPermissao);
   return {
-    id: Number(s.user.id),
-    name: s.user.name,
-    email: s.user.email,
-    image: s.user.image ?? null,
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    image: row.image ?? null,
     cargo: cargo ? { id: cargo.id, slug: cargo.slug, nome: cargo.nome } : { id: 0, slug: "nenhum", nome: "Sem cargo" },
     permissoes,
   };
-});
+}
 
 /** Quem ainda não entrou: o cargo "Visitante" do banco (as permissões se mudam na tela Usuários). */
 export type Visitante = Omit<Usuario, "id"> & { id: null; visitante: true };

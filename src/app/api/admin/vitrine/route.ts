@@ -1,11 +1,11 @@
 import { connection } from "next/server";
 import { z } from "zod";
-import { ATALHOS_JANELA, JANELA_KEY, JANELA_MAX, JANELA_MIN } from "@/config/janela";
+import { ATALHOS_JANELA, JANELA_MAX, JANELA_MIN } from "@/config/janela";
+import { mudarJanela } from "@/lib/acoes";
 import { prisma } from "@/lib/db/prisma";
 import { NA_VITRINE } from "@/lib/db/types";
 import { getJanelaHoras } from "@/lib/janela";
 import { exigir } from "@/lib/sessao";
-import { setSetting } from "@/lib/settings";
 
 // Janela da Vitrine: de quantas horas para trás as ofertas aparecem para todos. Mudar é de quem modera a Vitrine.
 export async function GET() {
@@ -28,6 +28,6 @@ export async function PATCH(request: Request) {
   if (eu instanceof Response) return eu;
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ erro: `escolha de ${JANELA_MIN} a ${JANELA_MAX} horas` }, { status: 400 });
-  await setSetting(JANELA_KEY, parsed.data.horas);
+  await mudarJanela(parsed.data.horas);
   return Response.json({ ok: true, horas: parsed.data.horas });
 }

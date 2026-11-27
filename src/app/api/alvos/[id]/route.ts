@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ALVOS_V0 } from "@/config/alvos";
 import { prisma } from "@/lib/db/prisma";
+import { mudarAlvo } from "@/lib/acoes";
 import { AlvoInput, FaixaInput, alvoDaConta, tellWorker } from "@/lib/alvos";
 import { effectiveTargets } from "../../../../../worker/match/alvos";
 import { exigir } from "@/lib/sessao";
@@ -42,14 +43,16 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/alvos/[id]
   }
 
   if (b.acao === "editar") {
-    await prisma.alvo.update({ where: { id: alvo.id }, data: { name: b.name, terms: b.terms, exclusions: b.exclusions, editedAt: new Date() } });
+    await mudarAlvo(eu.id, alvo.id, { acao: "editar", dados: b });
+    return Response.json({ ok: true });
   } else if (b.acao === "padrao") {
     const seed = ALVOS_V0.find((a) => a.slug === alvo.slug);
     if (!seed) return Response.json({ erro: "este Alvo não tem padrão" }, { status: 400 });
     // Volta aos termos do código e deixa o worker atualizar de novo quando config/alvos.ts mudar.
     await prisma.alvo.update({ where: { id: alvo.id }, data: { name: seed.name, terms: seed.terms, exclusions: seed.exclusions, editedAt: null } });
   } else {
-    await prisma.alvo.update({ where: { id: alvo.id }, data: { isActive: b.acao === "ligar" } });
+    await mudarAlvo(eu.id, alvo.id, { acao: b.acao });
+    return Response.json({ ok: true });
   }
   await tellWorker({ acao: "rematch", userId: eu.id });
   return Response.json({ ok: true });

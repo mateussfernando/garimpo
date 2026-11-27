@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/db/prisma";
+import { marcarOferta } from "@/lib/acoes";
 import { getOfferDetail } from "@/lib/detail";
 import { precoDoPedido } from "@/lib/preco";
 import { exigir, exigirOuVisitante, pode } from "@/lib/sessao";
@@ -35,14 +35,6 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/offers/[id
   const parsed = Body.safeParse(await request.json().catch(() => null));
   const offerId = Number(id);
   if (!parsed.success || !Number.isInteger(offerId)) return Response.json({ erro: "pedido inválido" }, { status: 400 });
-  const { snoozeMinutes, ...rest } = parsed.data;
-  const set: { watched?: boolean; dismissed?: boolean; snoozedUntil?: Date | null } = { ...rest };
-  if (snoozeMinutes !== undefined) set.snoozedUntil = snoozeMinutes === 0 ? null : new Date(Date.now() + snoozeMinutes * 60_000);
-  if (!(await prisma.offer.findUnique({ where: { id: offerId }, select: { id: true } }))) return Response.json({ erro: "oferta não encontrada" }, { status: 404 });
-  await prisma.ofertaUsuario.upsert({
-    where: { userId_offerId: { userId: eu.id, offerId } },
-    create: { userId: eu.id, offerId, ...set },
-    update: set,
-  });
+  if (!(await marcarOferta(eu.id, offerId, parsed.data))) return Response.json({ erro: "oferta não encontrada" }, { status: 404 });
   return Response.json({ ok: true });
 }

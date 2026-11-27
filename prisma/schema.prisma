@@ -347,6 +347,7 @@ model User {
   ofertasAlvo    OfertaAlvo[]
   ofertasUsuario OfertaUsuario[]
   events         Event[]
+  chavesMcp      ChaveMcp[]
 
   @@map("usuarios")
 }
@@ -558,4 +559,23 @@ model Acesso {
   @@index([ultimaEm])
   @@index([hora])
   @@map("acessos")
+}
+
+/// Chaves de acesso ao MCP do Garimpo pela internet (/api/mcp), uma por cliente (Claude Code, claude.ai...).
+/// Só o hash SHA-256 fica no banco; a chave aparece uma vez, quando é criada (pnpm mcp:chave). Desligar não apaga.
+model ChaveMcp {
+  id       Int       @id @default(autoincrement())
+  userId   Int       @map("user_id")
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Para que serve (ex.: "Claude Code do notebook").
+  nome     String
+  /// O começo da chave, para reconhecer na lista sem mostrar a chave.
+  prefixo  String
+  hash     String    @unique
+  criadaEm DateTime  @default(now()) @map("criada_em") @db.Timestamptz(6)
+  usadaEm  DateTime? @map("usada_em") @db.Timestamptz(6)
+  isActive Boolean   @default(true) @map("is_active")
+
+  @@index([userId])
+  @@map("chaves_mcp")
 }

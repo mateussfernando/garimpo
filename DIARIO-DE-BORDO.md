@@ -70,6 +70,18 @@ Este diário é a memória do projeto entre sessões. Quem abrir uma sessão nov
 
 ## Registro (mais recente primeiro)
 
+### 27/11/2026 · MCP do Garimpo (local e pela internet)
+
+- **Pedido do usuário:** o Claude conversar com o Garimpo pelo protocolo MCP. Escolhas dele: nos dois jeitos (local e no site), ler e mudar o básico, com o SDK oficial (`@modelcontextprotocol/sdk`, dependência aprovada).
+- **Feito:**
+  - 11 ferramentas em `src/lib/mcp/servidor.ts` (lista em `docs/mcp.md`): 6 de leitura (ofertas, detalhe, cupons, status, Alvos, Painel com acessos) e 5 que mudam (marcar oferta, criar e editar Alvo, janela da Vitrine, IA). Cada uma confere a permissão da conta e passa pelo filtro de `src/lib/visao.ts`, como no site. Nenhuma apaga nada.
+  - `src/lib/acoes.ts`: marcar oferta, criar e mudar Alvo, controlar a IA e mudar a janela saíram das rotas para cá. As rotas e o MCP usam o mesmo código.
+  - `usuarioDaConta(id)` em `src/lib/sessao.ts`: monta o usuário com cargo e permissões sem cookie. O `getUser` da sessão usa o mesmo caminho.
+  - **Local:** `scripts/mcp.ts` por stdio. O `.mcp.json` registra o servidor para o Claude Code. Roda como `GARIMPO_MCP_EMAIL` ou o único admin, e todo `console.log` vai para o stderr (o stdout é do protocolo).
+  - **Internet:** `/api/mcp` (Streamable HTTP sem sessão) com chave `Authorization: Bearer gmp_...`. Tabela nova `chaves_mcp` (migração `20261127094359_chaves_mcp`, só acrescenta, RLS ligado; dump `garimpoi-20261127-0643-antes-chaves-mcp.dump`), que guarda só o hash SHA-256. `pnpm mcp:chave criar|listar|desligar`. O proxy deixa `/api/mcp` passar sem cookie: a chave é a única porta.
+- **Testado:** 233 testes (2 novos das chaves), `tsc`, `eslint` e `next build`. Um cliente MCP de verdade, no local, listou as 11 ferramentas e rodou busca, detalhe, cupons, Alvos, Painel e janela, e o erro de oferta que não existe. Pela rota: sem chave, chave errada e chave desligada dão 401; com a chave certa, 11 ferramentas e a busca funcionando (a chave de teste foi apagada). As ferramentas que mudam algo não rodaram contra os dados reais: só o caminho de erro.
+- **Pendente:** os conectores do claude.ai pedem OAuth, e a rota aceita só chave. Para o claude.ai, falta um servidor OAuth (plugin do better-auth ou outro).
+
 ### 26/11/2026 · Janela da Vitrine no Painel e revisão de segurança do /admin
 
 - **Pedido do usuário:** controlar no Admin de quantas horas para trás os anúncios aparecem (campo e atalhos, como 24 h e 48 h) e procurar falhas: um visitante ou usuário comum consegue abrir o /admin?

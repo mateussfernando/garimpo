@@ -29,6 +29,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Tudo, menos os arquivos estáticos do Next e os ícones (favicon de src/app/icon.svg e o do celular, src/app/apple-icon.tsx).
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon).*)"],
+  // Tudo, menos os arquivos estáticos do Next, os ícones (favicon de src/app/icon.svg e o do celular, src/app/apple-icon.tsx)
+  // e a imagem da prévia do link (src/app/opengraph-image.tsx), que o WhatsApp e as redes buscam sem cookie.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon|opengraph-image).*)"],
 };

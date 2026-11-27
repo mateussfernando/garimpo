@@ -143,7 +143,7 @@ export function PrecoPopup() {
         <div className="flex flex-col gap-2">
           <button type="button" onClick={() => definir("cartao")} className="flex flex-col items-start gap-0.5 rounded-[12px] border border-control px-4 py-3 text-left hover:border-ink-3">
             <span className="text-[15px] font-semibold">No cartão</span>
-            <span className="text-xs text-muted">O total parcelado, como o Garimpo sempre mostrou</span>
+            <span className="text-xs text-muted">O total parcelado</span>
           </button>
           <button type="button" onClick={() => definir("pix")} className="flex flex-col items-start gap-0.5 rounded-[12px] border border-control px-4 py-3 text-left hover:border-ink-3">
             <span className="text-[15px] font-semibold">No Pix</span>
